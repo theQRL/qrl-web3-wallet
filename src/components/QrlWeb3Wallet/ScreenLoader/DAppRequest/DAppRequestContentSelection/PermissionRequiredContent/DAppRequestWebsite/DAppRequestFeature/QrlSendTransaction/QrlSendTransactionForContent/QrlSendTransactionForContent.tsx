@@ -286,7 +286,8 @@ const QrlSendTransactionForContent = observer(
                 <div className="w-64 font-bold text-secondary">{`${prefixTo} ${addressSplitTo.join(" ")}`}</div>
               </div>
             )}
-            {transactionType === SEND_TRANSACTION_TYPES.QRL_TRANSFER && (
+            {(transactionType === SEND_TRANSACTION_TYPES.QRL_TRANSFER ||
+              value > 0n) && (
               <div className="flex flex-col gap-1">
                 <div>{t('dapp.sendTransaction.value')}</div>
                 <div className="font-bold text-secondary">

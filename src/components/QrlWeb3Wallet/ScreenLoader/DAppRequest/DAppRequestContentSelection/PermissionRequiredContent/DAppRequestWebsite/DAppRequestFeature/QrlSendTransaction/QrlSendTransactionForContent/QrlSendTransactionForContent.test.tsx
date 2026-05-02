@@ -181,6 +181,108 @@ describe("QrlSendTransactionForContent", () => {
     ).toBeInTheDocument();
   });
 
+  it("should render the Value row for contract interaction when value is non-zero", async () => {
+    const requestForInteractionWithValue = {
+      from: "Q20D20b8026B8F02540246f58120ddAAf35AECD9B",
+      to: "0x20EE9760786AD48aB90E326c5cd78c6269Ba10AB",
+      data: "0x608060405234",
+      value: "0x30",
+      gas: "0x1cbb3",
+      type: "0x2",
+    };
+    renderComponent(
+      mockedStore({
+        dAppRequestStore: {
+          dAppRequestData: {
+            params: [requestForInteractionWithValue],
+          },
+        },
+      }),
+      { transactionType: SEND_TRANSACTION_TYPES.CONTRACT_INTERACTION },
+    );
+
+    expect(screen.getByText("Value")).toBeInTheDocument();
+    expect(screen.getByText("0.000000000000000048 QRL")).toBeInTheDocument();
+  });
+
+  it("should not render the Value row for contract interaction when value is zero", async () => {
+    renderComponent(
+      mockedStore({
+        dAppRequestStore: {
+          dAppRequestData: {
+            params: [contractInteractionRequest],
+          },
+        },
+      }),
+      { transactionType: SEND_TRANSACTION_TYPES.CONTRACT_INTERACTION },
+    );
+
+    expect(screen.queryByText("Value")).not.toBeInTheDocument();
+  });
+
+  it("should render the Value row for contract deployment when value is non-zero (payable constructor)", async () => {
+    const requestForDeploymentWithValue = {
+      ...contractDeploymentRequest,
+      value: "0x30",
+    };
+    renderComponent(
+      mockedStore({
+        dAppRequestStore: {
+          dAppRequestData: {
+            params: [requestForDeploymentWithValue],
+          },
+        },
+      }),
+      { transactionType: SEND_TRANSACTION_TYPES.CONTRACT_DEPLOYMENT },
+    );
+
+    expect(screen.getByText("Value")).toBeInTheDocument();
+    expect(screen.getByText("0.000000000000000048 QRL")).toBeInTheDocument();
+  });
+
+  it("should sign contract interaction with the value shown in the UI", async () => {
+    const mockSignTransaction = vi.fn<any>().mockResolvedValue({
+      rawTransaction: "0xsignedinteract",
+    });
+    const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+      transactionHash: "0xinteracttxhash",
+    });
+    const interactionWithValue = {
+      ...contractInteractionRequest,
+      value: "0x30",
+    };
+
+    renderComponent(
+      createStoreWithCallback({
+        requestParams: interactionWithValue,
+        qrlStore: {
+          qrlInstance: {
+            getGasPrice: async () => BigInt(1000),
+            getTransactionCount: async () => 0,
+            getChainId: async () => 1,
+            accounts: {
+              signTransaction: mockSignTransaction,
+            },
+            sendSignedTransaction: mockSendSignedTransaction,
+          } as any,
+        },
+      }),
+      { transactionType: SEND_TRANSACTION_TYPES.CONTRACT_INTERACTION },
+    );
+
+    // UI must show the value that will be signed.
+    expect(screen.getByText("Value")).toBeInTheDocument();
+    expect(screen.getByText("0.000000000000000048 QRL")).toBeInTheDocument();
+
+    await act(async () => {
+      await capturedPermissionCallback!(true);
+    });
+
+    // And the signed transaction must carry that same value.
+    const signedTx = mockSignTransaction.mock.calls[0][0] as Record<string, unknown>;
+    expect(signedTx.value).toBe("0x30");
+  });
+
   it("should render the qrl send transaction component for QRL transfer", async () => {
     const requestForZndTransfer = {
       from: "Q20D20b8026B8F02540246f58120ddAAf35AECD9B",

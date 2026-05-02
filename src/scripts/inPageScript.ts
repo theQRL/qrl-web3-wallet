@@ -4,6 +4,7 @@ import log from "loglevel";
 import { v4 as uuid } from "uuid";
 import {
   QRL_POST_MESSAGE_STREAM,
+  QRL_WALLET_PROVIDER_NAME,
   QRL_WEB3_WALLET_PROVIDER_INFO,
 } from "./constants/streamConstants";
 
@@ -16,6 +17,7 @@ const initializeInPageScript = () => {
 
     initializeProvider({
       connectionStream: qrlStream,
+      jsonRpcStreamName: QRL_WALLET_PROVIDER_NAME,
       logger: log,
       providerInfo: {
         uuid: uuid(),
