@@ -14,8 +14,7 @@ name: Release
 # This package is `"private": true` and is *not* published to npm.
 # No `@semantic-release/npm` plugin is configured.
 #
-# CI (lint/test/build) runs separately via `build_selfhost.yml` on push and
-# pull_request — release.yml does not gate on those.
+# CI (lint/test/build) runs separately via `ci.yml` on push and pull_request
 
 on:
   push:

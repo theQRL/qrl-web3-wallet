@@ -1,0 +1,73 @@
+name: CI
+
+# Lint, test, and build qrl-web3-wallet on push/PR.
+#
+# Release artifacts (the Chrome extension .zip) are produced separately by
+# `build.yaml`, which fires on `release: created` and uploads to the GitHub
+# Release. semantic-release in `release.yml` triggers that flow.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint, Test, Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Clone and prepare sibling dependencies
+        run: |
+          clone() {
+            local dir="$1" repo="$2"
+            if [ ! -d "$dir/.git" ]; then
+              rm -rf "$dir"
+              git clone --depth 1 "https://github.com/$repo.git" "$dir"
+            fi
+            (cd "$dir" && (npm install --no-audit --no-fund 2>/dev/null || yarn install --ignore-engines 2>/dev/null))
+          }
+          clone ../qrl-contracts        theQRL/qrl-contracts
+          clone ../wallet.js            theQRL/wallet.js
+          clone ../js-qrl-cryptography  theQRL/js-qrl-cryptography
+          clone ../qrypto.js            theQRL/qrypto.js
+
+      - name: Build web3.js
+        run: |
+          if [ ! -d "../web3.js/.git" ]; then
+            rm -rf ../web3.js
+            git clone --depth 1 "https://github.com/theQRL/web3.js.git" ../web3.js
+          fi
+          cd ../web3.js
+          yarn install --ignore-engines --ignore-scripts
+          yarn run clean --concurrency=1
+          yarn run build --concurrency=1
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
