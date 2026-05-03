@@ -1,4 +1,4 @@
-import { ObjectMultiplex } from "@theqrl/zond-wallet-provider/object-multiplex";
+import { ObjectMultiplex } from "@theqrl/qrl-wallet-provider/object-multiplex";
 import PortStream from "extension-port-stream";
 import { pipeline } from "readable-stream";
 import { EXTENSION_MESSAGES } from "../constants/streamConstants";

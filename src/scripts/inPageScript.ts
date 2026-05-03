@@ -1,5 +1,5 @@
-import { WindowPostMessageStream } from "@theqrl/zond-wallet-provider/post-message-stream";
-import { initializeProvider } from "@theqrl/zond-wallet-provider/providers";
+import { WindowPostMessageStream } from "@theqrl/qrl-wallet-provider/post-message-stream";
+import { initializeProvider } from "@theqrl/qrl-wallet-provider/providers";
 import log from "loglevel";
 import { v4 as uuid } from "uuid";
 import {

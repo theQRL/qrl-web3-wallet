@@ -1,4 +1,4 @@
-import { JsonRpcRequest } from "@theqrl/zond-wallet-provider/utils";
+import { JsonRpcRequest } from "@theqrl/qrl-wallet-provider/utils";
 import { describe, expect, it, vi } from "vitest";
 import browser from "webextension-polyfill";
 import { appendSenderDataMiddleware } from "./appendSenderDataMiddleware";

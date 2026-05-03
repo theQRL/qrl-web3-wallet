@@ -26,7 +26,7 @@ describe("QrlSignTypedDataV4", () => {
       </StoreProvider>,
     );
 
-  it("should render the QrlSignTypedDataV4Content component if the method is zond_signTypedData_v4", () => {
+  it("should render the QrlSignTypedDataV4Content component if the method is qrl_signTypedData_v4", () => {
     renderComponent(
       mockedStore({
         dAppRequestStore: {

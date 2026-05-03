@@ -1,5 +1,5 @@
 import { BlockchainDataType } from "@/configuration/qrlBlockchainConfig";
-import { AdditionalJsonRpcRequestKeys } from "@theqrl/zond-wallet-provider/utils";
+import { AdditionalJsonRpcRequestKeys } from "@theqrl/qrl-wallet-provider/utils";
 
 export type PhishingCheckResult = {
   isDomainPhishing: boolean;

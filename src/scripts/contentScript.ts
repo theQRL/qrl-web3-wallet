@@ -5,10 +5,10 @@ import { qrlRpcMethods } from "@theqrl/web3-rpc-methods";
 import {
   ObjectMultiplex,
   Substream,
-} from "@theqrl/zond-wallet-provider/object-multiplex";
-import { WindowPostMessageStream } from "@theqrl/zond-wallet-provider/post-message-stream";
-import { BaseProvider } from "@theqrl/zond-wallet-provider/providers";
-import { JsonRpcRequest } from "@theqrl/zond-wallet-provider/utils";
+} from "@theqrl/qrl-wallet-provider/object-multiplex";
+import { WindowPostMessageStream } from "@theqrl/qrl-wallet-provider/post-message-stream";
+import { BaseProvider } from "@theqrl/qrl-wallet-provider/providers";
+import { JsonRpcRequest } from "@theqrl/qrl-wallet-provider/utils";
 import axios from "axios";
 import PortStream from "extension-port-stream";
 import { pipeline } from "readable-stream";

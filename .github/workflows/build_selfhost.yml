@@ -35,16 +35,16 @@ jobs:
             cd "$dir" && npm install 2>/dev/null || yarn install --ignore-engines 2>/dev/null
             cd -
           }
-          clone ../qrl-contracts        cyyber/qrl-contracts
-          clone ../wallet.js            cyyber/wallet.js
-          clone ../js-qrl-cryptography  cyyber/js-zond-cryptography
-          clone ../qrypto.js            cyyber/qrypto.js
+          clone ../qrl-contracts        theQRL/qrl-contracts
+          clone ../wallet.js            theQRL/wallet.js
+          clone ../js-qrl-cryptography  theQRL/js-qrl-cryptography
+          clone ../qrypto.js            theQRL/qrypto.js
 
       - name: Build web3.js
         run: |
           if [ ! -d "../web3.js/.git" ]; then
             rm -rf ../web3.js
-            git clone --depth 1 "https://github.com/cyyber/web3.js.git" ../web3.js
+            git clone --depth 1 "https://github.com/theQRL/web3.js.git" ../web3.js
           fi
           cd ../web3.js
           yarn install --ignore-engines --ignore-scripts

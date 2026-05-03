@@ -40,7 +40,7 @@ export const UNRESTRICTED_METHODS = Object.freeze({
   QRL_SYNCING: "qrl_syncing",
   QRL_UNINSTALL_FILTER: "qrl_uninstallFilter",
   QRL_UNSUBSCRIBE: "qrl_unsubscribe",
-  QRL_WEB3_WALLET_GET_PROVIDER_STATE: "zondWallet_getProviderState",
+  QRL_WEB3_WALLET_GET_PROVIDER_STATE: "qrlWallet_getProviderState",
 });
 
 // List of methods that require user interaction (Approval/Rejection by the user)

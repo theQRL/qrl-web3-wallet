@@ -27,7 +27,7 @@ describe("DAppRequestFeature", () => {
       </StoreProvider>,
     );
 
-  it("should render the dapp request feature component, for zond_requestAccounts rpc call", () => {
+  it("should render the dapp request feature component, for qrl_requestAccounts rpc call", () => {
     renderComponent(
       mockedStore({
         dAppRequestStore: {
@@ -39,7 +39,7 @@ describe("DAppRequestFeature", () => {
     expect(screen.getByText("Mocked Qrl Request Account")).toBeInTheDocument();
   });
 
-  it("should render the dapp request feature component, for zond_sendTransaction rpc call", () => {
+  it("should render the dapp request feature component, for qrl_sendTransaction rpc call", () => {
     renderComponent(
       mockedStore({
         dAppRequestStore: {

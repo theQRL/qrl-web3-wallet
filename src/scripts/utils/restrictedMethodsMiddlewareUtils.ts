@@ -2,7 +2,7 @@ import {
   JsonRpcRequest,
   providerErrors,
   rpcErrors,
-} from "@theqrl/zond-wallet-provider";
+} from "@theqrl/qrl-wallet-provider";
 import { RESTRICTED_METHODS } from "../constants/requestConstants";
 import StorageUtil from "@/utilities/storageUtil";
 import { MAX_SAFE_CHAIN_ID } from "@/constants/blockchain";

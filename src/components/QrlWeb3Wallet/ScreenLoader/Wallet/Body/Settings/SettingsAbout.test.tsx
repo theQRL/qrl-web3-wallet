@@ -32,7 +32,7 @@ describe("SettingsAbout", () => {
             isLoading: false,
             blockchain: {
               chainId: "0x1",
-              chainName: "Zond Testnet",
+              chainName: "QRL Testnet",
             },
           },
           qrlAccounts: {
@@ -47,7 +47,7 @@ describe("SettingsAbout", () => {
     );
 
     expect(screen.getByText("Version")).toBeInTheDocument();
-    expect(screen.getByText("Zond Testnet")).toBeInTheDocument();
+    expect(screen.getByText("QRL Testnet")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
   });

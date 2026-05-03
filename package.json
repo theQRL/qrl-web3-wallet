@@ -48,7 +48,7 @@
     "@theqrl/web3-types": "^0.4.0",
     "@theqrl/web3-utils": "^0.4.0",
     "@theqrl/web3-validator": "^0.4.0",
-    "@theqrl/zond-wallet-provider": "^0.1.0",
+    "@theqrl/qrl-wallet-provider": "^1.0.0",
     "@types/chrome": "^0.0.272",
     "@types/debug": "^4.1.12",
     "@types/node": "^20.14.9",
@@ -110,12 +110,12 @@
     "zod": "^3.23.8"
   },
   "keywords": [
-    "zond",
+    "qrl",
+    "quantum-resistant",
     "blockchain",
     "wallet",
     "browser",
     "extension",
-    "qrl",
     "quantum",
     "resistant",
     "ledger",

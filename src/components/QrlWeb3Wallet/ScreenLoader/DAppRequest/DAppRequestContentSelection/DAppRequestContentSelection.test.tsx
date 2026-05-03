@@ -61,7 +61,7 @@ describe("DAppRequestContentSelection", () => {
     ).toBeInTheDocument();
   });
 
-  it("should display the permission required content if the method is zond_requestAccounts", () => {
+  it("should display the permission required content if the method is qrl_requestAccounts", () => {
     renderComponent(
       mockedStore({
         dAppRequestStore: {
@@ -78,7 +78,7 @@ describe("DAppRequestContentSelection", () => {
     ).toBeInTheDocument();
   });
 
-  it("should display the permission required content if the method is zond_sendTransaction", () => {
+  it("should display the permission required content if the method is qrl_sendTransaction", () => {
     renderComponent(
       mockedStore({
         dAppRequestStore: {
@@ -95,7 +95,7 @@ describe("DAppRequestContentSelection", () => {
     ).toBeInTheDocument();
   });
 
-  it("should display the permission required content if the method is zond_signTypedData_v4", () => {
+  it("should display the permission required content if the method is qrl_signTypedData_v4", () => {
     renderComponent(
       mockedStore({
         dAppRequestStore: {
