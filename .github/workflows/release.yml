@@ -1,20 +1,13 @@
 name: Release
 
-# Drives semantic-release for qrl-web3-wallet.
+# Drives semantic-release for qrl-web3-wallet and uploads the Chrome extension
+# zip to the resulting GitHub Release.
 #
-# Pipeline:
-#   - On push to main, this workflow runs semantic-release on a hosted runner.
-#   - semantic-release reads conventional-commit messages, computes the next
-#     version, regenerates CHANGELOG.md, bumps package.json, commits the
-#     bump back to main, tags the commit, and creates a GitHub Release.
-#   - Creating the GitHub Release fires `build.yaml` (which listens for
-#     `release: created`), which builds the extension and uploads the
-#     `qrl-web3-wallet-chrome-vX.Y.Z.zip` to the release.
+# This package is `"private": true` and is *not* published to npm. No
+# `@semantic-release/npm` plugin is configured. The release artifact is the
+# Chrome extension zip uploaded here.
 #
-# This package is `"private": true` and is *not* published to npm.
-# No `@semantic-release/npm` plugin is configured.
-#
-# CI (lint/test/build) runs separately via `ci.yml` on push and pull_request
+# CI (lint/test/build) runs separately via `ci.yml` on push and pull_request.
 
 on:
   push:
@@ -33,6 +26,9 @@ jobs:
       issues: write
       pull-requests: write
       id-token: write
+    outputs:
+      released: ${{ steps.check-release.outputs.released }}
+      version: ${{ steps.check-release.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -44,6 +40,10 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22.x'
+
+      - name: Get current version (before semantic-release)
+        id: version-before
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.9.1
@@ -74,3 +74,95 @@ jobs:
             -p @semantic-release/git@10 \
             -p conventional-changelog-conventionalcommits@8 \
             semantic-release --repository-url git@github.com:${{ github.repository }}.git
+
+      - name: Check if release happened
+        id: check-release
+        run: |
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          OLD_VERSION="${{ steps.version-before.outputs.version }}"
+          echo "Old version: $OLD_VERSION, New version: $NEW_VERSION"
+          if [ "$OLD_VERSION" != "$NEW_VERSION" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "version=$OLD_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-and-upload:
+    name: Build extension + upload to release
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (post-release main, includes the chore(release) commit)
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Verify checked-out version matches release
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          REL_VERSION="${{ needs.release.outputs.version }}"
+          if [ "$PKG_VERSION" != "$REL_VERSION" ]; then
+            echo "::error::package.json version ($PKG_VERSION) does not match released version ($REL_VERSION)"
+            exit 1
+          fi
+
+      - name: Clone and prepare sibling dependencies
+        run: |
+          clone() {
+            local dir="$1" repo="$2"
+            if [ ! -d "$dir/.git" ]; then
+              rm -rf "$dir"
+              git clone --depth 1 "https://github.com/$repo.git" "$dir"
+            fi
+            (cd "$dir" && (npm install --no-audit --no-fund 2>/dev/null || yarn install --ignore-engines 2>/dev/null))
+          }
+          clone ../qrl-contracts        theQRL/qrl-contracts
+          clone ../wallet.js            theQRL/wallet.js
+          clone ../js-qrl-cryptography  theQRL/js-qrl-cryptography
+          clone ../qrypto.js            theQRL/qrypto.js
+
+      - name: Build web3.js
+        run: |
+          if [ ! -d "../web3.js/.git" ]; then
+            rm -rf ../web3.js
+            git clone --depth 1 "https://github.com/theQRL/web3.js.git" ../web3.js
+          fi
+          cd ../web3.js
+          yarn install --ignore-engines --ignore-scripts
+          yarn run clean --concurrency=1
+          yarn run build --concurrency=1
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Package zip
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          mkdir -p "qrl-web3-wallet-chrome-v${VERSION}"
+          cp -r Extension/* "qrl-web3-wallet-chrome-v${VERSION}/"
+          zip -r "qrl-web3-wallet-chrome-v${VERSION}.zip" "qrl-web3-wallet-chrome-v${VERSION}"
+          ls -la "qrl-web3-wallet-chrome-v${VERSION}.zip"
+
+      - name: Upload zip to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          gh release upload "v${VERSION}" "qrl-web3-wallet-chrome-v${VERSION}.zip" \
+            --repo "${{ github.repository }}" \
+            --clobber
