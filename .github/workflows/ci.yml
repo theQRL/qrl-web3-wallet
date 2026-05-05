@@ -34,32 +34,6 @@ jobs:
           node-version: '22.x'
           cache: 'npm'
 
-      - name: Clone and prepare sibling dependencies
-        run: |
-          clone() {
-            local dir="$1" repo="$2"
-            if [ ! -d "$dir/.git" ]; then
-              rm -rf "$dir"
-              git clone --depth 1 "https://github.com/$repo.git" "$dir"
-            fi
-            (cd "$dir" && (npm install --no-audit --no-fund 2>/dev/null || yarn install --ignore-engines 2>/dev/null))
-          }
-          clone ../qrl-contracts        theQRL/qrl-contracts
-          clone ../wallet.js            theQRL/wallet.js
-          clone ../js-qrl-cryptography  theQRL/js-qrl-cryptography
-          clone ../qrypto.js            theQRL/qrypto.js
-
-      - name: Build web3.js
-        run: |
-          if [ ! -d "../web3.js/.git" ]; then
-            rm -rf ../web3.js
-            git clone --depth 1 "https://github.com/theQRL/web3.js.git" ../web3.js
-          fi
-          cd ../web3.js
-          yarn install --ignore-engines --ignore-scripts
-          yarn run clean --concurrency=1
-          yarn run build --concurrency=1
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 

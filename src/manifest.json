@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "minimum_chrome_version": "114",
   "name": "QRL Web3 Wallet",
   "description": "A web3 wallet that run on the QRL blockchain.",
   "icons": {

@@ -11,6 +11,7 @@ export default defineConfig({
   plugins: [
     react(),
     webExtension({
+      manifest: "src/manifest.json",
       additionalInputs: ["src/scripts/inPageScript.ts"],
       disableAutoLaunch: true,
       watchFilePaths: ["src"],

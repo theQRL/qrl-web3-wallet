@@ -24,64 +24,34 @@ The same flow works on Brave, Edge, Vivaldi, and other Chromium-based browsers. 
 
 > Releases are signed and tagged by the project's release pipeline. Always download from the official `theQRL/qrl-web3-wallet` GitHub releases page. **Never** download or install from a third-party mirror.
 
+> [!WARNING]
+> **Seeing a "Manifest file is missing or unreadable" error?**
+>
+> You're loading the wrong folder. Read the instructions again.
+>
+> - **If you downloaded the release zip**: make sure you selected the **unzipped folder** (e.g. `qrl-web3-wallet-chrome-v0.2.0/`) — not the `.zip` file itself, and not a parent directory.
+> - **If you cloned the repo**: the project root is *not* a loadable extension. Run `npm run build` first, then load the generated `Extension/` folder: see below.
+
 ## :keyboard: Build from source (for developers)
 
-Building from source produces the same `Extension/` folder that's published on the release page. The CI pipeline (`.github/workflows/release.yml`) uses these exact steps.
+Building from source produces the same `Extension/` folder that's published on the release page. The CI pipeline (`.github/workflows/release.yml`) uses these steps.
 
 ### Prerequisites
 
 - Node.js 22.x ([nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm) recommended)
 - npm
-- yarn (for the `web3.js` sibling build): `npm install -g yarn`
 - git
-
-### Sibling repository layout
-
-Several QRL repositories must be cloned as siblings of `qrl-web3-wallet`. Set up a working directory like:
-
-```
-~/qrl/
-├── qrl-web3-wallet/
-├── qrl-contracts/
-├── wallet.js/
-├── js-qrl-cryptography/
-├── qrypto.js/
-└── web3.js/
-```
-
-Clone and prepare them:
-
-```sh
-mkdir -p ~/qrl && cd ~/qrl
-
-git clone https://github.com/theQRL/qrl-web3-wallet.git
-git clone --depth 1 https://github.com/theQRL/qrl-contracts.git
-git clone --depth 1 https://github.com/theQRL/wallet.js.git
-git clone --depth 1 https://github.com/theQRL/js-qrl-cryptography.git
-git clone --depth 1 https://github.com/theQRL/qrypto.js.git
-git clone --depth 1 https://github.com/theQRL/web3.js.git
-
-# Install each sibling's dependencies
-for d in qrl-contracts wallet.js js-qrl-cryptography qrypto.js; do
-  ( cd "$d" && (npm install --no-audit --no-fund || yarn install --ignore-engines) )
-done
-
-# web3.js needs an explicit build
-( cd web3.js \
-  && yarn install --ignore-engines --ignore-scripts \
-  && yarn run clean --concurrency=1 \
-  && yarn run build --concurrency=1 )
-```
 
 ### Build the extension
 
 ```sh
-cd ~/qrl/qrl-web3-wallet
+git clone https://github.com/theQRL/qrl-web3-wallet.git
+cd qrl-web3-wallet
 npm install
 npm run build
 ```
 
-Output lands in the `Extension/` folder. Load it in Chrome via `chrome://extensions` → **Developer mode** → **Load unpacked**, and select the `Extension/` folder.
+Output is to the `Extension/` folder. Load it in Chrome via `chrome://extensions` → **Developer mode** → **Load unpacked**, and select the `Extension/` folder.
 
 ### Development with watch mode
 
@@ -102,7 +72,7 @@ npm run lint   # eslint
 
 | Feature              | Description                                                                                                                                                                                                                                           | Related files                                                                                                                                                                                                                                                               | Status         |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| Extension manifest   | Browser extensions should always have this file in the project root directory, in order to be considered an extension. Manifest file can be found at the `root` level of project, and will be copied to the output `Extension` directory during build. | [manifest.json](manifest.json)                                                                                                                                                                                                                                              | :green_circle: |
+| Extension manifest   | Source manifest template that Vite reads at build time, transforms (injects version), and emits to `Extension/manifest.json`. Kept under `src/` so the repo root cannot be mistakenly loaded as an unpacked extension. | [src/manifest.json](src/manifest.json)                                                                                                                                                                                                                                              | :green_circle: |
 | Theming              | Based on the system theme, extension will be displayed in light or dark theme.                                                                                                                                                                        | [index.css](src/index.css) [tailwind.config.js](tailwind.config.js)                                                                                                                                                                                                         | :green_circle: |
 | Blockchain selection | The user can connect the wallet to a local QRL node, QRL testnet or QRL mainnet. Mainnet can be used for real transactions, and the other two can be used for testing and demo.                                                                       | [ChainBadge.tsx](src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Header/ChainBadge/ChainBadge.tsx)                                                                                                                                                                         | :green_circle: |
 | Create account       | The user can create a new account just with the click of a button. The newly created account address along with its secret recovery phrases will be presented to the user for download.                                                              | [CreateAccount.tsx](src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/CreateAccount/CreateAccount.tsx)                                                                                                                                                                  | :green_circle: |
