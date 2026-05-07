@@ -177,15 +177,15 @@ describe("SettingsSecurity", () => {
       expect(submitButton).toBeDisabled();
 
       // Fill only current password — still disabled
-      await userEvent.type(screen.getByLabelText("Current password"), "oldpass123");
+      await userEvent.type(screen.getByLabelText("Current password"), "oldpass12345");
       expect(submitButton).toBeDisabled();
 
       // Fill new password but not confirm — still disabled
-      await userEvent.type(screen.getByLabelText("New password"), "newpass123");
+      await userEvent.type(screen.getByLabelText("New password"), "newpass12345");
       expect(submitButton).toBeDisabled();
 
       // Fill confirm with matching password — now enabled
-      await userEvent.type(screen.getByLabelText("Confirm new password"), "newpass123");
+      await userEvent.type(screen.getByLabelText("Confirm new password"), "newpass12345");
       await waitFor(() => {
         expect(submitButton).toBeEnabled();
       });
@@ -198,9 +198,9 @@ describe("SettingsSecurity", () => {
         screen.getByRole("button", { name: /Change Password/i }),
       );
 
-      await userEvent.type(screen.getByLabelText("Current password"), "oldpass123");
-      await userEvent.type(screen.getByLabelText("New password"), "newpass123");
-      await userEvent.type(screen.getByLabelText("Confirm new password"), "different1");
+      await userEvent.type(screen.getByLabelText("Current password"), "oldpass12345");
+      await userEvent.type(screen.getByLabelText("New password"), "newpass12345");
+      await userEvent.type(screen.getByLabelText("Confirm new password"), "different123");
 
       await waitFor(() => {
         expect(screen.getByText("Passwords doesn't match")).toBeInTheDocument();
@@ -217,9 +217,9 @@ describe("SettingsSecurity", () => {
         screen.getByRole("button", { name: /Change Password/i }),
       );
 
-      await userEvent.type(screen.getByLabelText("Current password"), "oldpass123");
-      await userEvent.type(screen.getByLabelText("New password"), "newpass123");
-      await userEvent.type(screen.getByLabelText("Confirm new password"), "newpass123");
+      await userEvent.type(screen.getByLabelText("Current password"), "oldpass12345");
+      await userEvent.type(screen.getByLabelText("New password"), "newpass12345");
+      await userEvent.type(screen.getByLabelText("Confirm new password"), "newpass12345");
 
       const dialog = screen.getByRole("dialog");
       const submitButton = within(dialog).getByRole("button", { name: /Change Password/i });
@@ -230,7 +230,7 @@ describe("SettingsSecurity", () => {
       await userEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(changePassword).toHaveBeenCalledWith("oldpass123", "newpass123");
+        expect(changePassword).toHaveBeenCalledWith("oldpass12345", "newpass12345");
         expect(screen.getByText("Password changed successfully")).toBeInTheDocument();
       });
     });
@@ -245,9 +245,9 @@ describe("SettingsSecurity", () => {
         screen.getByRole("button", { name: /Change Password/i }),
       );
 
-      await userEvent.type(screen.getByLabelText("Current password"), "wrongpass1");
-      await userEvent.type(screen.getByLabelText("New password"), "newpass123");
-      await userEvent.type(screen.getByLabelText("Confirm new password"), "newpass123");
+      await userEvent.type(screen.getByLabelText("Current password"), "wrongpass123");
+      await userEvent.type(screen.getByLabelText("New password"), "newpass12345");
+      await userEvent.type(screen.getByLabelText("Confirm new password"), "newpass12345");
 
       const dialog = screen.getByRole("dialog");
       const submitButton = within(dialog).getByRole("button", { name: /Change Password/i });
@@ -258,7 +258,7 @@ describe("SettingsSecurity", () => {
       await userEvent.click(submitButton);
 
       await waitFor(() => {
-        expect(changePassword).toHaveBeenCalledWith("wrongpass1", "newpass123");
+        expect(changePassword).toHaveBeenCalledWith("wrongpass123", "newpass12345");
         expect(screen.getByText("Current password is incorrect")).toBeInTheDocument();
       });
     });

@@ -297,23 +297,39 @@ describe("LedgerService", () => {
   });
 
   describe("getPublicKey", () => {
+    const STATUS_OK = Buffer.from([0x90, 0x00]);
+    const ADDRESS_RESPONSE = Buffer.concat([
+      Buffer.from([0x51]),
+      Buffer.alloc(24, 0xab),
+      STATUS_OK,
+    ]);
+    // Public-key reassembly is verified to be exactly 2592 bytes
+    // (10 × 258-byte chunks + 1 × 12-byte chunk). Each mock call must
+    // return a chunk of the size the chunk-index expects.
+    const buildPubkeyChunkResponses = (): Buffer[] => {
+      const chunks: Buffer[] = [];
+      for (let i = 0; i < 10; i++) {
+        chunks.push(Buffer.concat([Buffer.alloc(258, 0xcc), STATUS_OK]));
+      }
+      chunks.push(Buffer.concat([Buffer.alloc(12, 0xcc), STATUS_OK]));
+      return chunks;
+    };
+
     it("should fetch public key and address without confirmation", async () => {
       const { ledgerTransport: transport } = await import("./ledgerTransport");
-      (transport.send as any).mockResolvedValue(
-        Buffer.concat([
-          Buffer.from([0x51]),
-          Buffer.alloc(24, 0xab),
-          Buffer.alloc(100, 0xcc), // Public key
-          Buffer.from([0x90, 0x00]),
-        ])
-      );
+      const responses = [ADDRESS_RESPONSE, ...buildPubkeyChunkResponses()];
+      (transport.send as any).mockReset();
+      for (const r of responses) {
+        (transport.send as any).mockResolvedValueOnce(r);
+      }
 
       const result = await ledgerService.getPublicKey(
         "m/44'/238'/0'/0/0",
         false
       );
 
-      expect(transport.send).toHaveBeenCalledWith(
+      expect(transport.send).toHaveBeenNthCalledWith(
+        1,
         LEDGER_CONFIG.CLA,
         LEDGER_CONFIG.INS.GET_PUBLIC_KEY,
         LEDGER_CONFIG.P1.START, // No confirmation
@@ -328,18 +344,16 @@ describe("LedgerService", () => {
 
     it("should fetch public key with confirmation", async () => {
       const { ledgerTransport: transport } = await import("./ledgerTransport");
-      (transport.send as any).mockResolvedValue(
-        Buffer.concat([
-          Buffer.from([0x51]),
-          Buffer.alloc(24, 0xab),
-          Buffer.alloc(100, 0xcc),
-          Buffer.from([0x90, 0x00]),
-        ])
-      );
+      const responses = [ADDRESS_RESPONSE, ...buildPubkeyChunkResponses()];
+      (transport.send as any).mockReset();
+      for (const r of responses) {
+        (transport.send as any).mockResolvedValueOnce(r);
+      }
 
       await ledgerService.getPublicKey("m/44'/238'/0'/0/0", true);
 
-      expect(transport.send).toHaveBeenCalledWith(
+      expect(transport.send).toHaveBeenNthCalledWith(
+        1,
         LEDGER_CONFIG.CLA,
         LEDGER_CONFIG.INS.GET_PUBLIC_KEY,
         LEDGER_CONFIG.P1.CONFIRM, // With confirmation

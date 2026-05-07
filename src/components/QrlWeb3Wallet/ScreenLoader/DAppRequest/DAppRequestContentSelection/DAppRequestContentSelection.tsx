@@ -5,7 +5,6 @@ import AddQrlChainContent from "./AddQrlChainContent/AddQrlChainContent";
 import PermissionRequiredContent from "./PermissionRequiredContent/PermissionRequiredContent";
 import SwitchQrlChainContent from "./SwitchQrlChainContent/SwitchQrlChainContent";
 import WatchAssetContent from "./WatchAssetContent/WatchAssetContent";
-import WalletSendCallsContent from "./WalletSendCallsContent/WalletSendCallsContent";
 
 const PERMISSION_REQUIRED_METHODS: string[] = [
   RESTRICTED_METHODS.PERSONAL_SIGN,
@@ -22,9 +21,6 @@ const DAppRequestContentSelection = observer(() => {
 
   if (method === RESTRICTED_METHODS.WALLET_ADD_QRL_CHAIN)
     return <AddQrlChainContent />;
-
-  if (method === RESTRICTED_METHODS.WALLET_SEND_CALLS)
-    return <WalletSendCallsContent />;
 
   if (method === RESTRICTED_METHODS.WALLET_SWITCH_QRL_CHAIN)
     return <SwitchQrlChainContent />;

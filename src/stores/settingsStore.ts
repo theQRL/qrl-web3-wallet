@@ -12,6 +12,7 @@ const THEME = Object.freeze({
 
 type ThemePreference = "system" | "light" | "dark";
 
+
 class SettingsStore {
   isDarkMode: boolean;
   theme: string;
@@ -57,34 +58,23 @@ class SettingsStore {
     this.theme = this.isDarkMode ? THEME.DARK : THEME.LIGHT;
     document?.documentElement?.classList?.add(this.theme);
 
-    // Detect side panel via URL query parameter or cached localStorage flag.
+    // Side-panel mode is identified solely by the `?sidepanel=true` URL
+    // parameter set by `applySidePanelPreference` in the service worker.
+    // No viewport heuristic — viewport-driven detection flipped layouts
+    // unexpectedly on resize / high-DPI displays.
     const urlParams = new URLSearchParams(window.location.search);
-    const hasSidePanelParam = urlParams.has("sidepanel");
-    const sidePanelCached =
-      localStorage.getItem("sidePanelPreferred") === "true";
+    this.isSidePanel = urlParams.has("sidepanel");
 
-    // Detect popup vs tab/sidepanel via viewport dimensions.
-    // Popup: narrow width (~368px) AND very short height (~25px iframe).
-    // Tab: wide viewport (> 600px).
-    // Side panel: narrow-to-medium viewport (≤ 600px), tall, with preference cached.
+    // Popup vs tab is still derived from viewport because Chromium does
+    // not expose a deterministic "is this the action popup" signal.
     const htmlElement = document?.documentElement;
-    let isNarrow = false;
-    let isShort = false;
-    let isWide = false;
-    if (htmlElement) {
+    if (!this.isSidePanel && htmlElement) {
       const actualWidth = htmlElement.clientWidth;
       const actualHeight = htmlElement.clientHeight;
-      isNarrow = Math.abs(actualWidth - 368) <= 24;
-      isShort = Math.abs(actualHeight - 25) <= 24;
-      isWide = actualWidth > 600;
-    }
-
-    this.isPopupWindow = isNarrow && isShort;
-    // Side panel: URL param, or not-popup + not-wide + sidePanelPreferred cached.
-    this.isSidePanel =
-      hasSidePanelParam ||
-      (!this.isPopupWindow && !isWide && sidePanelCached);
-    if (this.isSidePanel) {
+      const isNarrow = Math.abs(actualWidth - 368) <= 24;
+      const isShort = Math.abs(actualHeight - 25) <= 24;
+      this.isPopupWindow = isNarrow && isShort;
+    } else {
       this.isPopupWindow = false;
     }
 
@@ -122,16 +112,6 @@ class SettingsStore {
       }
       if (settings.sidePanelPreferred !== undefined) {
         this.sidePanelPreferred = settings.sidePanelPreferred;
-        // Keep localStorage cache in sync with chrome.storage.
-        localStorage.setItem(
-          "sidePanelPreferred",
-          String(settings.sidePanelPreferred),
-        );
-      }
-      // Async fallback: if side panel wasn't detected synchronously but
-      // the preference is enabled and we're not in a popup, switch now.
-      if (!this.isSidePanel && this.sidePanelPreferred && !this.isPopupWindow) {
-        this.isSidePanel = true;
       }
     });
   }
@@ -217,7 +197,6 @@ class SettingsStore {
 
   async setSidePanelPreferred(preferred: boolean) {
     this.sidePanelPreferred = preferred;
-    localStorage.setItem("sidePanelPreferred", String(preferred));
     await this.#persistSettings();
     if (
       typeof chrome !== "undefined" &&

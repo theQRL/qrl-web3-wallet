@@ -56,23 +56,23 @@ describe("LockPasswordSetup", () => {
     await userEvent.type(passwordField, "test");
     expect(passwordField).toHaveValue("test");
     expect(
-      screen.getByText("Password must be atleast 8 characters"),
+      screen.getByText("Password must be at least 12 characters"),
     ).toBeInTheDocument();
     await userEvent.type(passwordField, "password");
     expect(passwordField).toHaveValue("testpassword");
     expect(
-      screen.queryByText("Password must be atleast 8 characters"),
+      screen.queryByText("Password must be at least 12 characters"),
     ).not.toBeInTheDocument();
     const reEnterPasswordField = screen.getByLabelText("reEnteredPassword");
     await userEvent.type(reEnterPasswordField, "test");
     expect(reEnterPasswordField).toHaveValue("test");
     expect(
-      screen.getByText("Password must be atleast 8 characters"),
+      screen.getByText("Password must be at least 12 characters"),
     ).toBeInTheDocument();
     await userEvent.type(reEnterPasswordField, "password");
     expect(reEnterPasswordField).toHaveValue("testpassword");
     expect(
-      screen.queryByText("Password must be atleast 8 characters"),
+      screen.queryByText("Password must be at least 12 characters"),
     ).not.toBeInTheDocument();
     expect(continueButton).toBeEnabled();
   });

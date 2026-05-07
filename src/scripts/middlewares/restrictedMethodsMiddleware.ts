@@ -1,5 +1,6 @@
 import StorageUtil from "@/utilities/storageUtil";
 import { JsonRpcMiddleware } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
+import { v4 as uuid } from "uuid";
 import {
   providerErrors,
   rpcErrors,
@@ -7,14 +8,16 @@ import {
 import { Json, JsonRpcRequest } from "@theqrl/qrl-wallet-provider/utils";
 import browser from "webextension-polyfill";
 import { RESTRICTED_METHODS } from "../constants/requestConstants";
-import { EXTENSION_MESSAGES } from "../constants/streamConstants";
+import {
+  DAPP_REQUEST_PORT_NAME,
+  EXTENSION_MESSAGES,
+} from "../constants/streamConstants";
 import { checkDomain } from "../phishing/phishingDetector";
 import {
   checkAccountHasBeenAuthorized,
   checkUrlOriginHasBeenConnected,
   checkWalletAddQrlChainParams,
   checkWalletRequestPermissionParams,
-  checkWalletSendCallsParams,
   checkWalletSwitchQrlChainParams,
   checkWalletWatchAssetParams,
   updateAccountsAndBlockchainsForUrlOrigin,
@@ -38,7 +41,9 @@ const checkRequestCanCompleteSilently = async (
       (chain) => chain.chainId.toLowerCase() === chainId.toLowerCase(),
     );
     if (chainFound) {
-      await StorageUtil.setActiveBlockChain(chainId);
+      // Chain is already known to the wallet — acknowledge per EIP-3085 but do
+      // NOT silently flip the globally-active chain. The dApp must call
+      // wallet_switchQRLChain explicitly (which surfaces to the user). F-2.
       return {
         hasCompleted: true,
         completionResult: null,
@@ -54,27 +59,10 @@ const checkRequestCanCompleteSilently = async (
     const currentChainId = (await StorageUtil.getActiveBlockChain())?.chainId;
     const isAlreadyCurrentChain =
       chainId?.toLowerCase() === currentChainId?.toLowerCase();
-    const dAppConnectedChains = await StorageUtil.getDAppsConnectedAccountsData(
-      new URL(req?.senderData?.url ?? "").origin,
-    );
-    const isDAppConnectedChain = dAppConnectedChains?.blockchains
-      ?.map((chain) => chain.chainId.toLowerCase())
-      ?.includes(chainId?.toLowerCase());
-    if (isAlreadyCurrentChain || isDAppConnectedChain) {
-      await StorageUtil.setActiveBlockChain(chainId);
-      return {
-        hasCompleted: true,
-        completionResult: null,
-      };
-    }
-
-    const chainIdsForOrigin = (
-      await StorageUtil.getDAppsConnectedAccountsData(
-        new URL(req.senderData?.url ?? "").origin,
-      )
-    )?.blockchains;
-    if (chainIdsForOrigin?.some((chain) => chain.chainId === chainId)) {
-      await StorageUtil.setActiveBlockChain(chainId);
+    if (isAlreadyCurrentChain) {
+      // No-op switch — permitted per EIP-3326 / MetaMask. Any other target
+      // (including a chain already in this dApp's permission list) must open
+      // the popup so the user authorises the global active-chain change. F-1.
       return {
         hasCompleted: true,
         completionResult: null,
@@ -89,10 +77,12 @@ const checkRequestCanCompleteSilently = async (
       // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime for this RPC method
       const chains: string[] = req?.params?.[1] ?? [];
       const capabilities: { [k: string]: { atomic: { status: "ready" | "supported" } } } = {};
+      // EIP-5792 wallet_sendCalls is not implemented in this wallet; advertise
+      // atomic as "supported" (the weaker tier) rather than "ready" so dApps
+      // do not dispatch wallet_sendCalls expecting it to succeed. Promote to
+      // "ready" once the delegation system lands.
       chains.forEach((chain) => {
-        // TODO: Update this with delegation system once ready
-        const status: "ready" | "supported" = "ready";
-        capabilities[chain] = { atomic: { status } };
+        capabilities[chain] = { atomic: { status: "supported" } };
       });
 
       return {
@@ -138,9 +128,6 @@ const checkRequestCanProceed = async (req: JsonRpcRequest<JsonRpcRequest>) => {
     case RESTRICTED_METHODS.WALLET_REQUEST_PERMISSIONS:
       // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime for this RPC method
       return await checkWalletRequestPermissionParams(req?.params?.[0]);
-    case RESTRICTED_METHODS.WALLET_SEND_CALLS:
-      // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime for this RPC method
-      return await checkWalletSendCallsParams(req?.params?.[0]);
     case RESTRICTED_METHODS.WALLET_GET_CAPABILITIES:
     case RESTRICTED_METHODS.QRL_SEND_TRANSACTION:
     case RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4:
@@ -160,33 +147,118 @@ const getRestrictedMethodResult = async (
 ): Promise<DAppResponseType> => {
   const settings = await StorageUtil.getSettings();
   const phishingEnabled = settings.phishingDetectionEnabled !== false;
-  const phishingResult = phishingEnabled
-    ? checkDomain(req.senderData?.url ?? "")
+  // Phishing is checked against both the requesting frame origin AND the
+  // parent tab origin. A phishing top-level page hosting a connected dApp's
+  // iframe is a real attack vector that frame-origin-only checking misses.
+  const senderData = req.senderData as
+    | {
+        url?: string;
+        mainFrameOrigin?: string;
+      }
+    | undefined;
+  const frameResult = phishingEnabled
+    ? checkDomain(senderData?.url ?? "")
     : { isDomainPhishing: false };
+  const parentResult =
+    phishingEnabled && senderData?.mainFrameOrigin
+      ? checkDomain(senderData.mainFrameOrigin)
+      : { isDomainPhishing: false };
+  const phishingResult = {
+    isDomainPhishing:
+      frameResult.isDomainPhishing || parentResult.isDomainPhishing,
+    matchType: frameResult.isDomainPhishing
+      ? frameResult.matchType
+      : parentResult.matchType,
+    matchedDomain: frameResult.isDomainPhishing
+      ? frameResult.matchedDomain
+      : parentResult.matchedDomain,
+    detectorStatus: frameResult.detectorStatus ?? parentResult.detectorStatus,
+  };
+  const requestId = uuid();
   const request: DAppRequestType = {
     method: req.method,
     params: req.params,
     requestData: { senderData: req.senderData },
     phishingResult,
+    requestId,
   };
 
   await StorageUtil.setDAppsRequestData(request);
-  try {
-    await browser.action.openPopup();
-  } catch {
-    console.warn("QrlWeb3Wallet: Could not open the wallet");
+  // In side-panel mode the user opens the side panel by clicking the
+  // extension action icon (configured via setPanelBehavior). Calling
+  // openPopup() in that mode spawns a competing approval surface, so
+  // we skip it and rely on the badge + side-panel storage subscription
+  // to surface the request.
+  if (!settings.sidePanelPreferred) {
+    try {
+      await browser.action.openPopup();
+    } catch {
+      console.warn("QrlWeb3Wallet: Could not open the wallet");
+    }
   }
 
+  // Safety timeout: if the popup never connects its lifecycle port (e.g.
+  // openPopup() failed) and never posts a DAPP_RESPONSE, fall through here so
+  // isRequestPending eventually resets. Most popup-close paths now resolve
+  // via the lifecycle-port disconnect handler below.
+  const POPUP_RESPONSE_TIMEOUT_MS = 90 * 1000;
+
   return new Promise((resolve) => {
-    const handleMessage = function messageHandler(message: DAppResponseType) {
-      if (message.action === EXTENSION_MESSAGES.DAPP_RESPONSE) {
-        // Remove the listener when the message is processed
-        browser.runtime.onMessage.removeListener(handleMessage);
+    let popupPort: browser.Runtime.Port | undefined;
+    const cleanup = () => {
+      clearTimeout(timeoutHandle);
+      browser.runtime.onMessage.removeListener(handleMessage);
+      browser.runtime.onConnect.removeListener(handlePortConnect);
+      popupPort?.onDisconnect.removeListener(handlePortDisconnect);
+    };
+    function handleMessage(message: DAppResponseType) {
+      if (
+        message.action === EXTENSION_MESSAGES.DAPP_RESPONSE &&
+        message.requestId === requestId
+      ) {
+        cleanup();
         resolve(message);
       }
-    };
-    // Listen for the approval/rejection from the UI
+    }
+    function handlePortConnect(port: browser.Runtime.Port) {
+      if (port.name === DAPP_REQUEST_PORT_NAME) {
+        popupPort = port;
+        port.onDisconnect.addListener(handlePortDisconnect);
+      }
+    }
+    async function handlePortDisconnect() {
+      cleanup();
+      try {
+        await StorageUtil.clearDAppsRequestData();
+      } catch {
+        // best-effort cleanup
+      }
+      resolve({
+        method: req.method,
+        action: EXTENSION_MESSAGES.DAPP_RESPONSE,
+        hasApproved: false,
+      });
+    }
+    const timeoutHandle = setTimeout(async () => {
+      cleanup();
+      console.warn(
+        "QrlWeb3Wallet: dApp request timed out without user response",
+      );
+      try {
+        await StorageUtil.clearDAppsRequestData();
+      } catch {
+        // best-effort cleanup
+      }
+      resolve({
+        method: req.method,
+        action: EXTENSION_MESSAGES.DAPP_RESPONSE,
+        hasApproved: false,
+      });
+    }, POPUP_RESPONSE_TIMEOUT_MS);
+    // Listen for the approval/rejection from the UI, plus the popup's
+    // lifecycle port so we can resolve immediately when it disconnects.
     browser.runtime.onMessage.addListener(handleMessage);
+    browser.runtime.onConnect.addListener(handlePortConnect);
   });
 };
 
@@ -207,7 +279,10 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
   ) {
     if (isRequestPending) {
       try {
-        await browser.action.openPopup();
+        const settings = await StorageUtil.getSettings();
+        if (!settings.sidePanelPreferred) {
+          await browser.action.openPopup();
+        }
       } finally {
         res.error = providerErrors.unsupportedMethod({
           message: "A request is already pending",
@@ -279,18 +354,6 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
               const dAppConnectedAccountsData =
                 await StorageUtil.getDAppsConnectedAccountsData(urlOrigin);
               res.result = dAppConnectedAccountsData?.permissions ?? [];
-              break;
-            }
-            case RESTRICTED_METHODS.WALLET_SEND_CALLS: {
-              const batchId = restrictedMethodResult?.response?.batchId;
-              if (batchId) {
-                res.result = { id: batchId };
-              } else {
-                res.error = providerErrors.unsupportedMethod({
-                  message: restrictedMethodResult?.response?.error?.message,
-                  data: restrictedMethodResult?.response?.error,
-                });
-              }
               break;
             }
             case RESTRICTED_METHODS.QRL_SEND_TRANSACTION: {

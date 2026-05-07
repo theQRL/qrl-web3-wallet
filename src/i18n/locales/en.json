@@ -22,7 +22,7 @@
   "onboarding.password.inputDescription": "Enter a password",
   "onboarding.password.confirmPlaceholder": "Re-enter Password",
   "onboarding.password.confirmDescription": "Re-enter the password",
-  "onboarding.password.validationMinLength": "Password must be atleast 8 characters",
+  "onboarding.password.validationMinLength": "Password must be at least 12 characters",
   "onboarding.password.validationMismatch": "Passwords doesn't match",
   "onboarding.password.button": "Continue",
   "onboarding.account.title": "Add/Import account",

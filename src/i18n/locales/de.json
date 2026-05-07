@@ -22,7 +22,7 @@
   "onboarding.password.inputDescription": "Passwort eingeben",
   "onboarding.password.confirmPlaceholder": "Passwort Wiederholen",
   "onboarding.password.confirmDescription": "Passwort erneut eingeben",
-  "onboarding.password.validationMinLength": "Das Passwort muss mindestens 8 Zeichen lang sein",
+  "onboarding.password.validationMinLength": "Das Passwort muss mindestens 12 Zeichen lang sein",
   "onboarding.password.validationMismatch": "Die Passwörter stimmen nicht überein",
   "onboarding.password.button": "Weiter",
   "onboarding.account.title": "Konto Hinzufügen/Importieren",

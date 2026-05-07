@@ -7,7 +7,7 @@ import type {
   ChangePasswordWorkerResponse,
 } from "@/scripts/workers/changePasswordWorker";
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
-import { Web3BaseWalletAccount } from "@theqrl/web3";
+import { KeyStore, Web3BaseWalletAccount } from "@theqrl/web3";
 import { action, makeAutoObservable, runInAction } from "mobx";
 import browser from "webextension-polyfill";
 
@@ -23,6 +23,13 @@ class LockStore {
    * if Chrome restarts it (losing its in-memory state).  Cleared on lock().
    */
   private cachedKeys?: DecryptedKeyType[];
+  /**
+   * Wallet password held in popup memory only — paired with cachedKeys so
+   * the popup can re-arm the SW after a Chrome-driven restart without
+   * re-prompting the user. Stored separately from `cachedKeys` so leaks of
+   * either store do not necessarily leak both.
+   */
+  private cachedPassword?: string;
 
   constructor() {
     makeAutoObservable(this, {
@@ -179,17 +186,22 @@ class LockStore {
     // Persist re-encrypted keystores.
     await StorageUtil.setKeystores(result.newKeystores);
 
-    // Update in-memory keys in the service worker.
+    // Update in-memory keys + walletPassword in the service worker.
+    const normalisedNewPassword = newPassword.normalize("NFC");
     try {
       await this.sendWithRetry({
         name: LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS,
-        data: result.newKeys,
+        data: {
+          keys: result.newKeys,
+          walletPassword: normalisedNewPassword,
+        },
       });
     } catch {
       // Keys are persisted — SW will pick them up on next unlock.
     }
 
     this.cachedKeys = result.newKeys as DecryptedKeyType[];
+    this.cachedPassword = normalisedNewPassword;
     return true;
   }
 
@@ -212,12 +224,18 @@ class LockStore {
         if (lockedTs > unlockedTs) {
           // Intentional lock (manual or auto-lock) — don't re-send
           this.cachedKeys = undefined;
+          this.cachedPassword = undefined;
         } else {
-          // SW restart — re-send cached keys to recover
+          // SW restart — re-send cached keys (and password if known) to recover
           try {
             await browser.runtime.sendMessage({
               name: LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS,
-              data: this.cachedKeys,
+              data: this.cachedPassword
+                ? {
+                    keys: this.cachedKeys,
+                    walletPassword: this.cachedPassword,
+                  }
+                : this.cachedKeys,
             });
             const recheck = await browser.runtime.sendMessage({
               name: LOCK_MANAGER_MESSAGES.IS_LOCKED,
@@ -240,6 +258,7 @@ class LockStore {
 
   async lock() {
     this.cachedKeys = undefined;
+    this.cachedPassword = undefined;
     await browser.runtime.sendMessage({
       name: LOCK_MANAGER_MESSAGES.LOCK,
     });
@@ -282,42 +301,64 @@ class LockStore {
     const keyStores = await StorageUtil.getKeystores();
     if (!keyStores.length) return false;
 
-    const decryptedKeys = await new Promise<DecryptedKeyType[] | null>(
-      (resolve) => {
-        const worker = new Worker(
-          new URL(
-            "../scripts/workers/unlockWorker.ts",
-            import.meta.url,
-          ),
-          { type: "module" },
-        );
-        worker.onmessage = (
-          event: MessageEvent<{
-            success: boolean;
-            keys?: DecryptedKeyType[];
-          }>,
-        ) => {
-          worker.terminate();
-          resolve(event.data.success ? (event.data.keys ?? null) : null);
-        };
-        worker.onerror = () => {
-          worker.terminate();
+    const workerResult = await new Promise<{
+      keys: DecryptedKeyType[];
+      upgradedKeystores?: KeyStore[];
+    } | null>((resolve) => {
+      const worker = new Worker(
+        new URL("../scripts/workers/unlockWorker.ts", import.meta.url),
+        { type: "module" },
+      );
+      worker.onmessage = (
+        event: MessageEvent<{
+          success: boolean;
+          keys?: DecryptedKeyType[];
+          upgradedKeystores?: KeyStore[];
+        }>,
+      ) => {
+        worker.terminate();
+        if (event.data.success && event.data.keys) {
+          resolve({
+            keys: event.data.keys,
+            upgradedKeystores: event.data.upgradedKeystores,
+          });
+        } else {
           resolve(null);
-        };
-        worker.postMessage({ keystores: keyStores, password });
-      },
-    );
+        }
+      };
+      worker.onerror = () => {
+        worker.terminate();
+        resolve(null);
+      };
+      worker.postMessage({ keystores: keyStores, password });
+    });
 
-    if (!decryptedKeys) {
+    if (!workerResult) {
       // Wrong password or worker error
       return false;
     }
+    const decryptedKeys = workerResult.keys;
 
-    // Send decrypted keys to the service worker for in-memory storage.
+    // If the worker re-encrypted any keystores with stronger KDF parameters,
+    // persist them in place of the previous keystores so the user benefits
+    // automatically without re-entering their password.
+    if (workerResult.upgradedKeystores?.length) {
+      try {
+        await StorageUtil.setKeystores(workerResult.upgradedKeystores);
+      } catch (error) {
+        console.warn(
+          "QrlWeb3Wallet: failed to persist upgraded keystores",
+          error,
+        );
+      }
+    }
+
+    // Send decrypted keys + walletPassword to the service worker.
+    const normalisedPassword = password.normalize("NFC");
     try {
       await this.sendWithRetry({
         name: LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS,
-        data: decryptedKeys,
+        data: { keys: decryptedKeys, walletPassword: normalisedPassword },
       });
     } catch {
       throw new Error(
@@ -335,6 +376,7 @@ class LockStore {
       });
       if (!isLocked) {
         this.cachedKeys = decryptedKeys;
+        this.cachedPassword = normalisedPassword;
         StorageUtil.updateLockStateTimeStamp(LockState.UNLOCKED);
         return true;
       }

@@ -44,6 +44,30 @@ class DAppRequestStore {
       disconnectFromCurrentTab: action.bound,
     });
     this.fetchCurrentTabData();
+    this.subscribeToRequestStorage();
+  }
+
+  private subscribeToRequestStorage() {
+    // The side panel persists across dApp interactions, so when the
+    // middleware writes a new request to session storage we need to
+    // re-read it; without this the panel renders stale data from the
+    // previous request.
+    try {
+      browser.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName === "session" && "DAPPS" in changes) {
+          this.responseData = {};
+          this.approvalProcessingStatus = {
+            isProcessing: false,
+            hasApproved: false,
+            hasCompleted: false,
+          };
+          void this.readDAppRequestData();
+        }
+      });
+    } catch {
+      // storage.onChanged unavailable — popup-only contexts work fine
+      // without it because the popup is recreated on each open.
+    }
   }
 
   get hasDAppRequest() {
@@ -121,6 +145,7 @@ class DAppRequestStore {
         method: this.dAppRequestData?.method ?? "",
         action: EXTENSION_MESSAGES.DAPP_RESPONSE,
         hasApproved,
+        requestId: this.dAppRequestData?.requestId,
         response: this.responseData,
       };
       await browser.runtime.sendMessage(response);

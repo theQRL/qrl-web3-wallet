@@ -1,6 +1,21 @@
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import { Web3BaseWalletAccount } from "@theqrl/web3";
 
+// Control (Cc) chars except tab/newline/cr, plus all format (Cf) chars
+// (zero-width, bidi overrides, BOM, etc.). Stripping these prevents a
+// dApp from showing a different glyph string than the bytes being signed.
+const HIDDEN_DISPLAY_CHAR_REGEX = /[^\P{Cc}\t\n\r]|\p{Cf}/gu;
+
+export type SanitizedDisplay = {
+  sanitized: string;
+  hadHidden: boolean;
+};
+
+export const sanitizeForDisplay = (input: string): SanitizedDisplay => {
+  const sanitized = input.replace(HIDDEN_DISPLAY_CHAR_REGEX, "");
+  return { sanitized, hadHidden: sanitized !== input };
+};
+
 /**
  * A utility for handling string related operations
  */

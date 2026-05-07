@@ -98,31 +98,47 @@ describe("QrlSignTypedDataV4Content", () => {
       }),
     );
 
+    // Header / from-account
     expect(screen.getByText("From Address")).toBeInTheDocument();
     expect(
       screen.getByText("Q 20D20 b8026 B8F02 54024 6f581 20ddA Af35A ECD9B"),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Name")).toHaveLength(3);
+
+    // Domain accordion: Name, Version, Chain ID, Verifying Contract are
+    // each labelled and rendered (F-6).
+    expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Ether Mail")).toBeInTheDocument();
+    expect(screen.getByText("Version")).toBeInTheDocument();
+    expect(screen.getByText("Chain ID")).toBeInTheDocument();
     expect(screen.getByText("Verifying Contract")).toBeInTheDocument();
     expect(
       screen.getByText("Q CcCCc cccCC CCcCC CCCCc CcCcc CcCCC cCccc ccccC"),
     ).toBeInTheDocument();
+
+    // Message accordion: structured-data banner + primary type
+    expect(
+      screen.getByText(/Structured-data signature/i),
+    ).toBeInTheDocument();
     expect(screen.getByText("Primary Type")).toBeInTheDocument();
     expect(screen.getByText("Mail")).toBeInTheDocument();
-    expect(screen.getByText("Contents")).toBeInTheDocument();
+
+    // Recursive renderer surfaces every message field — including nested
+    // structs (from / to) — using the dApp-supplied keys verbatim. This is
+    // the F-6 fix: previously only the hardcoded "Mail"-schema fields were
+    // shown, leaving Permit / Permit2 / Seaport schemas blank.
+    expect(screen.getByText("contents")).toBeInTheDocument();
     expect(screen.getByText("Hello, Bob!")).toBeInTheDocument();
-    expect(screen.getByText("From")).toBeInTheDocument();
+    expect(screen.getByText("from")).toBeInTheDocument();
+    expect(screen.getByText("to")).toBeInTheDocument();
     expect(screen.getByText("Cow")).toBeInTheDocument();
-    expect(screen.getAllByText("Account Address")).toHaveLength(2);
-    expect(
-      screen.getByText("Q CD2a3 d9F93 8E13C D947E c05Ab C7FE7 34Df8 DD826"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("To")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(
-      screen.getByText("Q bBbBB BBbbB BBbbb BbbBb bbbBB bBbbb bBbBb bBBbB"),
+      screen.getByText("QCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("QbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"),
+    ).toBeInTheDocument();
+
     const copyButton = screen.getByRole("button", {
       name: "Copy message data",
     });
@@ -141,62 +157,38 @@ describe("QrlSignTypedDataV4Content", () => {
       }),
     );
 
-    const accordionForDomain = screen.getByRole("button", {
-      name: "Domain",
-    });
+    const accordionForDomain = screen.getByRole("button", { name: "Domain" });
     expect(accordionForDomain).toBeInTheDocument();
     expect(accordionForDomain).toBeEnabled();
-    expect(screen.getAllByText("Name")).toHaveLength(3);
+    expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Ether Mail")).toBeInTheDocument();
     expect(screen.getByText("Verifying Contract")).toBeInTheDocument();
-    expect(
-      screen.getByText("Q CcCCc cccCC CCcCC CCCCc CcCcc CcCCC cCccc ccccC"),
-    ).toBeInTheDocument();
+
     await userEvent.click(accordionForDomain);
-    expect(screen.getAllByText("Name")).toHaveLength(2);
+    expect(screen.queryByText("Name")).not.toBeInTheDocument();
     expect(screen.queryByText("Ether Mail")).not.toBeInTheDocument();
     expect(screen.queryByText("Verifying Contract")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Q CcCCc cccCC CCcCC CCCCc CcCcc CcCCC cCccc ccccC"),
-    ).not.toBeInTheDocument();
-    const accordionForMessage = screen.getByRole("button", {
-      name: "Message",
-    });
+
+    const accordionForMessage = screen.getByRole("button", { name: "Message" });
     expect(accordionForMessage).toBeInTheDocument();
     expect(accordionForMessage).toBeEnabled();
     expect(screen.getByText("Primary Type")).toBeInTheDocument();
     expect(screen.getByText("Mail")).toBeInTheDocument();
-    expect(screen.getByText("Contents")).toBeInTheDocument();
+    expect(screen.getByText("contents")).toBeInTheDocument();
     expect(screen.getByText("Hello, Bob!")).toBeInTheDocument();
-    expect(screen.getByText("From")).toBeInTheDocument();
-    expect(screen.getAllByText("Name")).toHaveLength(2);
+    expect(screen.getByText("from")).toBeInTheDocument();
+    expect(screen.getByText("to")).toBeInTheDocument();
     expect(screen.getByText("Cow")).toBeInTheDocument();
-    expect(screen.getAllByText("Account Address")).toHaveLength(2);
-    expect(
-      screen.getByText("Q CD2a3 d9F93 8E13C D947E c05Ab C7FE7 34Df8 DD826"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("To")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
-    expect(
-      screen.getByText("Q bBbBB BBbbB BBbbb BbbBb bbbBB bBbbb bBbBb bBBbB"),
-    ).toBeInTheDocument();
+
     await userEvent.click(accordionForMessage);
     expect(screen.queryByText("Primary Type")).not.toBeInTheDocument();
-    expect(screen.queryByText("Mail")).not.toBeInTheDocument();
-    expect(screen.queryByText("Contents")).not.toBeInTheDocument();
+    expect(screen.queryByText("contents")).not.toBeInTheDocument();
     expect(screen.queryByText("Hello, Bob!")).not.toBeInTheDocument();
-    expect(screen.queryByText("From")).not.toBeInTheDocument();
-    expect(screen.queryByText("Name")).not.toBeInTheDocument();
+    expect(screen.queryByText("from")).not.toBeInTheDocument();
+    expect(screen.queryByText("to")).not.toBeInTheDocument();
     expect(screen.queryByText("Cow")).not.toBeInTheDocument();
-    expect(screen.queryByText("Account Address")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Q CD2a3 d9F93 8E13C D947E c05Ab C7FE7 34Df8 DD826"),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText("To")).not.toBeInTheDocument();
     expect(screen.queryByText("Bob")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Q bBbBB BBbbB BBbbb BbbBb bbbBB bBbbb bBbBb bBBbB"),
-    ).not.toBeInTheDocument();
   });
 
   it("should copy the message data to clipboard", async () => {

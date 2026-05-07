@@ -49,10 +49,10 @@ const createChangePasswordSchema = (t: TFunction) =>
       currentPassword: z.string().min(1, t("validation.passwordRequired")),
       newPassword: z
         .string()
-        .min(8, t("onboarding.password.validationMinLength")),
+        .min(12, t("onboarding.password.validationMinLength")),
       confirmNewPassword: z
         .string()
-        .min(8, t("onboarding.password.validationMinLength")),
+        .min(12, t("onboarding.password.validationMinLength")),
     })
     .refine(
       (fields) => fields.newPassword === fields.confirmNewPassword,

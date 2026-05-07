@@ -22,7 +22,7 @@
   "onboarding.password.inputDescription": "Ingresa una contraseña",
   "onboarding.password.confirmPlaceholder": "Repetir Contraseña",
   "onboarding.password.confirmDescription": "Repite la contraseña",
-  "onboarding.password.validationMinLength": "La contraseña debe tener al menos 8 caracteres",
+  "onboarding.password.validationMinLength": "La contraseña debe tener al menos 12 caracteres",
   "onboarding.password.validationMismatch": "Las contraseñas no coinciden",
   "onboarding.password.button": "Continuar",
   "onboarding.account.title": "Agregar/Importar cuenta",

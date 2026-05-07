@@ -28,16 +28,32 @@ export function checkForLastError() {
   return new Error(lastError.message);
 }
 
+/**
+ * Strips internal fields (notably `stack`) from an error before it is forwarded
+ * to a dApp. Preserves the JSON-RPC-relevant fields `code`, `message`, and
+ * `data`. Stack traces leak bundled-library file hashes that fingerprint the
+ * exact `@theqrl/zond-wallet-provider` version (P-7b).
+ */
+function sanitizeError(error: unknown): {
+  code?: number;
+  message?: string;
+  data?: unknown;
+} {
+  if (error && typeof error === "object") {
+    const e = error as { code?: number; message?: string; data?: unknown };
+    return {
+      ...(typeof e.code === "number" && { code: e.code }),
+      message: typeof e.message === "string" ? e.message : String(error),
+      ...(e.data !== undefined && { data: e.data }),
+    };
+  }
+  return { message: String(error) };
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getSerializableObject(jsonObject: any) {
   if (jsonObject?.error) {
-    const error = jsonObject?.error;
-    return {
-      error: {
-        message: error?.message,
-        stack: error?.stack,
-      },
-    };
+    return { error: sanitizeError(jsonObject.error) };
   }
   return JSON.parse(
     JSON.stringify(jsonObject, (_, value) => {

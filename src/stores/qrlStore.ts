@@ -335,8 +335,8 @@ class QrlStore {
         value: utils.toPlanck(value, "quanta"),
         nonce,
         gasLimit,
-        maxFeePerGas: Number(maxFeePerGas),
-        maxPriorityFeePerGas: Number(maxPriorityFeePerGas),
+        maxFeePerGas: `0x${maxFeePerGas.toString(16)}`,
+        maxPriorityFeePerGas: `0x${maxPriorityFeePerGas.toString(16)}`,
         type: 2,
       };
       const signedTransaction =
@@ -608,8 +608,8 @@ class QrlStore {
           data: encodedData,
           nonce,
           gasLimit,
-          maxFeePerGas: Number(maxFeePerGas),
-          maxPriorityFeePerGas: Number(maxPriorityFeePerGas),
+          maxFeePerGas: `0x${maxFeePerGas.toString(16)}`,
+          maxPriorityFeePerGas: `0x${maxPriorityFeePerGas.toString(16)}`,
           type: 2,
         };
 
@@ -730,8 +730,8 @@ class QrlStore {
           data: encodedData,
           nonce,
           gasLimit,
-          maxFeePerGas: Number(maxFeePerGas),
-          maxPriorityFeePerGas: Number(maxPriorityFeePerGas),
+          maxFeePerGas: `0x${maxFeePerGas.toString(16)}`,
+          maxPriorityFeePerGas: `0x${maxPriorityFeePerGas.toString(16)}`,
           type: 2,
         };
 
@@ -810,8 +810,8 @@ class QrlStore {
           value: "0",
           nonce,
           gasLimit: NATIVE_TOKEN_UNITS_OF_GAS,
-          maxFeePerGas: Number(finalMaxFee),
-          maxPriorityFeePerGas: Number(finalPriorityFee),
+          maxFeePerGas: `0x${finalMaxFee.toString(16)}`,
+          maxPriorityFeePerGas: `0x${finalPriorityFee.toString(16)}`,
           type: 2,
         };
       } else {
@@ -829,8 +829,8 @@ class QrlStore {
             (originalTx.isZrc20Token
               ? ZRC_20_TOKEN_UNITS_OF_GAS
               : NATIVE_TOKEN_UNITS_OF_GAS),
-          maxFeePerGas: Number(finalMaxFee),
-          maxPriorityFeePerGas: Number(finalPriorityFee),
+          maxFeePerGas: `0x${finalMaxFee.toString(16)}`,
+          maxPriorityFeePerGas: `0x${finalPriorityFee.toString(16)}`,
           type: 2,
           ...(originalTx.data && { data: originalTx.data }),
         };

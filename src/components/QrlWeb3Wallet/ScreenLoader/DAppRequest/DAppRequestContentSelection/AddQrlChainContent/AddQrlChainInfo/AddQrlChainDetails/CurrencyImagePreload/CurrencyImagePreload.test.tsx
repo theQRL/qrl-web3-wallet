@@ -30,27 +30,50 @@ describe("CurrencyImagePreload", () => {
     global.Image = originalImage;
   });
 
+  // Data URIs are the only protocol allowed by the F-11 guard. We embed the
+  // tokens "valid" / "invalid" in the (otherwise-ignored) base64 body so the
+  // MockImage above can branch deterministically.
+  const VALID_DATA_URI = "data:image/svg+xml;base64,valid-icon";
+  const BAD_DATA_URI = "data:image/svg+xml;base64,bad-icon";
+  const ANOTHER_DATA_URI = "data:image/svg+xml;base64,another-icon";
+
   it("renders the first valid image", async () => {
     render(
       <CurrencyImagePreload
-        iconUrls={[
-          "https://bad-icon.svg",
-          "https://valid-icon.svg",
-          "https://another-icon.svg",
-        ]}
+        iconUrls={[BAD_DATA_URI, VALID_DATA_URI, ANOTHER_DATA_URI]}
       />,
     );
 
     await waitFor(() => {
       const img = screen.getByRole("img", { name: "Currency icon" });
-      expect(img).toHaveAttribute("src", "https://valid-icon.svg");
+      expect(img).toHaveAttribute("src", VALID_DATA_URI);
     });
   });
 
   it("does not render if all URLs fail", async () => {
     render(
       <CurrencyImagePreload
-        iconUrls={["https://fail1.svg", "https://fail2.svg"]}
+        iconUrls={[
+          "data:image/svg+xml;base64,fail1",
+          "data:image/svg+xml;base64,fail2",
+        ]}
+      />,
+    );
+
+    await waitFor(() => {
+      const img = screen.getByRole("img", { name: "Currency icon" });
+      expect(img).not.toHaveAttribute("src");
+    });
+  });
+
+  it("rejects non-data-URI protocols (no network request fired)", async () => {
+    render(
+      <CurrencyImagePreload
+        iconUrls={[
+          "https://valid-icon.svg",
+          "http://valid-icon.png",
+          "file:///valid-icon.png",
+        ]}
       />,
     );
 
@@ -62,7 +85,7 @@ describe("CurrencyImagePreload", () => {
 
   it("cleans up on unmount", async () => {
     const { unmount } = render(
-      <CurrencyImagePreload iconUrls={["https://valid-icon.svg"]} />,
+      <CurrencyImagePreload iconUrls={[VALID_DATA_URI]} />,
     );
     unmount();
     expect(true).toBeTruthy();

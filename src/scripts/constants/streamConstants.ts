@@ -13,6 +13,11 @@ export const QRL_POST_MESSAGE_STREAM = {
   CONTENT_SCRIPT_KEEP_ALIVE: "qrl-wallet-content-script-keep-alive",
 } as const;
 
+// Per-request lifecycle port. The popup connects this port while a dApp
+// approval surface is mounted; if the port disconnects before the popup
+// posts a DAPP_RESPONSE, the middleware treats it as a user rejection.
+export const DAPP_REQUEST_PORT_NAME = "qrl-wallet-dapp-request";
+
 export const QRL_WEB3_WALLET_PROVIDER_INFO = {
   NAME: "QRLWeb3Wallet",
   RDNS: "theqrl.org",

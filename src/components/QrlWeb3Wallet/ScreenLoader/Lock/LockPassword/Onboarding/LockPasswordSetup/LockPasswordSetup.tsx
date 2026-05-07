@@ -29,10 +29,10 @@ const createFormSchema = (t: TFunction) =>
     .object({
       password: z
         .string()
-        .min(8, t("onboarding.password.validationMinLength")),
+        .min(12, t("onboarding.password.validationMinLength")),
       reEnteredPassword: z
         .string()
-        .min(8, t("onboarding.password.validationMinLength")),
+        .min(12, t("onboarding.password.validationMinLength")),
     })
     .refine((fields) => fields.password === fields.reEnteredPassword, {
       message: t("onboarding.password.validationMismatch"),

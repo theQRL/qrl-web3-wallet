@@ -19,7 +19,6 @@ export type ChangePasswordWorkerRequest = {
 };
 
 export type DecryptedKey = {
-  password: string;
   address: string;
   mnemonicPhrases: string;
 };
@@ -32,16 +31,19 @@ self.onmessage = async (
   event: MessageEvent<ChangePasswordWorkerRequest>,
 ) => {
   const { keystores, oldPassword, newPassword } = event.data;
+  // Normalise both passwords to NFC so the same visual password yields the
+  // same bytes regardless of the platform / IME the user typed it on.
+  const normalisedOld = oldPassword.normalize("NFC");
+  const normalisedNew = newPassword.normalize("NFC");
   try {
     const newKeystores: KeyStore[] = [];
     const newKeys: DecryptedKey[] = [];
 
     for (const keyStore of keystores) {
-      const { address, seed } = await decrypt(keyStore, oldPassword);
-      const reEncrypted = await encrypt(seed, newPassword);
+      const { address, seed } = await decrypt(keyStore, normalisedOld);
+      const reEncrypted = await encrypt(seed, normalisedNew);
       newKeystores.push(reEncrypted);
       newKeys.push({
-        password: newPassword,
         address,
         mnemonicPhrases: getMnemonicFromHexSeed(seed),
       });

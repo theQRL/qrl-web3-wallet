@@ -377,11 +377,27 @@ class LedgerService {
       );
 
       checkStatusWord(chunkResponse);
-      publicKeyChunks.push(extractResponseData(chunkResponse));
+      const chunkData = extractResponseData(chunkResponse);
+      // Per-chunk size validation: chunks 0-9 carry 258 bytes, chunk 10
+      // carries 12 bytes. A device that returns a chunk of any other size
+      // is misbehaving and the reassembly cannot be trusted.
+      const expectedChunkBytes =
+        chunkIndex === PK_CHUNKS - 1
+          ? LEDGER_CONFIG.PUBLIC_KEY_LAST_CHUNK_BYTES
+          : LEDGER_CONFIG.PUBLIC_KEY_CHUNK_BYTES;
+      if (chunkData.length !== expectedChunkBytes) {
+        throw new Error(LEDGER_ERROR_MESSAGES.INCONSISTENT_DEVICE_RESPONSE);
+      }
+      publicKeyChunks.push(chunkData);
     }
 
-    // Combine chunks into full public key
+    // Combine chunks into full public key and assert exact length.
+    // ML-DSA-87 public keys are exactly EXPECTED_PUBLIC_KEY_BYTES; reject
+    // any deviation (F-12).
     const fullPublicKey = combineSignatureChunks(publicKeyChunks);
+    if (fullPublicKey.length !== LEDGER_CONFIG.EXPECTED_PUBLIC_KEY_BYTES) {
+      throw new Error(LEDGER_ERROR_MESSAGES.INCONSISTENT_DEVICE_RESPONSE);
+    }
     const publicKey = bufferToHex(fullPublicKey);
 
     return {
@@ -504,10 +520,14 @@ class LedgerService {
       // Check status of first signature chunk
       checkStatusWord(signatureResponse);
 
-      // Dilithium signature is returned in 18 chunks
-      const signatureChunks: Buffer[] = [
-        extractResponseData(signatureResponse),
-      ];
+      // Dilithium signature is returned in 18 chunks. Each chunk must be
+      // non-empty; an empty chunk indicates a transport fault or padded
+      // response that cannot be trusted (F-12).
+      const firstChunk = extractResponseData(signatureResponse);
+      if (firstChunk.length === 0) {
+        throw new Error(LEDGER_ERROR_MESSAGES.INCONSISTENT_DEVICE_RESPONSE);
+      }
+      const signatureChunks: Buffer[] = [firstChunk];
 
       for (let chunkIndex = 1; chunkIndex < LEDGER_CONFIG.SIGNATURE_CHUNKS; chunkIndex++) {
         const chunkResponse = await ledgerTransport.send(
@@ -519,11 +539,23 @@ class LedgerService {
         );
 
         checkStatusWord(chunkResponse);
-        signatureChunks.push(extractResponseData(chunkResponse));
+        const chunkData = extractResponseData(chunkResponse);
+        if (chunkData.length === 0) {
+          throw new Error(LEDGER_ERROR_MESSAGES.INCONSISTENT_DEVICE_RESPONSE);
+        }
+        signatureChunks.push(chunkData);
       }
 
-      // Combine all chunks into single signature
+      // Combine all chunks. Bound the assembled length: ML-DSA-87 sigs sit
+      // around 2420 bytes, with some implementation variance. Reject
+      // responses outside the configured envelope.
       const fullSignature = combineSignatureChunks(signatureChunks);
+      if (
+        fullSignature.length < LEDGER_CONFIG.SIGNATURE_MIN_BYTES ||
+        fullSignature.length > LEDGER_CONFIG.SIGNATURE_MAX_BYTES
+      ) {
+        throw new Error(LEDGER_ERROR_MESSAGES.INCONSISTENT_DEVICE_RESPONSE);
+      }
 
       // Notify about success
       if (this.callbacks.onSigningStatusChange) {

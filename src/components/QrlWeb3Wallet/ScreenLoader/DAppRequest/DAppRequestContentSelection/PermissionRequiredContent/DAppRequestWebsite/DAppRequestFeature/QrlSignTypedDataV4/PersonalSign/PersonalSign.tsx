@@ -7,7 +7,7 @@ import {
 } from "@/components/UI/Tooltip";
 import { getHexSeedFromMnemonic } from "@/functions/getHexSeedFromMnemonic";
 import { useStore } from "@/stores/store";
-import StringUtil from "@/utilities/stringUtil";
+import StringUtil, { sanitizeForDisplay } from "@/utilities/stringUtil";
 import { MLDSA87, ExtendedSeed } from "@theqrl/wallet.js";
 import { bytesToHex } from "@theqrl/web3-utils";
 import { parseAndValidateSeed } from "@theqrl/web3-qrl-accounts";
@@ -31,9 +31,19 @@ const PersonalSign = observer(() => {
   } = dAppRequestStore;
 
   const params = dAppRequestData?.params;
-  const challenge = Buffer.from(params?.[0]?.slice(2) ?? "", "hex").toString(
-    "utf8",
-  );
+  const rawMessage: string = params?.[0] ?? "";
+  const messageWithoutPrefix =
+    rawMessage.startsWith("0x") || rawMessage.startsWith("0X")
+      ? rawMessage.slice(2)
+      : rawMessage;
+  const isHexEncoded =
+    /^[0-9a-f]+$/i.test(messageWithoutPrefix) &&
+    messageWithoutPrefix.length % 2 === 0;
+  const decodedChallenge = isHexEncoded
+    ? Buffer.from(messageWithoutPrefix, "hex").toString("utf8")
+    : rawMessage;
+  const { sanitized: challenge, hadHidden: hasHiddenChars } =
+    sanitizeForDisplay(decodedChallenge);
   const fromAddress = params?.[1] ?? "";
   const { prefix: prefixFromAddress, addressSplit: addressSplitFromAddress } =
     StringUtil.getSplitAddress(fromAddress);
@@ -97,6 +107,18 @@ const PersonalSign = observer(() => {
       </div>
       <div className="flex flex-col gap-1">
         <div>{t('dapp.signature.message')}</div>
+        {!isHexEncoded && (
+          <div className="text-xs text-yellow-600">
+            Message is not hex-encoded; displaying raw input.
+          </div>
+        )}
+        {hasHiddenChars && (
+          <div className="text-xs text-red-600">
+            Warning: this message contained hidden formatting characters
+            (bidirectional, zero-width, or control); they have been removed
+            from the display. The bytes signed will still include them.
+          </div>
+        )}
         <div className="flex justify-between gap-2">
           <div className="max-h-[8rem] w-full overflow-hidden break-words font-bold text-secondary">
             {challenge}

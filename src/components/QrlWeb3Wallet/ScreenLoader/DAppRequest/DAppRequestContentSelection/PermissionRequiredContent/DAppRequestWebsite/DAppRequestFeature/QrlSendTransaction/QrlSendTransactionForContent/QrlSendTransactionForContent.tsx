@@ -8,6 +8,7 @@ import {
 } from "@/components/UI/Tooltip";
 import { getHexSeedFromMnemonic } from "@/functions/getHexSeedFromMnemonic";
 import { useStore } from "@/stores/store";
+import type { TransactionHistoryEntry } from "@/types/transactionHistory";
 import StringUtil from "@/utilities/stringUtil";
 import { Copy } from "lucide-react";
 import { observer } from "mobx-react-lite";
@@ -15,6 +16,14 @@ import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { SEND_TRANSACTION_TYPES } from "../QrlSendTransaction";
 import { utils, qrl } from "@theqrl/web3";
+
+type DAppTransactionReceipt = {
+  transactionHash?: string;
+  blockNumber?: bigint | string | number;
+  gasUsed?: bigint | string | number;
+  effectiveGasPrice?: bigint | string | number;
+  status?: bigint | string | number;
+};
 
 const { Common } = qrl.accounts;
 
@@ -38,10 +47,16 @@ type QrlSendTransactionForContentProps = {
 const QrlSendTransactionForContent = observer(
   ({ transactionType }: QrlSendTransactionForContentProps) => {
     const { t } = useTranslation();
-    const { lockStore, qrlStore, dAppRequestStore, ledgerStore } = useStore();
+    const {
+      lockStore,
+      qrlStore,
+      dAppRequestStore,
+      ledgerStore,
+      transactionHistoryStore,
+    } = useStore();
     const { getMnemonicPhrases } = lockStore;
     const { qrlInstance, getGasFeeData, qrlConnection } = qrlStore;
-    const { isConnected } = qrlConnection;
+    const { isConnected, blockchain } = qrlConnection;
     const {
       dAppRequestData,
       setOnPermissionCallBack,
@@ -77,6 +92,65 @@ const QrlSendTransactionForContent = observer(
 
     const copyData = () => {
       navigator.clipboard.writeText(data);
+    };
+
+    const recordTransactionHistory = async ({
+      from,
+      to,
+      value,
+      data,
+      receipt,
+      isQrlTransfer,
+    }: {
+      from: string;
+      to?: string;
+      value?: string | bigint | number;
+      data?: string;
+      receipt: DAppTransactionReceipt;
+      isQrlTransfer: boolean;
+    }) => {
+      const transactionHash = receipt?.transactionHash;
+      if (!transactionHash) return;
+      try {
+        const isSuccess = receipt.status?.toString() === "1";
+        const tokenSymbol = blockchain?.nativeCurrency?.symbol ?? "QRL";
+        const tokenName = blockchain?.nativeCurrency?.name ?? tokenSymbol;
+        const valueAsBigInt =
+          value !== undefined && value !== null
+            ? typeof value === "bigint"
+              ? value
+              : BigInt(value)
+            : 0n;
+        const amount = isQrlTransfer
+          ? Number(utils.fromPlanck(valueAsBigInt, "quanta"))
+          : 0;
+        const entry: TransactionHistoryEntry = {
+          id: transactionHash,
+          from,
+          to: to ?? "",
+          amount,
+          tokenSymbol,
+          tokenName,
+          isZrc20Token: false,
+          tokenContractAddress: "",
+          tokenDecimals: 18,
+          transactionHash,
+          blockNumber: receipt.blockNumber?.toString() ?? "",
+          gasUsed: receipt.gasUsed?.toString() ?? "",
+          effectiveGasPrice: (receipt.effectiveGasPrice ?? 0).toString(),
+          status: isSuccess,
+          timestamp: Date.now(),
+          chainId: blockchain?.chainId ?? "",
+          pendingStatus: isSuccess ? "confirmed" : "failed",
+          data: data ?? undefined,
+        };
+        await transactionHistoryStore.addTransaction(from, entry);
+      } catch (error) {
+        console.error(
+          "QrlWeb3Wallet: Failed to record dApp transaction in history",
+          error,
+        );
+      }
     };
 
     const deployContractOrInteract = async () => {
@@ -146,6 +220,16 @@ const QrlSendTransactionForContent = observer(
           addToResponseData({
             transactionHash: transactionReceipt?.transactionHash,
           });
+          if (from && transactionReceipt) {
+            await recordTransactionHistory({
+              from,
+              to,
+              value,
+              data,
+              receipt: transactionReceipt as DAppTransactionReceipt,
+              isQrlTransfer: false,
+            });
+          }
         } else {
           throw new Error("Transaction could not be signed");
         }
@@ -238,6 +322,15 @@ const QrlSendTransactionForContent = observer(
           addToResponseData({
             transactionHash: transactionReceipt?.transactionHash,
           });
+          if (from && transactionReceipt) {
+            await recordTransactionHistory({
+              from,
+              to,
+              value,
+              receipt: transactionReceipt as DAppTransactionReceipt,
+              isQrlTransfer: true,
+            });
+          }
         } else {
           throw new Error("QRL Transfer transaction could not be signed");
         }

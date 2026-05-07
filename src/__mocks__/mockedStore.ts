@@ -2,6 +2,7 @@ import {
   type BlockchainDataType,
   DEFAULT_BLOCKCHAIN,
 } from "@/configuration/qrlBlockchainConfig";
+import type DAppRequestStore from "@/stores/dAppRequestStore";
 import type LockStore from "@/stores/lockStore";
 import type SettingsStore from "@/stores/settingsStore";
 import type { StoreType } from "@/stores/store";
@@ -162,7 +163,7 @@ const mockedStoreValues: StoreType = {
     onPermission: async (_hasApproved: boolean) => {},
     fetchCurrentTabData: async () => {},
     disconnectFromCurrentTab: async () => {},
-  },
+  } as unknown as DAppRequestStore,
   lockStore: {
     hasPasswordSet: false,
     isLoading: false,

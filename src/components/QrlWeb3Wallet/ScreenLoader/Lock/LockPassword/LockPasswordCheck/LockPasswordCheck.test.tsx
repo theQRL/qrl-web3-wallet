@@ -75,7 +75,7 @@ describe("LockPasswordCheck", () => {
     await userEvent.type(passwordField, "test123456");
     await waitFor(() => {
       expect(
-        screen.queryByText("Password should be atleast 8 characters"),
+        screen.queryByText("Password must be at least 12 characters"),
       ).not.toBeInTheDocument();
     });
   });

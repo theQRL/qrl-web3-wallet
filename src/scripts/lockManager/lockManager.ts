@@ -16,9 +16,17 @@ export type EncryptAccountType = {
 };
 
 export type DecryptedKeyType = {
-  password: string;
   address: string;
   mnemonicPhrases: string;
+};
+
+// SET_DECRYPTED_KEYS payload: keys are stored alongside the wallet password
+// so the SW can re-encrypt new accounts during the unlock session, but the
+// password is held in a separate field (not interleaved with each key) and
+// is excluded from the session-storage backup.
+export type SetDecryptedKeysPayload = {
+  keys: DecryptedKeyType[];
+  walletPassword: string;
 };
 
 export const LOCK_MANAGER_MESSAGES = {
@@ -46,12 +54,16 @@ export const LOCK_MANAGER_MESSAGES = {
  */
 class LockManager {
   private static decryptedKeys?: DecryptedKeyType[];
+  // Held in memory only — never written to session storage. Separating the
+  // password from `decryptedKeys` reduces blast radius if either store leaks.
+  private static walletPassword?: string;
   static readonly AUTO_LOCK_ALARM = "QRL_AUTO_LOCK";
   static readonly KEEP_ALIVE_ALARM = "QRL_KEEP_ALIVE";
   private static readonly SESSION_KEYS_KEY = "_LM_CACHED_KEYS";
 
   static async lock() {
     this.clearDecryptedKeys();
+    this.walletPassword = undefined;
     await this.clearSessionKeys();
     await this.stopKeepAlive();
     await this.clearAutoLockAlarm();
@@ -146,6 +158,9 @@ class LockManager {
    */
   static async unlock(password: string): Promise<boolean> {
     try {
+      // Normalise to NFC so the same visual password yields the same bytes
+      // regardless of the platform / IME the user typed it on.
+      const normalisedPassword = password.normalize("NFC");
       const keyStores = await StorageUtil.getKeystores();
       if (!keyStores.length) return false;
       const decryptedKeys: DecryptedKeyType[] = [];
@@ -153,13 +168,13 @@ class LockManager {
         // Yield the event loop between decryptions so Chrome
         // doesn't consider the service worker unresponsive.
         await new Promise((r) => setTimeout(r, 0));
-        const { address, seed } = await decrypt(keyStore, password);
+        const { address, seed } = await decrypt(keyStore, normalisedPassword);
         decryptedKeys.push({
-          password,
           address,
           mnemonicPhrases: getMnemonicFromHexSeed(seed),
         });
       }
+      this.walletPassword = normalisedPassword;
       this.setDecryptedKeys(
         Array.from(
           new Map(
@@ -170,20 +185,23 @@ class LockManager {
       return true;
     } catch {
       this.clearDecryptedKeys();
+      this.walletPassword = undefined;
       return false;
     }
   }
 
   static async isLocked() {
-    let hasPasswordSet = true;
     const keyStores = await StorageUtil.getKeystores();
     const accounts = await StorageUtil.getAllAccounts();
-    if (!keyStores.length || !accounts.length) {
-      // If the keystore or account is missing in the storage, either the password was not set
-      // or the storage was manually deleted.
-      await StorageUtil.clearAllData();
+    const hasPasswordSet = keyStores.length > 0 && accounts.length > 0;
+    if (!hasPasswordSet) {
+      // Storage looks like a first-run / partial-reset state. Drop any
+      // in-memory keys but do NOT wipe persistent storage from a query
+      // path — the popup's onboarding flow will guide the user. An
+      // explicit factory-reset action lives in settings for intentional
+      // wipes.
       this.clearDecryptedKeys();
-      hasPasswordSet = false;
+      this.walletPassword = undefined;
     }
     // If SW restarted (lost in-memory keys), try restoring from session backup.
     if (this.decryptedKeys === undefined && hasPasswordSet) {
@@ -198,8 +216,17 @@ class LockManager {
   /**
    * Accept pre-decrypted keys from the popup.
    * The popup performs the CPU-heavy decrypt, then sends the results here.
+   * Accepts either the new {keys, walletPassword} payload or a bare keys
+   * array (the latter for SW-restart re-sends, where the popup may have
+   * lost the password but still has cached keys).
    */
-  static setDecryptedKeysFromPopup(keys: DecryptedKeyType[]) {
+  static setDecryptedKeysFromPopup(
+    payload: SetDecryptedKeysPayload | DecryptedKeyType[],
+  ) {
+    const keys = Array.isArray(payload) ? payload : payload.keys;
+    if (!Array.isArray(payload) && payload.walletPassword) {
+      this.walletPassword = payload.walletPassword;
+    }
     this.setDecryptedKeys(
       Array.from(
         new Map(
@@ -210,7 +237,8 @@ class LockManager {
   }
 
   static async encryptAccount(accountData: EncryptAccountType) {
-    const { password, seed } = accountData;
+    const { password: rawPassword, seed } = accountData;
+    const password = rawPassword.normalize("NFC");
     const keystores = await StorageUtil.getKeystores();
     const encryptedKeyStore = await encrypt(seed, password);
     const updatedKeyStores = [...keystores, encryptedKeyStore];
@@ -224,10 +252,10 @@ class LockManager {
     // Add the new account key directly to in-memory keys
     // instead of re-decrypting everything (which would block the SW).
     const newKey: DecryptedKeyType = {
-      password,
       address: encryptedKeyStore.address,
       mnemonicPhrases: getMnemonicFromHexSeed(seed as string),
     };
+    this.walletPassword = password;
     const existingKeys = this.decryptedKeys ?? [];
     this.setDecryptedKeys(
       Array.from(
@@ -247,9 +275,9 @@ class LockManager {
   }
 
   static getWalletPassword() {
-    const decryptedKeys = this.getDecryptedKeys();
-    const password: string = decryptedKeys?.[0]?.password ?? "";
-    return password;
+    // Force the locked-state error if keys are gone.
+    this.getDecryptedKeys();
+    return this.walletPassword ?? "";
   }
 
   static getDecryptedKeys() {
@@ -264,7 +292,26 @@ class LockManager {
     this.decryptedKeys = undefined;
   }
 
-  static async lockManagerListener(message: MessageType) {
+  static async lockManagerListener(
+    message: MessageType,
+    sender?: browser.Runtime.MessageSender,
+  ) {
+    // Reject any same-extension caller that is not an extension page (popup,
+    // options, side panel). Content scripts are part of the same extension
+    // but run with `sender.url === <page-url>`; the only legitimate callers
+    // for these messages are extension pages, whose `sender.url` starts with
+    // the extension's own origin. Defence in depth: today no content script
+    // sends LOCK_MANAGER messages, but a future code-path that forwards
+    // arbitrary messages should not be able to read decrypted keys.
+    if (sender !== undefined) {
+      const extensionUrlPrefix = browser.runtime.getURL("");
+      if (
+        typeof sender.url === "string" &&
+        !sender.url.startsWith(extensionUrlPrefix)
+      ) {
+        return undefined;
+      }
+    }
     let result;
     if (message.name === LOCK_MANAGER_MESSAGES.IS_LOCKED) {
       result = await LockManager.isLocked();

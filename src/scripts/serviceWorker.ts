@@ -1,7 +1,7 @@
 import StorageUtil from "@/utilities/storageUtil";
 import { JsonRpcEngine } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
 import { createEngineStream } from "@theqrl/qrl-wallet-provider/json-rpc-middleware-stream";
-import PortStream from "extension-port-stream";
+import { ExtensionPortStream } from "extension-port-stream";
 import { pipeline } from "readable-stream";
 import browser from "webextension-polyfill";
 import {
@@ -162,7 +162,7 @@ const setupProviderEngineEip1193 = ({
  * A method for serving qrl provider over a given stream.
  */
 const setupProviderConnectionEip1193 = async (port: browser.Runtime.Port) => {
-  const portStream = new PortStream(port);
+  const portStream = new ExtensionPortStream(port);
   const mux = setupMultiplex(portStream);
   const outStream = mux.createStream(QRL_WALLET_PROVIDER_NAME);
   const sender = port.sender;
@@ -220,12 +220,28 @@ const applySidePanelPreference = async () => {
   }
 };
 
+const enforceSessionStorageAccessLevel = async () => {
+  // Pin session storage to TRUSTED_CONTEXTS so content scripts cannot read
+  // the decrypted-keys backup. TRUSTED_CONTEXTS is the MV3 default; we set it
+  // explicitly so a future Chromium default change cannot quietly widen us.
+  try {
+    await chrome.storage.session.setAccessLevel({
+      accessLevel: "TRUSTED_CONTEXTS",
+    });
+  } catch {
+    // Older Chromium versions lack the API; the default already excludes
+    // content scripts so the wallet remains safe.
+  }
+};
+
 const initializeServiceWorker = async () => {
   // Register listeners first so the popup can always communicate with the service worker,
   // even if script registration fails.
   prepareListeners();
   establishContenScriptConnection();
   establishLockManagerConnection();
+
+  await enforceSessionStorageAccessLevel();
 
   try {
     await registerScripts();

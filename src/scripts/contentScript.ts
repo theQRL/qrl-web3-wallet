@@ -10,7 +10,7 @@ import { WindowPostMessageStream } from "@theqrl/qrl-wallet-provider/post-messag
 import { BaseProvider } from "@theqrl/qrl-wallet-provider/providers";
 import { JsonRpcRequest } from "@theqrl/qrl-wallet-provider/utils";
 import axios from "axios";
-import PortStream from "extension-port-stream";
+import { ExtensionPortStream } from "extension-port-stream";
 import { pipeline } from "readable-stream";
 import browser from "webextension-polyfill";
 import { UNRESTRICTED_METHODS } from "./constants/requestConstants";
@@ -30,7 +30,7 @@ let pageMux: ObjectMultiplex;
 let pageChannel: Substream;
 
 let extensionPort: browser.Runtime.Port;
-let extensionStream: PortStream | null;
+let extensionStream: ExtensionPortStream | null;
 let extensionMux: ObjectMultiplex;
 let extensionChannel: Substream;
 
@@ -158,7 +158,7 @@ const setupExtensionStreams = () => {
   extensionPort = browser.runtime.connect({
     name: QRL_POST_MESSAGE_STREAM.CONTENT_SCRIPT,
   });
-  extensionStream = new PortStream(extensionPort);
+  extensionStream = new ExtensionPortStream(extensionPort);
   extensionStream.on("data", onDataExtensionStream);
 
   // create and connect channel muxers
@@ -248,10 +248,6 @@ const prepareListeners = () => {
             new URL(message?.data?.senderData?.url ?? "").origin,
           );
         return connectedAccountsData?.accounts ?? [];
-      } else if (method === UNRESTRICTED_METHODS.WALLET_GET_CALL_STATUS) {
-        // TODO: Fetch the batch status from the smart contract here.
-        const batchStatus = { version: "2.0.0", chainId: "0x1" };
-        return getSerializableObject(batchStatus);
       } else if (method === UNRESTRICTED_METHODS.WALLET_GET_PERMISSIONS) {
         const dAppsConnectedAccountsData =
           await StorageUtil.getDAppsConnectedAccountsData(

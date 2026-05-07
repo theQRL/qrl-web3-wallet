@@ -6,6 +6,19 @@ type appendSenderDataParams = {
   sender: browser.Runtime.MessageSender;
 };
 
+// Extends the upstream `senderData` shape with `mainFrameOrigin`. Permission
+// and account-authorisation checks must continue to use `url` (the frame
+// origin); phishing-detect and the approval popup additionally consume
+// `mainFrameOrigin` (the parent tab origin) so a phishing top-level page
+// hosting a connected dApp's iframe is caught.
+export type ExtendedSenderData = {
+  tabId?: number;
+  title?: string;
+  url?: string;
+  favIconUrl?: string;
+  mainFrameOrigin?: string;
+};
+
 export const appendSenderDataMiddleware =
   ({
     sender,
@@ -17,11 +30,15 @@ export const appendSenderDataMiddleware =
     // and would cause a cross-origin iframe to be attributed to its parent,
     // defeating origin-based permission and approval checks.
     // tabId / title / favIconUrl stay as UI-only context (no security boundary).
-    req.senderData = {
+    // mainFrameOrigin carries the parent tab URL for phishing-list lookup
+    // and for popup display so users see both frame and parent origins.
+    const senderData: ExtendedSenderData = {
       tabId: tab?.id,
       title: tab?.title,
       url: senderUrl,
       favIconUrl: tab?.favIconUrl,
+      mainFrameOrigin: tab?.url,
     };
+    req.senderData = senderData;
     next();
   };

@@ -98,6 +98,10 @@ export type LockStateType = (typeof LockState)[keyof typeof LockState];
  * A utility for storing and retrieving states of different components to and from the browser storage.
  */
 class StorageUtil {
+  // Cap retained tx-history entries per account+chain so unbounded
+  // growth under `unlimitedStorage` cannot wedge the popup ↔ SW port
+  // (Chromium's 64 MB silent-drop limit).
+  static readonly TX_HISTORY_MAX_PER_ACCOUNT_CHAIN = 1000;
   /**
    * A function for storing the keystore data.
    * Call the getKeystore function to retrieve the stored value, and clearKeystore for clearing the stored value.
@@ -774,12 +778,13 @@ class StorageUtil {
     }
 
     const existing = await this.getTransactionHistory(accountAddress);
-    storageData[TX_HISTORY_IDENTIFIER][ALL_TX_HISTORY_IDENTIFIER][
-      accountAddress
-    ][chainId].transactions = [
+    const merged = [
       entry,
       ...existing.filter((tx) => tx.transactionHash !== entry.transactionHash),
     ];
+    storageData[TX_HISTORY_IDENTIFIER][ALL_TX_HISTORY_IDENTIFIER][
+      accountAddress
+    ][chainId].transactions = merged.slice(0, StorageUtil.TX_HISTORY_MAX_PER_ACCOUNT_CHAIN);
 
     await browser.storage.local.set(storageData);
   }
@@ -811,9 +816,21 @@ class StorageUtil {
         accountAddress
       ]?.[chainId]?.transactions ?? [];
 
-    const updatedTransactions = transactions.map((tx) =>
-      tx.transactionHash === transactionHash ? { ...tx, ...updates } : tx,
-    );
+    // confirmed / failed are terminal states; refuse updates that would
+    // revert a tx back to pending (or otherwise change a terminal status).
+    const TERMINAL: Array<TransactionHistoryEntry["pendingStatus"]> = [
+      "confirmed",
+      "failed",
+    ];
+    const updatedTransactions = transactions.map((tx) => {
+      if (tx.transactionHash !== transactionHash) return tx;
+      const merged = { ...tx, ...updates };
+      if (TERMINAL.includes(tx.pendingStatus)) {
+        merged.pendingStatus = tx.pendingStatus;
+        merged.status = tx.status;
+      }
+      return merged;
+    });
 
     storageData[TX_HISTORY_IDENTIFIER][ALL_TX_HISTORY_IDENTIFIER][
       accountAddress
