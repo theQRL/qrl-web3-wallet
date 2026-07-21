@@ -10,6 +10,7 @@ import { BlockchainDataType } from "@/configuration/qrlBlockchainConfig";
 import AddressUtil from "@/utilities/addressUtil";
 import {
   CAVEAT_TYPES,
+  DAppRequestType,
   PARENT_CAPABILITIES,
   Permission,
 } from "../middlewares/middlewareTypes";
@@ -44,6 +45,140 @@ export const checkAccountHasBeenAuthorized = async (
       message: `The requested account ${fromAddress} has not been authorized by the user.`,
     }),
   };
+};
+
+export const normalizeChainId = (chainId: unknown): string | undefined => {
+  if (
+    (typeof chainId !== "string" && typeof chainId !== "number" &&
+      typeof chainId !== "bigint") ||
+    (typeof chainId === "number" && !Number.isSafeInteger(chainId))
+  ) {
+    return undefined;
+  }
+
+  try {
+    const value = BigInt(chainId);
+    if (value <= 0n || value > BigInt(MAX_SAFE_CHAIN_ID)) return undefined;
+    return `0x${value.toString(16)}`;
+  } catch {
+    return undefined;
+  }
+};
+
+const getTypedDataChainId = (req: JsonRpcRequest<JsonRpcRequest>) => {
+  // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime
+  const rawTypedData = req.params?.[1];
+  if (typeof rawTypedData === "string") {
+    try {
+      return { isValid: true, chainId: JSON.parse(rawTypedData)?.domain?.chainId };
+    } catch {
+      return { isValid: false, chainId: undefined };
+    }
+  }
+  return { isValid: true, chainId: rawTypedData?.domain?.chainId };
+};
+
+/**
+ * Enforce the account and chain capability granted to a dApp origin.
+ * Typed-data requests are bound to domain.chainId when present; all other
+ * sensitive requests are bound to the active chain.
+ */
+export const checkAccountAndChainHaveBeenAuthorized = async (
+  req: JsonRpcRequest<JsonRpcRequest>,
+  expectedChainId?: string,
+) => {
+  const accountResult = await checkAccountHasBeenAuthorized(req);
+  if (!accountResult.canProceed) return accountResult;
+
+  const origin = new URL(req?.senderData?.url ?? "").origin;
+  const connectedData = await StorageUtil.getDAppsConnectedAccountsData(origin);
+  const activeChainId = normalizeChainId(
+    (await StorageUtil.getActiveBlockChain())?.chainId,
+  );
+  const typedDataChain =
+    req.method === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4
+      ? getTypedDataChainId(req)
+      : { isValid: true, chainId: undefined };
+  if (!typedDataChain.isValid) {
+    return {
+      canProceed: false,
+      proceedError: rpcErrors.invalidParams({
+        message: "The wallet cannot parse the typed-data request.",
+      }),
+    };
+  }
+  const declaredTypedDataChainId = typedDataChain.chainId;
+  const hasDeclaredTypedDataChain =
+    declaredTypedDataChainId !== undefined && declaredTypedDataChainId !== null;
+  const effectiveChainId = normalizeChainId(
+    expectedChainId ??
+      (hasDeclaredTypedDataChain ? declaredTypedDataChainId : activeChainId),
+  );
+
+  if (!effectiveChainId) {
+    return {
+      canProceed: false,
+      proceedError: rpcErrors.invalidParams({
+        message: "The request contains an invalid chain ID.",
+      }),
+    };
+  }
+
+  // A typed signature for another chain is too easy to misread in an approval
+  // tied to the active wallet network. Require an explicit switch first.
+  if (
+    (hasDeclaredTypedDataChain || expectedChainId !== undefined) &&
+    effectiveChainId !== activeChainId
+  ) {
+    return {
+      canProceed: false,
+      proceedError: providerErrors.unauthorized({
+        message: `The authorized request chain ${effectiveChainId} is not the active wallet chain.`,
+      }),
+    };
+  }
+
+  const isAuthorized = (connectedData?.blockchains ?? []).some(
+    (chain) => normalizeChainId(chain.chainId) === effectiveChainId,
+  );
+  if (!isAuthorized) {
+    return {
+      canProceed: false,
+      proceedError: providerErrors.unauthorized({
+        message: `The requesting site is not authorized to use chain ${effectiveChainId}.`,
+      }),
+    };
+  }
+
+  return {
+    canProceed: true,
+    proceedError: undefined,
+    authorizedChainId: effectiveChainId,
+  };
+};
+
+export const revalidateAuthorizedDAppRequest = async (
+  request: DAppRequestType | undefined,
+) => {
+  if (!request?.authorizedChainId || !request.requestData?.senderData) {
+    return {
+      canProceed: false,
+      proceedError: providerErrors.unauthorized({
+        message: "The approval request is missing its authorized chain context.",
+      }),
+    };
+  }
+
+  return checkAccountAndChainHaveBeenAuthorized(
+    {
+      id: request.requestId,
+      jsonrpc: "2.0",
+      method: request.method,
+      params: request.params,
+      senderData: request.requestData.senderData,
+    } as JsonRpcRequest<JsonRpcRequest>,
+    request.authorizedChainId,
+  );
 };
 
 const isAcceptableUrl = (urlString: string) => {

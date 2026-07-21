@@ -15,6 +15,7 @@ import {
 import { checkDomain } from "../phishing/phishingDetector";
 import {
   checkAccountHasBeenAuthorized,
+  checkAccountAndChainHaveBeenAuthorized,
   checkUrlOriginHasBeenConnected,
   checkWalletAddQrlChainParams,
   checkWalletRequestPermissionParams,
@@ -129,10 +130,11 @@ const checkRequestCanProceed = async (req: JsonRpcRequest<JsonRpcRequest>) => {
       // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime for this RPC method
       return await checkWalletRequestPermissionParams(req?.params?.[0]);
     case RESTRICTED_METHODS.WALLET_GET_CAPABILITIES:
+      return await checkAccountHasBeenAuthorized(req);
     case RESTRICTED_METHODS.QRL_SEND_TRANSACTION:
     case RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4:
     case RESTRICTED_METHODS.PERSONAL_SIGN:
-      return await checkAccountHasBeenAuthorized(req);
+      return await checkAccountAndChainHaveBeenAuthorized(req);
     default:
       return {
         canProceed: true,
@@ -144,6 +146,7 @@ const checkRequestCanProceed = async (req: JsonRpcRequest<JsonRpcRequest>) => {
 // get the result of the user approval/rejection of the request
 const getRestrictedMethodResult = async (
   req: JsonRpcRequest<JsonRpcRequest>,
+  authorizedChainId?: string,
 ): Promise<DAppResponseType> => {
   const settings = await StorageUtil.getSettings();
   const phishingEnabled = settings.phishingDetectionEnabled !== false;
@@ -181,6 +184,7 @@ const getRestrictedMethodResult = async (
     requestData: { senderData: req.senderData },
     phishingResult,
     requestId,
+    authorizedChainId,
   };
 
   await StorageUtil.setDAppsRequestData(request);
@@ -291,7 +295,12 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       return end();
     } else {
       // check if the request can proceed
-      const { canProceed, proceedError } = await checkRequestCanProceed(req);
+      const precheckResult = await checkRequestCanProceed(req);
+      const { canProceed, proceedError } = precheckResult;
+      const authorizedChainId =
+        "authorizedChainId" in precheckResult
+          ? (precheckResult.authorizedChainId as string | undefined)
+          : undefined;
       if (!canProceed) {
         // @ts-expect-error - proceedError type from provider library is not assignable to res.error's narrow type
         res.error = proceedError;
@@ -318,7 +327,10 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       };
       try {
         isRequestPending = true;
-        restrictedMethodResult = await getRestrictedMethodResult(req);
+        restrictedMethodResult = await getRestrictedMethodResult(
+          req,
+          authorizedChainId,
+        );
       } finally {
         isRequestPending = false;
         const hasApproved = restrictedMethodResult?.hasApproved;

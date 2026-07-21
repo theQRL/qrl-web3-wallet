@@ -127,14 +127,13 @@
     "@ledgerhq/hw-transport": "6.35.0",
     "@ledgerhq/hw-transport-webhid": "6.35.0",
     "@radix-ui/react-select": "2.2.6",
-    "@theqrl/qrl-cryptography": "0.1.1",
+    "@theqrl/qrl-cryptography": "0.3.0",
     "eth-phishing-detect": "1.2.0",
     "i18next": "25.10.10",
     "qrcode.react": "4.2.0",
     "react-i18next": "16.6.6"
   },
   "overrides": {
-    "@noble/hashes": "1.8.0",
     "extension-port-stream": "5.0.3"
   }
 }

@@ -20,6 +20,11 @@ export type DAppRequestType = {
   // the popup must echo it on the DAPP_RESPONSE so a stale response cannot
   // satisfy a different pending request.
   requestId?: string;
+  // Chain authorized by the service worker when the request entered the
+  // approval flow. Approval components revalidate this immediately before a
+  // signing or broadcast operation so a later global chain change cannot
+  // redirect the request.
+  authorizedChainId?: string;
 };
 
 export type DAppResponseType = {

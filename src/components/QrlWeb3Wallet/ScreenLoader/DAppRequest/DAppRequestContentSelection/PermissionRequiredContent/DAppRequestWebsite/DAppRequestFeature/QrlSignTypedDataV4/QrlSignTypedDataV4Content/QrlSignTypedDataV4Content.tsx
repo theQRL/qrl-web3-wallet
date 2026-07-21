@@ -21,6 +21,7 @@ import { Copy } from "lucide-react";
 import { observer } from "mobx-react-lite";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
+import { revalidateAuthorizedDAppRequest } from "@/scripts/utils/restrictedMethodsMiddlewareUtils";
 
 const MAX_INLINE_STRING_LEN = 200;
 
@@ -202,12 +203,19 @@ const QrlSignTypedDataV4Content = observer(() => {
     if (isConnected) {
       const onPermissionCallBack = async (hasApproved: boolean) => {
         if (hasApproved) {
-          signTypedDataV4();
+          const authorization = await revalidateAuthorizedDAppRequest(
+            dAppRequestData,
+          );
+          if (!authorization.canProceed) {
+            addToResponseData({ error: authorization.proceedError });
+            return;
+          }
+          await signTypedDataV4();
         }
       };
       setOnPermissionCallBack(onPermissionCallBack);
     }
-  }, [isConnected]);
+  }, [isConnected, dAppRequestData]);
 
   const copyMessageData = () => {
     navigator.clipboard.writeText(JSON.stringify(typedData));

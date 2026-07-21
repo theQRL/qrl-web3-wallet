@@ -13,6 +13,13 @@ vi.mock("@/functions/getHexSeedFromMnemonic", () => ({
   getHexSeedFromMnemonic: vi.fn(() => "0xhexseed"),
 }));
 
+vi.mock("@/scripts/utils/restrictedMethodsMiddlewareUtils", () => ({
+  revalidateAuthorizedDAppRequest: vi.fn(async () => ({
+    canProceed: true,
+    proceedError: undefined,
+  })),
+}));
+
 describe("QrlSendTransactionForContent", () => {
   afterEach(cleanup);
 
