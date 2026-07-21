@@ -21,12 +21,13 @@ const Receive = observer(() => {
   const { activeAccount } = qrlStore;
   const { state } = useLocation();
   const accountAddress = state?.accountAddress ?? activeAccount.accountAddress;
+  const displayAddress = StringUtil.getDisplayAddress(accountAddress);
 
-  const { prefix, addressSplit } = StringUtil.getSplitAddress(accountAddress);
+  const { prefix, addressSplit } = StringUtil.getSplitAddress(displayAddress);
   const [copied, setCopied] = useState(false);
 
   const onCopy = () => {
-    navigator.clipboard.writeText(accountAddress);
+    navigator.clipboard.writeText(displayAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 1000);
   };
@@ -42,7 +43,7 @@ const Receive = observer(() => {
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4">
             <div className="rounded-lg bg-white p-3">
-              <QRCodeSVG value={accountAddress} size={150} />
+              <QRCodeSVG value={displayAddress} size={150} />
             </div>
             <div className="flex items-start gap-2">
               <span className="break-all text-center text-sm text-secondary">

@@ -33,8 +33,8 @@ describe("GasFeeSelector", () => {
     isZrc20Token: false,
     tokenContractAddress: "",
     tokenDecimals: 18,
-    from: "0x205046e6A6E159eD6ACedE46A36CAD6D449C80A1",
-    to: "0x20fB08fF1f1376A14C055E9F56df80563E16722b",
+    from: "Q00000000000000000000000000000000000000000000000000000000205046e6A6E159eD6ACedE46A36CAD6D449C80A100000000000000000000000000000000",
+    to: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     value: 1.5,
     disabled: false,
     onOverridesChange: vi.fn<any>(),
@@ -340,7 +340,7 @@ describe("GasFeeSelector", () => {
       mockedStore({ qrlStore: { getZrc20TokenGas } }),
       {
         isZrc20Token: true,
-        tokenContractAddress: "0x28c4113a9d3a2e836f28c23ed8e3c1e7c243f566",
+        tokenContractAddress: "Q0000000000000000000000000000000000000000000000000000000028c4113a9d3a2e836f28c23ed8e3c1e7c243f56600000000000000000000000000000000",
         tokenDecimals: 18,
       },
     );

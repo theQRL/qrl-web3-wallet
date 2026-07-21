@@ -53,8 +53,8 @@ const AccountId = observer(({ account, hideLabel }: AccountIdType) => {
               {prefix}
               {addressSplit[0]}
             </div>
-            {addressSplit.slice(1).map((part) => (
-              <div className="text-xs" key={part}>
+            {addressSplit.slice(1).map((part, index) => (
+              <div className="text-xs" key={`${index}-${part}`}>
                 {part}
               </div>
             ))}

@@ -38,7 +38,7 @@ describe("QrlRequestAccountAccountSelection", () => {
             isLoading: false,
             accounts: [
               {
-                accountAddress: "Q20E7Bde67f00EA38ABb2aC57e1B0DD93f518446c",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020E7Bde67f00EA38ABb2aC57e1B0DD93f518446c00000000000000000000000000000000",
                 accountBalance: "0.0 QRL",
               },
             ],
@@ -86,7 +86,7 @@ describe("QrlRequestAccountAccountSelection", () => {
             isLoading: false,
             accounts: [
               {
-                accountAddress: "Q20E7Bde67f00EA38ABb2aC57e1B0DD93f518446c",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020E7Bde67f00EA38ABb2aC57e1B0DD93f518446c00000000000000000000000000000000",
                 accountBalance: "0.0 QRL",
               },
             ],

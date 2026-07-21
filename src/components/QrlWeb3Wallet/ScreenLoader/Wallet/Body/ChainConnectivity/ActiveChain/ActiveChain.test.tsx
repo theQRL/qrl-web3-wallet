@@ -1,5 +1,6 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
 import { TooltipProvider } from "@/components/UI/Tooltip";
+import { DEFAULT_BLOCKCHAIN } from "@/configuration/qrlBlockchainConfig";
 import { ROUTES } from "@/router/router";
 import { StoreProvider } from "@/stores/store";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -31,9 +32,13 @@ describe("ActiveChain", () => {
 
     expect(screen.getByText("Active chain")).toBeInTheDocument();
     expect(screen.getByText("Mocked Chain Icon")).toBeInTheDocument();
-    expect(screen.getByText("QRL Zond Testnet v2")).toBeInTheDocument();
-    expect(screen.getByText("Chain ID 1337")).toBeInTheDocument();
-    expect(screen.getByText("http://209.250.255.226:8545")).toBeInTheDocument();
+    expect(screen.getByText(DEFAULT_BLOCKCHAIN.chainName)).toBeInTheDocument();
+    expect(
+      screen.getByText(`Chain ID ${Number(DEFAULT_BLOCKCHAIN.chainId)}`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(DEFAULT_BLOCKCHAIN.defaultRpcUrl),
+    ).toBeInTheDocument();
     const link = screen.getByRole("link", { name: "Edit chain" });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute("href", ROUTES.ADD_EDIT_CHAIN);

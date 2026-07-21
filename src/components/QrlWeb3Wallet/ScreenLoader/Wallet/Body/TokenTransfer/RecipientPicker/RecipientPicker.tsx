@@ -35,13 +35,17 @@ const AddressRow = ({ address, label, onClick }: AddressRowProps) => {
 
   return (
     <button
-      className="flex w-full flex-col gap-0.5 rounded-md border p-2 text-left transition-colors hover:bg-accent"
+      className="flex w-full min-w-0 flex-col gap-0.5 rounded-md border p-2 text-left transition-colors hover:bg-accent"
       onClick={onClick}
     >
-      {label && <span className="text-sm font-medium">{label}</span>}
-      <span className="truncate text-xs text-muted-foreground">
+      {label && (
+        <span className="max-w-full break-words text-sm font-medium">
+          {label}
+        </span>
+      )}
+      <span className="max-w-full whitespace-normal break-words text-xs leading-relaxed text-muted-foreground">
         {prefix}
-        {addressSplit.join("")}
+        {addressSplit.join(" ")}
       </span>
     </button>
   );

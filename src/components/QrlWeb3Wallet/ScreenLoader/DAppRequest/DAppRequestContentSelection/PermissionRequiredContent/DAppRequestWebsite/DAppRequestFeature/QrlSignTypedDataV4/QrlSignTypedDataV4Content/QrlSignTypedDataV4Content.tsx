@@ -11,7 +11,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/UI/Tooltip";
-import { getHexSeedFromMnemonic } from "@/functions/getHexSeedFromMnemonic";
 import { useStore } from "@/stores/store";
 import StringUtil, { sanitizeForDisplay } from "@/utilities/stringUtil";
 import { MLDSA87, ExtendedSeed } from "@theqrl/wallet.js";
@@ -120,7 +119,7 @@ const TypedDataValue = ({
 const QrlSignTypedDataV4Content = observer(() => {
   const { t } = useTranslation();
   const { lockStore, qrlStore, dAppRequestStore } = useStore();
-  const { getMnemonicPhrases } = lockStore;
+  const { getAccountSeed } = lockStore;
   const { qrlInstance, qrlConnection } = qrlStore;
   const { isConnected } = qrlConnection;
   const activeChainId = qrlConnection?.blockchain?.chainId;
@@ -216,12 +215,11 @@ const QrlSignTypedDataV4Content = observer(() => {
 
   const signTypedDataV4 = async () => {
     try {
-      const mnemonicPhrases = await getMnemonicPhrases(fromAddress ?? "");
-      const seed = getHexSeedFromMnemonic(mnemonicPhrases);
-      const addressFromMnemonic =
+      const seed = await getAccountSeed(fromAddress ?? "");
+      const addressFromSeed =
         qrlInstance?.accounts.seedToAccount(seed)?.address;
-      if (fromAddress !== addressFromMnemonic) {
-        throw new Error("Mnemonic phrases did not match with the address");
+      if (fromAddress.toLowerCase() !== addressFromSeed?.toLowerCase()) {
+        throw new Error("Account seed did not match with the address");
       }
       const messageHash = getEncodedEip712Data(typedData, true);
       const signature = sign(messageHash, seed)?.signature;

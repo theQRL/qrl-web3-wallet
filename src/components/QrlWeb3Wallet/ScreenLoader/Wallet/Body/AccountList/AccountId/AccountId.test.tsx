@@ -12,7 +12,7 @@ describe("AccountId", () => {
   const renderComponent = (
     mockedStoreValues = mockedStore(),
     mockedProps: ComponentProps<typeof AccountId> = {
-      account: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      account: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     },
   ) =>
     render(
@@ -33,14 +33,10 @@ describe("AccountId", () => {
     );
 
     const addressParts = [
-      "Q20fB0",
-      "8fF1f",
-      "1376A",
-      "14C05",
-      "5E9F5",
-      "6df80",
-      "563E1",
-      "6722b",
+      "Q00000",
+      "020fB",
+      "08fF1",
+      "16722",
       "10.0 QRL",
     ];
     for (const word of addressParts) {

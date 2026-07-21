@@ -34,7 +34,7 @@ describe("TokenListItem", () => {
       balance: "25 QRL",
       name: "QRL TOKEN",
       symbol: "QRL",
-      contractAddress: "Q0db3981cb93db985e4e3a62ff695f7a1b242dd7c",
+      contractAddress: "Q000000000000000000000000000000000000000000000000000000000db3981cb93db985e4e3a62ff695f7a1b242dd7c00000000000000000000000000000000",
       decimals: 18,
       isZrc20Token: false,
       image: "",

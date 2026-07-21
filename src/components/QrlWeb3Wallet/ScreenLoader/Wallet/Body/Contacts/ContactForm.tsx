@@ -9,8 +9,8 @@ import {
 import { Input } from "@/components/UI/Input";
 import { Label } from "@/components/UI/Label";
 import type { Contact } from "@/types/contact";
+import AddressUtil from "@/utilities/addressUtil";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { validator } from "@theqrl/web3";
 import { Save, X } from "lucide-react";
 import { useMemo } from "react";
 import { useForm } from "react-hook-form";
@@ -26,7 +26,7 @@ const createContactFormSchema = (existingAddresses: string[]) =>
         .max(50, "Name must be 50 characters or less"),
       address: z.string().min(1, "Address is required"),
     })
-    .refine((fields) => validator.isAddressString(fields.address), {
+    .refine((fields) => AddressUtil.isQrlAddress(fields.address.trim()), {
       message: "Address is invalid",
       path: ["address"],
     })

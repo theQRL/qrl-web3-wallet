@@ -21,7 +21,8 @@ type AccountImportSuccessProps = {
 const AccountImportSuccess = ({ account }: AccountImportSuccessProps) => {
   const { t } = useTranslation();
   const accountAddress = account?.address ?? "";
-  const { prefix, addressSplit } = StringUtil.getSplitAddress(accountAddress);
+  const displayAddress = StringUtil.getDisplayAddress(accountAddress);
+  const { prefix, addressSplit } = StringUtil.getSplitAddress(displayAddress);
   const spacedAccountAddress = addressSplit.join(" ");
 
   const [hasJustCopied, setHasJustCopied] = useState(false);
@@ -37,7 +38,7 @@ const AccountImportSuccess = ({ account }: AccountImportSuccessProps) => {
 
   const onCopy = () => {
     setHasJustCopied(true);
-    navigator.clipboard.writeText(accountAddress);
+    navigator.clipboard.writeText(displayAddress);
     const newTimer = setTimeout(() => {
       setHasJustCopied(false);
     }, 1000);

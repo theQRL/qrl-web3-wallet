@@ -25,7 +25,7 @@ describe("AccountImportSuccess", () => {
     mockedStoreValues = mockedStore(),
     mockedProps: ComponentProps<typeof AccountImportSuccess> = {
       account: {
-        address: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+        address: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
         seed: "",
         sign: (data: string | Record<string, unknown>) => ({
           messageHash: data.toString(),
@@ -58,7 +58,7 @@ describe("AccountImportSuccess", () => {
       "Account imported",
     );
     expect(
-      screen.getByText("Q 20fB0 8fF1f 1376A 14C05 5E9F5 6df80 563E1 6722b"),
+      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 020fB 08fF1 f1376 A14C0 55E9F 56df8 0563E 16722 b0000 00000 00000 00000 00000 00000 000"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("Your account is successfully imported."),
@@ -94,7 +94,7 @@ describe("AccountImportSuccess", () => {
     vi.advanceTimersByTime(1000);
     expect(clipboardMock).toHaveBeenCalledTimes(1);
     expect(clipboardMock).toHaveBeenCalledWith(
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     );
   });
 });

@@ -16,7 +16,7 @@ describe("DAppConnectedAccounts", () => {
     mockedStoreValues = mockedStore({
       dAppRequestStore: {
         currentTabData: {
-          connectedAccounts: ["Q20B714091cF2a62DADda2847803e3f1B9D2D3779"],
+          connectedAccounts: ["Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000"],
         },
       },
     }),

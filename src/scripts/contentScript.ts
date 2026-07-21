@@ -20,6 +20,7 @@ import {
   QRL_WALLET_PROVIDER_NAME,
 } from "./constants/streamConstants";
 import { checkForLastError, getSerializableObject } from "./utils/scriptUtils";
+import { asDuplexStream, asStreamLifecycle } from "./utils/streamTypeUtils";
 
 type MessageType = {
   name: string;
@@ -55,11 +56,16 @@ const setupPageStreams = () => {
   // create and connect channel muxers
   // so we can handle the channels individually
   pageMux = new ObjectMultiplex();
-  pageMux.setMaxListeners(25);
+  asStreamLifecycle(pageMux).setMaxListeners(25);
 
-  pipeline(pageMux, pageStream, pageMux, (err: Error | null) => {
-    console.warn("QrlWeb3Wallet: Inpage Multiplex", err);
-  });
+  pipeline(
+    asDuplexStream(pageMux),
+    asDuplexStream(pageStream),
+    asDuplexStream(pageMux),
+    (err: Error | null) => {
+      console.warn("QrlWeb3Wallet: Inpage Multiplex", err);
+    },
+  );
 
   pageChannel = pageMux.createStream(QRL_WALLET_PROVIDER_NAME);
 };
@@ -95,13 +101,13 @@ async function onDataExtensionStream(message: MessageType) {
 
 /** Destroys all of the extension streams */
 const destroyExtensionStreams = () => {
-  pageChannel.removeAllListeners();
+  asStreamLifecycle(pageChannel).removeAllListeners();
 
-  extensionMux.removeAllListeners();
-  extensionMux.destroy();
+  asStreamLifecycle(extensionMux).removeAllListeners();
+  asStreamLifecycle(extensionMux).destroy();
 
-  extensionChannel.removeAllListeners();
-  extensionChannel.destroy();
+  asStreamLifecycle(extensionChannel).removeAllListeners();
+  asStreamLifecycle(extensionChannel).destroy();
 
   extensionStream = null;
 };
@@ -164,20 +170,29 @@ const setupExtensionStreams = () => {
   // create and connect channel muxers
   // so we can handle the channels individually
   extensionMux = new ObjectMultiplex();
-  extensionMux.setMaxListeners(25);
+  asStreamLifecycle(extensionMux).setMaxListeners(25);
 
-  pipeline(extensionMux, extensionStream, extensionMux, (err: Error | null) => {
-    console.warn("QrlWeb3Wallet: Background Multiplex", err);
-    notifyInpageOfStreamFailure();
-  });
+  pipeline(
+    asDuplexStream(extensionMux),
+    asDuplexStream(extensionStream),
+    asDuplexStream(extensionMux),
+    (err: Error | null) => {
+      console.warn("QrlWeb3Wallet: Background Multiplex", err);
+      notifyInpageOfStreamFailure();
+    },
+  );
 
   // forward communication across inpage-background for these channels only
   extensionChannel = extensionMux.createStream(QRL_WALLET_PROVIDER_NAME);
-  pipeline(pageChannel, extensionChannel, pageChannel, (error: Error | null) =>
-    console.warn(
-      `QrlWeb3Wallet: Muxed traffic for channel "${QRL_WALLET_PROVIDER_NAME}" failed.`,
-      error,
-    ),
+  pipeline(
+    asDuplexStream(pageChannel),
+    asDuplexStream(extensionChannel),
+    asDuplexStream(pageChannel),
+    (error: Error | null) =>
+      console.warn(
+        `QrlWeb3Wallet: Muxed traffic for channel "${QRL_WALLET_PROVIDER_NAME}" failed.`,
+        error,
+      ),
   );
 
   extensionPort.onDisconnect.addListener(onDisconnectExtensionStream);

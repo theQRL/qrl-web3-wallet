@@ -36,7 +36,7 @@ describe("ActiveAccount", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
         },
       }),
@@ -62,7 +62,7 @@ describe("ActiveAccount", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
         },
       }),
@@ -81,19 +81,19 @@ describe("ActiveAccount", () => {
     await userEvent.click(copyItem);
     expect(mockedWriteText).toBeCalledTimes(1);
     expect(mockedWriteText).toBeCalledWith(
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     );
   });
 
   it("should show edit input when rename is clicked", async () => {
     const labels: Record<string, string> = {
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: "My Main Wallet",
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: "My Main Wallet",
     };
     renderComponent(
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
         },
         accountLabelsStore: {
@@ -122,13 +122,13 @@ describe("ActiveAccount", () => {
   it("should call setLabel on save", async () => {
     const setLabel = vi.fn<any>(() => Promise.resolve());
     const labels: Record<string, string> = {
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: "Old Name",
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: "Old Name",
     };
     renderComponent(
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
         },
         accountLabelsStore: {
@@ -153,7 +153,7 @@ describe("ActiveAccount", () => {
     );
 
     expect(setLabel).toHaveBeenCalledWith(
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
       "New Name",
     );
   });
@@ -163,7 +163,7 @@ describe("ActiveAccount", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
         },
       }),
@@ -189,13 +189,13 @@ describe("ActiveAccount", () => {
   it("should save on Enter key", async () => {
     const setLabel = vi.fn<any>(() => Promise.resolve());
     const labels: Record<string, string> = {
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: "Old Name",
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: "Old Name",
     };
     renderComponent(
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
         },
         accountLabelsStore: {
@@ -217,7 +217,7 @@ describe("ActiveAccount", () => {
 
     await waitFor(() => {
       expect(setLabel).toHaveBeenCalledWith(
-        "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+        "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
         "Enter Name",
       );
     });
@@ -228,7 +228,7 @@ describe("ActiveAccount", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
         },
       }),
@@ -252,17 +252,17 @@ describe("ActiveAccount", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
           qrlAccounts: {
             isLoading: false,
             accounts: [
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "1.0 QRL",
               },
               {
-                accountAddress: "Q205046e6A6E159eD6ACedE46A36CAD6D449C80A1",
+                accountAddress: "Q00000000000000000000000000000000000000000000000000000000205046e6A6E159eD6ACedE46A36CAD6D449C80A100000000000000000000000000000000",
                 accountBalance: "2.0 QRL",
               },
             ],
@@ -282,13 +282,13 @@ describe("ActiveAccount", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
           qrlAccounts: {
             isLoading: false,
             accounts: [
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "1.0 QRL",
               },
             ],
@@ -310,17 +310,17 @@ describe("ActiveAccount", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
           qrlAccounts: {
             isLoading: false,
             accounts: [
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "1.0 QRL",
               },
               {
-                accountAddress: "Q205046e6A6E159eD6ACedE46A36CAD6D449C80A1",
+                accountAddress: "Q00000000000000000000000000000000000000000000000000000000205046e6A6E159eD6ACedE46A36CAD6D449C80A100000000000000000000000000000000",
                 accountBalance: "2.0 QRL",
               },
             ],
@@ -344,10 +344,10 @@ describe("ActiveAccount", () => {
     );
 
     expect(hideAccount).toHaveBeenCalledWith(
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     );
     expect(setActiveAccount).toHaveBeenCalledWith(
-      "Q205046e6A6E159eD6ACedE46A36CAD6D449C80A1",
+      "Q00000000000000000000000000000000000000000000000000000000205046e6A6E159eD6ACedE46A36CAD6D449C80A100000000000000000000000000000000",
     );
   });
 });

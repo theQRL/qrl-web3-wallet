@@ -65,7 +65,7 @@ describe("LockPasswordCheck", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q2090E9F38771876FB6Fc51a6b464121d3cC093A1",
+            accountAddress: "Q000000000000000000000000000000000000000000000000000000002090E9F38771876FB6Fc51a6b464121d3cC093A100000000000000000000000000000000",
           },
         },
       }),
@@ -85,7 +85,7 @@ describe("LockPasswordCheck", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q2090E9F38771876FB6Fc51a6b464121d3cC093A1",
+            accountAddress: "Q000000000000000000000000000000000000000000000000000000002090E9F38771876FB6Fc51a6b464121d3cC093A100000000000000000000000000000000",
           },
         },
       }),
@@ -100,7 +100,7 @@ describe("LockPasswordCheck", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q2090E9F38771876FB6Fc51a6b464121d3cC093A1",
+            accountAddress: "Q000000000000000000000000000000000000000000000000000000002090E9F38771876FB6Fc51a6b464121d3cC093A100000000000000000000000000000000",
           },
         },
       }),

@@ -31,8 +31,8 @@ const makeSampleEntry = (
   overrides: Partial<TransactionHistoryEntry> = {},
 ): TransactionHistoryEntry => ({
   id: "0xtxhash1",
-  from: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
-  to: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+  from: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
+  to: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
   amount: 2.5,
   tokenSymbol: "QRL",
   tokenName: "QRL",
@@ -79,10 +79,10 @@ describe("TransactionHistoryStore", () => {
     mockGetTransactionHistory.mockResolvedValue(entries);
 
     const store = new TransactionHistoryStore();
-    await store.loadHistory("Q20B714091cF2a62DADda2847803e3f1B9D2D3779");
+    await store.loadHistory("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000");
 
     expect(mockGetTransactionHistory).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     );
     expect(store.transactions).toEqual(entries);
     expect(store.isLoading).toBe(false);
@@ -94,16 +94,16 @@ describe("TransactionHistoryStore", () => {
 
     const store = new TransactionHistoryStore();
     await store.addTransaction(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
       entry,
     );
 
     expect(mockSetTransactionHistoryEntry).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
       entry,
     );
     expect(mockGetTransactionHistory).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     );
     expect(store.transactions).toEqual([entry]);
   });
@@ -145,10 +145,10 @@ describe("TransactionHistoryStore", () => {
     const store = new TransactionHistoryStore();
     store.transactions = [makeSampleEntry()];
 
-    await store.clearHistory("Q20B714091cF2a62DADda2847803e3f1B9D2D3779");
+    await store.clearHistory("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000");
 
     expect(mockClearTransactionHistory).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     );
     expect(store.transactions).toEqual([]);
   });
@@ -158,7 +158,7 @@ describe("TransactionHistoryStore", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const store = new TransactionHistoryStore();
-    await store.loadHistory("Q20B714091cF2a62DADda2847803e3f1B9D2D3779");
+    await store.loadHistory("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000");
 
     expect(store.transactions).toEqual([]);
     expect(store.isLoading).toBe(false);
@@ -190,13 +190,13 @@ describe("TransactionHistoryStore", () => {
 
     const store = new TransactionHistoryStore();
     await store.updateTransaction(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
       "0xtxhash1",
       { pendingStatus: "confirmed", status: true },
     );
 
     expect(mockUpdateTransactionHistoryEntry).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
       "0xtxhash1",
       { pendingStatus: "confirmed", status: true },
     );
@@ -228,7 +228,7 @@ describe("TransactionHistoryStore", () => {
       { ...pendingEntry, pendingStatus: "confirmed", status: true },
     ]);
 
-    store.startPolling("Q20B714091cF2a62DADda2847803e3f1B9D2D3779", mockQrlInstance);
+    store.startPolling("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000", mockQrlInstance);
 
     // Advance timer to trigger polling
     vi.advanceTimersByTime(10000);
@@ -238,7 +238,7 @@ describe("TransactionHistoryStore", () => {
 
     expect(mockQrlInstance.getTransactionReceipt).toHaveBeenCalledWith("0xpending1");
     expect(mockUpdateTransactionHistoryEntry).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
       "0xpending1",
       expect.objectContaining({
         pendingStatus: "confirmed",
@@ -271,13 +271,13 @@ describe("TransactionHistoryStore", () => {
       { ...pendingEntry, pendingStatus: "failed", status: false },
     ]);
 
-    store.startPolling("Q20B714091cF2a62DADda2847803e3f1B9D2D3779", mockQrlInstance);
+    store.startPolling("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000", mockQrlInstance);
 
     vi.advanceTimersByTime(10000);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(mockUpdateTransactionHistoryEntry).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
       "0xpending2",
       expect.objectContaining({
         pendingStatus: "failed",
@@ -301,7 +301,7 @@ describe("TransactionHistoryStore", () => {
     const store = new TransactionHistoryStore();
     store.transactions = [pendingEntry];
 
-    store.startPolling("Q20B714091cF2a62DADda2847803e3f1B9D2D3779", mockQrlInstance);
+    store.startPolling("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000", mockQrlInstance);
 
     vi.advanceTimersByTime(10000);
     await vi.advanceTimersByTimeAsync(0);
@@ -322,7 +322,7 @@ describe("TransactionHistoryStore", () => {
     const store = new TransactionHistoryStore();
     store.transactions = [confirmedEntry];
 
-    store.startPolling("Q20B714091cF2a62DADda2847803e3f1B9D2D3779", mockQrlInstance);
+    store.startPolling("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000", mockQrlInstance);
 
     vi.advanceTimersByTime(10000);
     await vi.advanceTimersByTimeAsync(0);
@@ -346,7 +346,7 @@ describe("TransactionHistoryStore", () => {
     const store = new TransactionHistoryStore();
     store.transactions = [pendingEntry];
 
-    store.startPolling("Q20B714091cF2a62DADda2847803e3f1B9D2D3779", mockQrlInstance);
+    store.startPolling("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000", mockQrlInstance);
 
     vi.advanceTimersByTime(10000);
     await vi.advanceTimersByTimeAsync(0);
@@ -390,7 +390,7 @@ describe("TransactionHistoryStore", () => {
     };
 
     const store = new TransactionHistoryStore();
-    await store.loadHistory("Q20B714091cF2a62DADda2847803e3f1B9D2D3779", mockQrlInstance);
+    await store.loadHistory("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000", mockQrlInstance);
 
     // Advance timer to verify polling was started
     vi.advanceTimersByTime(10000);
@@ -410,7 +410,7 @@ describe("TransactionHistoryStore", () => {
     };
 
     const store = new TransactionHistoryStore();
-    await store.loadHistory("Q20B714091cF2a62DADda2847803e3f1B9D2D3779", mockQrlInstance);
+    await store.loadHistory("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000", mockQrlInstance);
 
     vi.advanceTimersByTime(10000);
     await vi.advanceTimersByTimeAsync(0);
@@ -423,7 +423,7 @@ describe("TransactionHistoryStore", () => {
     mockGetTransactionHistory.mockResolvedValue([pendingEntry]);
 
     const store = new TransactionHistoryStore();
-    await store.loadHistory("Q20B714091cF2a62DADda2847803e3f1B9D2D3779");
+    await store.loadHistory("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000");
 
     // No qrlInstance, so no polling should start
     expect(store.pendingTransactions).toEqual([pendingEntry]);

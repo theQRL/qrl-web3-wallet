@@ -42,8 +42,11 @@
  * - SW1+SW2: Status Word (result code)
  */
 
+import { QRL_ADDRESS_BYTES } from "@/constants/address";
 import { LEDGER_CONFIG, LEDGER_ERRORS } from "@/constants/ledger";
 import type { LedgerError } from "./ledgerTypes";
+
+const QRL_ADDRESS_RESPONSE_LENGTH = 1 + QRL_ADDRESS_BYTES;
 
 /**
  * Packs BIP-44 derivation path into Ledger APDU format.
@@ -288,7 +291,7 @@ export function isWrongApp(statusCode: number): boolean {
  * RESPONSE FORMAT (address only):
  * ┌────────┬───────────────────┬────────┐
  * │ PREFIX │     ADDRESS       │   SW   │
- * │  'Q'   │     20 bytes      │   2B   │
+ * │  'Q'   │     64 bytes      │   2B   │
  * │  1B    │      (hex)        │        │
  * └────────┴───────────────────┴────────┘
  *
@@ -297,7 +300,7 @@ export function isWrongApp(statusCode: number): boolean {
  * This is part of QRL specification.
  *
  * @param response - APDU response from GET_PUBLIC_KEY
- * @returns Address in QRL format (Q + 40 hex characters)
+ * @returns Address in QRL format (Q + 128 hex characters)
  */
 export function parseQrlAddress(response: Buffer): string {
   // Check status
@@ -306,11 +309,11 @@ export function parseQrlAddress(response: Buffer): string {
   // Extract data
   const data = extractResponseData(response);
 
-  // Standard QRL address: 1 byte prefix ('Q') + 20 bytes address = 21 bytes
-  if (data.length < 21) {
+  // QRL address: 1 byte prefix ('Q') + 64 bytes address = 65 bytes
+  if (data.length < QRL_ADDRESS_RESPONSE_LENGTH) {
     throw createLedgerError(
       0,
-      `Invalid response length: expected min. 21 bytes, got ${data.length}`
+      `Invalid response length: expected min. ${QRL_ADDRESS_RESPONSE_LENGTH} bytes, got ${data.length}`
     );
   }
 
@@ -323,8 +326,8 @@ export function parseQrlAddress(response: Buffer): string {
     );
   }
 
-  // Next 20 bytes are the address (in hex)
-  const addressBytes = data.subarray(1, 21);
+  // Next 64 bytes are the address (in hex)
+  const addressBytes = data.subarray(1, QRL_ADDRESS_RESPONSE_LENGTH);
   const address = prefix + addressBytes.toString("hex");
 
   return address;
@@ -334,7 +337,7 @@ export function parseQrlAddress(response: Buffer): string {
  * Result of parsing GET_PUBLIC_KEY response with public key.
  */
 export interface PublicKeyResponse {
-  /** Address in QRL format (Q + 40 hex characters) */
+  /** Address in QRL format (Q + 128 hex characters) */
   address: string;
   /** Dilithium public key (hex with 0x prefix), empty if not included in response */
   publicKey: string;
@@ -351,7 +354,7 @@ export const DILITHIUM_PUBLIC_KEY_SIZE = 2528;
  * RESPONSE FORMAT (with public key):
  * ┌────────┬───────────────────┬────────────────────┬────────┐
  * │ PREFIX │     ADDRESS       │    PUBLIC_KEY      │   SW   │
- * │  'Q'   │     20 bytes      │    2528 bytes      │   2B   │
+ * │  'Q'   │     64 bytes      │    2528 bytes      │   2B   │
  * │  1B    │      (hex)        │                    │        │
  * └────────┴───────────────────┴────────────────────┴────────┘
  *
@@ -365,11 +368,11 @@ export function parsePublicKeyResponse(response: Buffer): PublicKeyResponse {
   // Extract data
   const data = extractResponseData(response);
 
-  // Standard QRL address: 1 byte prefix ('Q') + 20 bytes address = 21 bytes
-  if (data.length < 21) {
+  // QRL address: 1 byte prefix ('Q') + 64 bytes address = 65 bytes
+  if (data.length < QRL_ADDRESS_RESPONSE_LENGTH) {
     throw createLedgerError(
       0,
-      `Invalid response length: expected min. 21 bytes, got ${data.length}`
+      `Invalid response length: expected min. ${QRL_ADDRESS_RESPONSE_LENGTH} bytes, got ${data.length}`
     );
   }
 
@@ -382,14 +385,14 @@ export function parsePublicKeyResponse(response: Buffer): PublicKeyResponse {
     );
   }
 
-  // Next 20 bytes are the address (in hex)
-  const addressBytes = data.subarray(1, 21);
+  // Next 64 bytes are the address (in hex)
+  const addressBytes = data.subarray(1, QRL_ADDRESS_RESPONSE_LENGTH);
   const address = prefix + addressBytes.toString("hex");
 
   // Remaining bytes are the public key (if present)
   let publicKey = "";
-  if (data.length > 21) {
-    const publicKeyBytes = data.subarray(21);
+  if (data.length > QRL_ADDRESS_RESPONSE_LENGTH) {
+    const publicKeyBytes = data.subarray(QRL_ADDRESS_RESPONSE_LENGTH);
     publicKey = "0x" + publicKeyBytes.toString("hex");
   }
 

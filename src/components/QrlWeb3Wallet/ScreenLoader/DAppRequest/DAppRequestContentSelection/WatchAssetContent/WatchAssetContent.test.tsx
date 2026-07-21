@@ -26,7 +26,7 @@ describe("WatchAssetContent", () => {
       dAppRequestStore: { dAppRequestData: { params: [{ options: {} }] } },
       qrlStore: {
         activeAccount: {
-          accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+          accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
         },
       },
     }),

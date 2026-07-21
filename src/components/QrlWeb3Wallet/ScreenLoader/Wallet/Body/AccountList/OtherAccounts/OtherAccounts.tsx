@@ -11,6 +11,7 @@ import { Input } from "@/components/UI/Input";
 import { Label } from "@/components/UI/Label";
 import { ROUTES } from "@/router/router";
 import { useStore } from "@/stores/store";
+import StringUtil from "@/utilities/stringUtil";
 import StorageUtil from "@/utilities/storageUtil";
 import {
   ArrowRight,
@@ -185,7 +186,7 @@ const OtherAccounts = observer(() => {
   );
 
   const copyAccount = (accountAddress: string) => {
-    navigator.clipboard.writeText(accountAddress);
+    navigator.clipboard.writeText(StringUtil.getDisplayAddress(accountAddress));
   };
 
   const receiveAccount = (accountAddress: string) => {

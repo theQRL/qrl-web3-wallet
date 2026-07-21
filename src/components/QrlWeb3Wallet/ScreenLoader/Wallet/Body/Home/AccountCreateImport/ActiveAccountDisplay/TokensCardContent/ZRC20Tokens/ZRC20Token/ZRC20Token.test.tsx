@@ -14,15 +14,15 @@ vi.mock("@/utilities/storageUtil", async () => {
     ...originalModule,
     getTokenContractsList: vi.fn(async () => [
       {
-        address: "Q28c4113a9d3a2e836f28c23ed8e3c1e7c243f566",
+        address: "Q0000000000000000000000000000000000000000000000000000000028c4113a9d3a2e836f28c23ed8e3c1e7c243f56600000000000000000000000000000000",
         image: "testImage1",
       },
       {
-        address: "Q978918b7b544ad491d0b294cc6ac4d7bb0ef7112",
+        address: "Q00000000000000000000000000000000000000000000000000000000978918b7b544ad491d0b294cc6ac4d7bb0ef711200000000000000000000000000000000",
         image: "testImage2",
       },
       {
-        address: "Q0db3981cb93db985e4e3a62ff695f7a1b242dd7c",
+        address: "Q000000000000000000000000000000000000000000000000000000000db3981cb93db985e4e3a62ff695f7a1b242dd7c00000000000000000000000000000000",
         image: "testImage3",
       },
     ]),
@@ -46,7 +46,7 @@ describe("ZRC20Token", () => {
         <MemoryRouter>
           <TooltipProvider>
             <ZRC20Token
-              contractAddress="Q0db3981cb93db985e4e3a62ff695f7a1b242dd7c"
+              contractAddress="Q000000000000000000000000000000000000000000000000000000000db3981cb93db985e4e3a62ff695f7a1b242dd7c00000000000000000000000000000000"
               tokenImage=""
             />
           </TooltipProvider>

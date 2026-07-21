@@ -150,9 +150,9 @@ describe("ImportLedger", () => {
 
   describe("Step 2: Select Accounts", () => {
     const ledgerAccounts = [
-      { address: "Q20aaa111bbb222ccc333ddd444eee555fff6660A", index: 0, derivationPath: "m/44'/238'/0'/0/0", publicKey: "0xpub1" },
-      { address: "Q20bbb222ccc333ddd444eee555fff666aaa7770B", index: 1, derivationPath: "m/44'/238'/0'/0/1", publicKey: "0xpub2" },
-      { address: "Q20ccc333ddd444eee555fff666aaa777bbb8880C", index: 2, derivationPath: "m/44'/238'/0'/0/2", publicKey: "0xpub3" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020aaa111bbb222ccc333ddd444eee555fff6660A00000000000000000000000000000000", index: 0, derivationPath: "m/44'/238'/0'/0/0", publicKey: "0xpub1" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020bbb222ccc333ddd444eee555fff666aaa7770B00000000000000000000000000000000", index: 1, derivationPath: "m/44'/238'/0'/0/1", publicKey: "0xpub2" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020ccc333ddd444eee555fff666aaa777bbb8880C00000000000000000000000000000000", index: 2, derivationPath: "m/44'/238'/0'/0/2", publicKey: "0xpub3" },
     ];
 
     it("should transition to select step when device is connected", () => {
@@ -207,11 +207,9 @@ describe("ImportLedger", () => {
         } as any,
       });
 
-      expect(screen.getByText(/Q20aaa11.*6660A/)).toBeInTheDocument();
+      expect(screen.getAllByText(/Q0000000\.\.\.000000/)).toHaveLength(3);
       expect(screen.getByText("Account #1")).toBeInTheDocument();
-      expect(screen.getByText(/Q20bbb22.*7770B/)).toBeInTheDocument();
       expect(screen.getByText("Account #2")).toBeInTheDocument();
-      expect(screen.getByText(/Q20ccc33.*8880C/)).toBeInTheDocument();
       expect(screen.getByText("Account #3")).toBeInTheDocument();
     });
 
@@ -258,7 +256,7 @@ describe("ImportLedger", () => {
 
     it("should import selected accounts and merge with existing", async () => {
       const existingAccount = {
-        address: "Q20eee555fff666aaa777bbb888ccc999dddEEE0E",
+        address: "Q0000000000000000000000000000000000000000000000000000000020eee555fff666aaa777bbb888ccc999dddEEE0E00000000000000000000000000000000",
         index: 5,
         derivationPath: "m/44'/238'/0'/0/5",
         publicKey: "0xpubExisting",
@@ -357,8 +355,8 @@ describe("ImportLedger", () => {
 
   describe("Step 2: Pagination", () => {
     const ledgerAccounts = [
-      { address: "Q20aaa111bbb222ccc333ddd444eee555fff6660A", index: 0, derivationPath: "m/44'/238'/0'/0/0", publicKey: "0xpub1" },
-      { address: "Q20bbb222ccc333ddd444eee555fff666aaa7770B", index: 1, derivationPath: "m/44'/238'/0'/0/1", publicKey: "0xpub2" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020aaa111bbb222ccc333ddd444eee555fff6660A00000000000000000000000000000000", index: 0, derivationPath: "m/44'/238'/0'/0/0", publicKey: "0xpub1" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020bbb222ccc333ddd444eee555fff666aaa7770B00000000000000000000000000000000", index: 1, derivationPath: "m/44'/238'/0'/0/1", publicKey: "0xpub2" },
     ];
 
     it("should show Previous and Next buttons", () => {
@@ -487,9 +485,9 @@ describe("ImportLedger", () => {
 
   describe("Step 2: Already Imported Accounts", () => {
     const ledgerAccounts = [
-      { address: "Q20aaa111bbb222ccc333ddd444eee555fff6660A", index: 0, derivationPath: "m/44'/238'/0'/0/0", publicKey: "0xpub1" },
-      { address: "Q20bbb222ccc333ddd444eee555fff666aaa7770B", index: 1, derivationPath: "m/44'/238'/0'/0/1", publicKey: "0xpub2" },
-      { address: "Q20ccc333ddd444eee555fff666aaa777bbb8880C", index: 2, derivationPath: "m/44'/238'/0'/0/2", publicKey: "0xpub3" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020aaa111bbb222ccc333ddd444eee555fff6660A00000000000000000000000000000000", index: 0, derivationPath: "m/44'/238'/0'/0/0", publicKey: "0xpub1" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020bbb222ccc333ddd444eee555fff666aaa7770B00000000000000000000000000000000", index: 1, derivationPath: "m/44'/238'/0'/0/1", publicKey: "0xpub2" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020ccc333ddd444eee555fff666aaa777bbb8880C00000000000000000000000000000000", index: 2, derivationPath: "m/44'/238'/0'/0/2", publicKey: "0xpub3" },
     ];
 
     it("should show 'Already imported' for previously imported accounts", async () => {
@@ -597,7 +595,7 @@ describe("ImportLedger", () => {
 
   describe("Step 3: Success", () => {
     const ledgerAccounts = [
-      { address: "Q20aaa111bbb222ccc333ddd444eee555fff6660A", index: 0, derivationPath: "m/44'/238'/0'/0/0", publicKey: "0xpub1" },
+      { address: "Q0000000000000000000000000000000000000000000000000000000020aaa111bbb222ccc333ddd444eee555fff6660A00000000000000000000000000000000", index: 0, derivationPath: "m/44'/238'/0'/0/0", publicKey: "0xpub1" },
     ];
 
     it("should show success step after import and navigate home on Done", async () => {

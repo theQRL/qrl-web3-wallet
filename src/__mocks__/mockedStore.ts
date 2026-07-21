@@ -2,6 +2,7 @@ import {
   type BlockchainDataType,
   DEFAULT_BLOCKCHAIN,
 } from "@/configuration/qrlBlockchainConfig";
+import { QRL_EXAMPLE_ADDRESS } from "@/constants/address";
 import type DAppRequestStore from "@/stores/dAppRequestStore";
 import type LockStore from "@/stores/lockStore";
 import type SettingsStore from "@/stores/settingsStore";
@@ -35,7 +36,7 @@ const mockedStoreValues: StoreType = {
   } as unknown as SettingsStore,
   qrlStore: {
     activeAccount: {
-      accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      accountAddress: QRL_EXAMPLE_ADDRESS,
     },
     qrlAccounts: {
       isLoading: false,
@@ -183,6 +184,9 @@ const mockedStoreValues: StoreType = {
       return "";
     },
     getMnemonicPhrases: async (accountAddress: string) => {
+      return accountAddress;
+    },
+    getAccountSeed: async (accountAddress: string) => {
       return accountAddress;
     },
     changePassword: async () => {

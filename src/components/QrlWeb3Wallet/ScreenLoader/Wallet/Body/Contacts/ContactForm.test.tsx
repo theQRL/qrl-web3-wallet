@@ -3,13 +3,6 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ContactForm from "./ContactForm";
 
-vi.mock("@theqrl/web3", () => ({
-  validator: {
-    isAddressString: (addr: string) =>
-      typeof addr === "string" && addr.startsWith("Q") && addr.length >= 41,
-  },
-}));
-
 describe("ContactForm", () => {
   afterEach(cleanup);
 
@@ -43,7 +36,7 @@ describe("ContactForm", () => {
     const addressInput = screen.getByPlaceholderText("Q address");
 
     await userEvent.type(nameInput, "Alice");
-    await userEvent.type(addressInput, "Q20B714091cF2a62DADda2847803e3f1B9D2D3779");
+    await userEvent.type(addressInput, "Q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000");
 
     const saveButton = screen.getByRole("button", { name: /Save/i });
     await waitFor(() => {
@@ -55,7 +48,7 @@ describe("ContactForm", () => {
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith({
         name: "Alice",
-        address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+        address: "Q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000",
       });
     });
   });
@@ -65,7 +58,7 @@ describe("ContactForm", () => {
       <ContactForm
         initialContact={{
           name: "Bob",
-          address: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+          address: "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
         }}
         onSave={vi.fn()}
         onCancel={vi.fn()}
@@ -74,7 +67,7 @@ describe("ContactForm", () => {
 
     expect(screen.getByPlaceholderText("Contact name")).toHaveValue("Bob");
     expect(screen.getByPlaceholderText("Q address")).toHaveValue(
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
     );
   });
 
@@ -83,7 +76,7 @@ describe("ContactForm", () => {
       <ContactForm
         initialContact={{
           name: "Bob",
-          address: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+          address: "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
         }}
         onSave={vi.fn()}
         onCancel={vi.fn()}
@@ -96,7 +89,7 @@ describe("ContactForm", () => {
   it("should show error for duplicate address", async () => {
     render(
       <ContactForm
-        existingAddresses={["Q20B714091cF2a62DADda2847803e3f1B9D2D3779"]}
+        existingAddresses={["Q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000"]}
         onSave={vi.fn()}
         onCancel={vi.fn()}
       />,
@@ -108,7 +101,7 @@ describe("ContactForm", () => {
     );
     await userEvent.type(
       screen.getByPlaceholderText("Q address"),
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000",
     );
 
     await waitFor(() => {
@@ -126,9 +119,9 @@ describe("ContactForm", () => {
       <ContactForm
         initialContact={{
           name: "Alice",
-          address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+          address: "Q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000",
         }}
-        existingAddresses={["Q20B714091cF2a62DADda2847803e3f1B9D2D3779"]}
+        existingAddresses={["Q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000"]}
         onSave={onSave}
         onCancel={vi.fn()}
       />,
@@ -149,7 +142,7 @@ describe("ContactForm", () => {
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith({
         name: "Alice Updated",
-        address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+        address: "Q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000",
       });
     });
   });

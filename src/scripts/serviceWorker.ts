@@ -22,6 +22,7 @@ import {
 } from "./phishing/phishingDetector";
 import { checkForLastError } from "./utils/scriptUtils";
 import { setupMultiplex } from "./utils/streamUtils";
+import { asDuplexStream } from "./utils/streamTypeUtils";
 
 type ContentScriptType = browser.Scripting.RegisteredContentScript;
 
@@ -175,16 +176,21 @@ const setupProviderConnectionEip1193 = async (port: browser.Runtime.Port) => {
   // setup connection
   const providerStream = createEngineStream({ engine });
 
-  pipeline(outStream, providerStream, outStream, (err) => {
-    console.warn("QrlWeb3Wallet: Error in stream pipeline\n", err);
-    // handle any middleware cleanup
-    // @ts-expect-error - _middleware is a private property on JsonRpcEngine not exposed in type definitions
-    engine?._middleware?.forEach((mid: { destroy?: () => void }) => {
-      if (mid.destroy && typeof mid.destroy === "function") {
-        mid.destroy();
-      }
-    });
-  });
+  pipeline(
+    asDuplexStream(outStream),
+    asDuplexStream(providerStream),
+    asDuplexStream(outStream),
+    (err: Error | null) => {
+      console.warn("QrlWeb3Wallet: Error in stream pipeline\n", err);
+      // handle any middleware cleanup
+      // @ts-expect-error - _middleware is a private property on JsonRpcEngine not exposed in type definitions
+      engine?._middleware?.forEach((mid: { destroy?: () => void }) => {
+        if (mid.destroy && typeof mid.destroy === "function") {
+          mid.destroy();
+        }
+      });
+    },
+  );
 };
 
 const establishContenScriptConnection = () => {

@@ -20,7 +20,7 @@ describe("WatchAssetVerification", () => {
           params: [
             {
               options: {
-                address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 symbol: "TST",
                 image: "testImage",
                 decimals: 18,
@@ -73,7 +73,7 @@ describe("WatchAssetVerification", () => {
             params: [
               {
                 options: {
-                  address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                  address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                   symbol: "TST",
                   image: "testImage",
                   decimals: 18,

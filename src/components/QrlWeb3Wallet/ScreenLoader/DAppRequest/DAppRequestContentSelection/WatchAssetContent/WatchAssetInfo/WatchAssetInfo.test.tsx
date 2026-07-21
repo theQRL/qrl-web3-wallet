@@ -20,7 +20,7 @@ describe("WatchAssetInfo", () => {
           params: [
             {
               options: {
-                address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 symbol: "TST",
                 image: "testImage",
                 decimals: 18,
@@ -44,7 +44,7 @@ describe("WatchAssetInfo", () => {
 
     expect(screen.getByText("Token address")).toBeInTheDocument();
     expect(
-      screen.getByText("Q 20B71 4091c F2a62 DADda 28478 03e3f 1B9D2 D3779"),
+      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 020B7 14091 cF2a6 2DADd a2847 803e3 f1B9D 2D377 90000 00000 00000 00000 00000 00000 000"),
     ).toBeInTheDocument();
     expect(screen.getByText("Symbol")).toBeInTheDocument();
     expect(screen.getByText("TST")).toBeInTheDocument();

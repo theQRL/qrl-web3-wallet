@@ -12,7 +12,7 @@ describe("PersonalSign", () => {
 
   const message =
     "0x506c65617365207369676e2074686973206d65737361676520746f20636f6e6669726d20796f7572206964656e746974792e";
-  const fromAddress = "Q20D20b8026B8F02540246f58120ddAAf35AECD9B";
+  const fromAddress = "Q0000000000000000000000000000000000000000000000000000000020D20b8026B8F02540246f58120ddAAf35AECD9B00000000000000000000000000000000";
 
   const renderComponent = (mockedStoreValues = mockedStore()) =>
     render(
@@ -40,7 +40,7 @@ describe("PersonalSign", () => {
 
     expect(screen.getByText("From Address")).toBeInTheDocument();
     expect(
-      screen.getByText("Q 20D20 b8026 B8F02 54024 6f581 20ddA Af35A ECD9B"),
+      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 020D2 0b802 6B8F0 25402 46f58 120dd AAf35 AECD9 B0000 00000 00000 00000 00000 00000 000"),
     ).toBeInTheDocument();
     expect(screen.getByText("Message")).toBeInTheDocument();
     expect(screen.getByText(expectedMessage)).toBeInTheDocument();

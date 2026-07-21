@@ -213,7 +213,7 @@
   "chain.currencyDecimalsDescription": "Currency decimals",
   "chain.currencyDecimalsPlaceholder": "18",
   "chain.qrnsRegistryAddress": "QRNS Registry Address",
-  "chain.qrnsRegistryAddressPlaceholder": "Qdf5e1e3eebf2e628058c88f950a9b5ecbf62a045",
+  "chain.qrnsRegistryAddressPlaceholder": "Q8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a",
   "chain.qrnsRegistryAddressDescription": "Optional. Contract address of the QRNS registry on this chain.",
   "chain.errorChainIdExists": "A blockchain with the chain ID {{chainId}} already exist.",
   "chain.defaultUrl": "Default URL",

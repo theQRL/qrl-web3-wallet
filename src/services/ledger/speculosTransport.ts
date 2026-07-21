@@ -50,8 +50,11 @@
 
 import { LEDGER_ERROR_MESSAGES } from "@/constants/ledger";
 
-// Speculos API endpoints
-const SPECULOS_BASE_URL = "http://localhost:5000";
+// Speculos API endpoints.
+// Override with VITE_SPECULOS_URL when the emulator runs on a remote host
+// (e.g., `VITE_SPECULOS_URL=http://10.0.0.5:5000 VITE_USE_SPECULOS=true npm run dev`).
+const SPECULOS_BASE_URL =
+  import.meta.env.VITE_SPECULOS_URL ?? "http://localhost:5000";
 const SPECULOS_APDU_ENDPOINT = `${SPECULOS_BASE_URL}/apdu`;
 const SPECULOS_BUTTON_ENDPOINT = `${SPECULOS_BASE_URL}/button`;
 const SPECULOS_EVENTS_ENDPOINT = `${SPECULOS_BASE_URL}/events`;

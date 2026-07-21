@@ -9,7 +9,7 @@ describe("ContactItem", () => {
 
   const contact: Contact = {
     name: "Alice",
-    address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+    address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
   };
 
   it("should render the contact name", () => {
@@ -34,7 +34,7 @@ describe("ContactItem", () => {
     );
 
     expect(
-      screen.getByText(/Q20B714091cF2a62DADda2847803e3f1B9D2D3779/),
+      screen.getByText(/Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000/),
     ).toBeInTheDocument();
   });
 

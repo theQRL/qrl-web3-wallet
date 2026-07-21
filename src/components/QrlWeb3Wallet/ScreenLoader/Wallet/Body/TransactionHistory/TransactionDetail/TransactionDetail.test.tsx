@@ -26,8 +26,8 @@ vi.mock("@/utilities/storageUtil", () => ({
 
 const sampleTransaction: TransactionHistoryEntry = {
   id: "0xabc123def456",
-  from: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
-  to: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+  from: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
+  to: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
   amount: 2.5,
   tokenSymbol: "QRL",
   tokenName: "QRL",
@@ -118,10 +118,10 @@ describe("TransactionDetail", () => {
     renderComponent(sampleTransaction);
 
     expect(
-      screen.getByText("Q20B714091cF2a62DADda2847803e3f1B9D2D3779"),
+      screen.getByText("Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Q20fB08fF1f1376A14C055E9F56df80563E16722b"),
+      screen.getByText("Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000"),
     ).toBeInTheDocument();
   });
 
@@ -333,16 +333,16 @@ describe("TransactionDetail", () => {
     expect(mockSendRawTransaction).not.toHaveBeenCalled();
   });
 
-  it("should not call signAndSendReplacement when mnemonic is empty", async () => {
+  it("should not call signAndSendReplacement when seed is empty", async () => {
     const mockSign = vi.fn<any>().mockResolvedValue({
       transactionHash: undefined,
       rawTransaction: undefined,
       error: "",
     });
-    const mockGetMnemonic = vi.fn<any>().mockResolvedValue("");
+    const mockGetAccountSeed = vi.fn<any>().mockResolvedValue("");
     const store = mockedStore({
       lockStore: {
-        getMnemonicPhrases: mockGetMnemonic,
+        getAccountSeed: mockGetAccountSeed,
       },
       qrlStore: {
         signAndSendReplacementTransaction: mockSign,
@@ -360,7 +360,7 @@ describe("TransactionDetail", () => {
     await userEvent.click(dialogButtons[dialogButtons.length - 1]);
 
     await waitFor(() => {
-      expect(mockGetMnemonic).toHaveBeenCalled();
+      expect(mockGetAccountSeed).toHaveBeenCalled();
     });
 
     expect(mockSign).not.toHaveBeenCalled();

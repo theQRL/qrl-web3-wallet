@@ -4,6 +4,7 @@ import type {
   TransactionHistoryEntry,
 } from "@/types/transactionHistory";
 import StorageUtil from "@/utilities/storageUtil";
+import { isSuccessfulReceiptStatus } from "@/utilities/receiptStatusUtil";
 import browser from "webextension-polyfill";
 import {
   action,
@@ -13,7 +14,7 @@ import {
   runInAction,
 } from "mobx";
 
-type ReceiptStatus = string | number | bigint;
+type ReceiptStatus = boolean | string | number | bigint;
 
 type QrlInstance = {
   getTransactionReceipt: (
@@ -153,7 +154,7 @@ class TransactionHistoryStore {
             tx.transactionHash,
           );
           if (receipt) {
-            const isSuccess = receipt.status?.toString() === "1";
+            const isSuccess = isSuccessfulReceiptStatus(receipt.status);
             const newStatus = isSuccess ? "confirmed" : "failed";
             await this.updateTransaction(
               accountAddress,

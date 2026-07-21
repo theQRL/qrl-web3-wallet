@@ -23,12 +23,12 @@ describe("AccountBadge", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
           },
         },
       }),
     );
 
-    expect(screen.getByText("Q20fB0...6722b")).toBeInTheDocument();
+    expect(screen.getByText("Q00000...000")).toBeInTheDocument();
   });
 });

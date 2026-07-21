@@ -26,7 +26,7 @@ describe("DAppConnected", () => {
         qrlStore: { qrlAccounts: { isLoading: false } },
         dAppRequestStore: {
           currentTabData: {
-            connectedAccounts: ["Q20fB08fF1f1376A14C055E9F56df80563E16722b"],
+            connectedAccounts: ["Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000"],
           },
         },
       }),
@@ -37,14 +37,15 @@ describe("DAppConnected", () => {
         "The following accounts are connected, and can interact with this website.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Q20fB0")).toBeInTheDocument();
-    expect(screen.getByText("8fF1f")).toBeInTheDocument();
-    expect(screen.getByText("1376A")).toBeInTheDocument();
-    expect(screen.getByText("14C05")).toBeInTheDocument();
-    expect(screen.getByText("5E9F5")).toBeInTheDocument();
-    expect(screen.getByText("6df80")).toBeInTheDocument();
-    expect(screen.getByText("563E1")).toBeInTheDocument();
-    expect(screen.getByText("6722b")).toBeInTheDocument();
+    expect(screen.getByText("Q00000")).toBeInTheDocument();
+    expect(screen.getByText("020fB")).toBeInTheDocument();
+    expect(screen.getByText("08fF1")).toBeInTheDocument();
+    expect(screen.getByText("f1376")).toBeInTheDocument();
+    expect(screen.getByText("A14C0")).toBeInTheDocument();
+    expect(screen.getByText("55E9F")).toBeInTheDocument();
+    expect(screen.getByText("56df8")).toBeInTheDocument();
+    expect(screen.getByText("0563E")).toBeInTheDocument();
+    expect(screen.getByText("16722")).toBeInTheDocument();
     expect(screen.getByText("0.0 QRL")).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import { Web3BaseWalletAccount } from "@theqrl/web3";
+import AddressUtil from "./addressUtil";
 
 // Control (Cc) chars except tab/newline/cr, plus all format (Cf) chars
 // (zero-width, bidi overrides, BOM, etc.). Stripping these prevents a
@@ -20,18 +21,33 @@ export const sanitizeForDisplay = (input: string): SanitizedDisplay => {
  * A utility for handling string related operations
  */
 class StringUtil {
+  static getDisplayAddress(address: string): string {
+    try {
+      return AddressUtil.toChecksumQrlAddress(address);
+    } catch {
+      return address;
+    }
+  }
+
   /**
    * A function for splitting the address with spaces between them, making the address more readable.
    */
   static getSplitAddress(
     accountAddress: string,
     splitLength: number = 5,
-    prefixLength = accountAddress?.startsWith("Q") ? 1 : 2,
+    prefixLength?: number,
   ) {
-    const prefix = accountAddress?.substring(0, prefixLength);
+    const displayAddress = StringUtil.getDisplayAddress(accountAddress);
+    const resolvedPrefixLength =
+      prefixLength ?? (displayAddress?.startsWith("Q") ? 1 : 2);
+    const prefix = displayAddress?.substring(0, resolvedPrefixLength);
     const addressSplit: string[] = [];
-    for (let i = prefixLength; i < accountAddress?.length; i += splitLength) {
-      addressSplit.push(accountAddress?.substring(i, i + splitLength));
+    for (
+      let i = resolvedPrefixLength;
+      i < displayAddress?.length;
+      i += splitLength
+    ) {
+      addressSplit.push(displayAddress?.substring(i, i + splitLength));
     }
     return { prefix, addressSplit };
   }
@@ -41,11 +57,12 @@ class StringUtil {
    */
   static downloadRecoveryPhrases = (account: Web3BaseWalletAccount) => {
     const accountAddress = account?.address;
+    const displayAddress = StringUtil.getDisplayAddress(accountAddress);
     const accountHexSeed = account?.seed;
     const mnemonicPhrases = getMnemonicFromHexSeed(accountHexSeed);
     const mnemonicObject = {
       "Public Information": {
-        Address: accountAddress,
+        Address: displayAddress,
         Note: "This is your public account address, and can be shared with others for receiving QRL to your account.",
       },
       "Private Information": {

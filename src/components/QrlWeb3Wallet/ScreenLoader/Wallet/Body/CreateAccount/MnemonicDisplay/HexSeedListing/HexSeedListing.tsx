@@ -14,9 +14,9 @@ const HexSeedListing = ({ hexSeed = "" }: HexSeedListingProps) => {
       <div className="font-bold">{t('mnemonic.hexSeed')}</div>
       <div className="flex flex-wrap gap-1 text-secondary">
         {prefix}
-        {addressSplit.map((segment) => (
+        {addressSplit.map((segment, index) => (
           <span
-            key={segment}
+            key={`${index}-${segment}`}
             className="transition-transform hover:scale-110 hover:font-bold"
           >
             {segment}

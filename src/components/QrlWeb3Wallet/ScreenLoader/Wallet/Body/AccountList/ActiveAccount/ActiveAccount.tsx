@@ -26,6 +26,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import AccountId from "../AccountId/AccountId";
+import StringUtil from "@/utilities/stringUtil";
 
 const ActiveAccount = observer(() => {
   const { t } = useTranslation();
@@ -39,7 +40,7 @@ const ActiveAccount = observer(() => {
   const [editValue, setEditValue] = useState("");
 
   const copyAccount = () => {
-    navigator.clipboard.writeText(accountAddress);
+    navigator.clipboard.writeText(StringUtil.getDisplayAddress(accountAddress));
   };
 
   const startEdit = () => {

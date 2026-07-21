@@ -13,7 +13,6 @@ import {
   ZRC_20_CONTRACT_ABI,
   ZRC_20_TOKEN_UNITS_OF_GAS,
 } from "@/constants/zrc20Token";
-import { getHexSeedFromMnemonic } from "@/functions/getHexSeedFromMnemonic";
 import { getOptimalTokenBalance } from "@/functions/getOptimalTokenBalance";
 import type { GasFeeOverrides } from "@/types/gasFee";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
@@ -308,7 +307,7 @@ class QrlStore {
     from: string,
     to: string,
     value: number,
-    mnemonicPhrases: string,
+    seed: string,
     overrides?: GasFeeOverrides,
   ) {
     let result: {
@@ -342,9 +341,17 @@ class QrlStore {
       const signedTransaction =
         await this.qrlInstance?.accounts.signTransaction(
           transactionObject,
-          getHexSeedFromMnemonic(mnemonicPhrases),
+          seed,
         );
       if (signedTransaction) {
+        const recoveredSender = this.qrlInstance?.accounts.recoverTransaction(
+          signedTransaction.rawTransaction,
+        );
+        if (recoveredSender?.toLowerCase() !== from.toLowerCase()) {
+          throw new Error(
+            `Signed transaction sender mismatch. expected=${from} recovered=${recoveredSender}`,
+          );
+        }
         result = {
           transactionHash: signedTransaction.transactionHash?.toString(),
           rawTransaction: signedTransaction.rawTransaction?.toString(),
@@ -486,6 +493,25 @@ class QrlStore {
               .call()) as bigint;
             tokenIds.push(tokenId.toString());
           }
+        } else if (balance > 0) {
+          // TODO: contract does not implement the optional ZRC-721 Enumerable
+          // extension (supportsInterface(0x780e9d63) == false), so we cannot
+          // call tokenOfOwnerByIndex to enumerate the user's holdings.
+          //
+          // Implement a Transfer-event scan fallback here:
+          //   1) qrl.getPastLogs({ address: contractAddress,
+          //                        fromBlock: <contract creation block>,
+          //                        topics: [TRANSFER_TOPIC,
+          //                                 null,
+          //                                 <padded user address>] })
+          //   2) qrl.getPastLogs({ ... topics: [..., <padded user>, null] })
+          //   3) For every tokenId that appears as `to` and is still
+          //      ownerOf(tokenId) == user, push it into tokenIds. (Earlier
+          //      `from = user` events drop the token.)
+          //
+          // Until that fallback lands, leave tokenIds empty — the balance
+          // count is still shown elsewhere, but the per-token list and
+          // tokenURI lookups stay unavailable for non-Enumerable contracts.
         }
       } catch {
         // Silently fail — return empty array
@@ -555,7 +581,7 @@ class QrlStore {
     from: string,
     to: string,
     tokenId: string,
-    mnemonicPhrases: string,
+    seed: string,
     contractAddress: string,
     overrides?: GasFeeOverrides,
   ) {
@@ -618,7 +644,7 @@ class QrlStore {
         const signedTransaction =
           await this.qrlInstance?.accounts.signTransaction(
             transactionObject,
-            getHexSeedFromMnemonic(mnemonicPhrases),
+            seed,
           );
 
         if (signedTransaction) {
@@ -688,7 +714,7 @@ class QrlStore {
     from: string,
     to: string,
     value: number,
-    mnemonicPhrases: string,
+    seed: string,
     contractAddress: string,
     decimals: number,
     overrides?: GasFeeOverrides,
@@ -738,7 +764,7 @@ class QrlStore {
         const signedTransaction =
           await this.qrlInstance?.accounts.signTransaction(
             transactionObject,
-            getHexSeedFromMnemonic(mnemonicPhrases),
+            seed,
           );
 
         if (signedTransaction) {
@@ -768,7 +794,7 @@ class QrlStore {
   async signAndSendReplacementTransaction(
     originalTx: TransactionHistoryEntry,
     replacementAction: "speed-up" | "cancel",
-    mnemonicPhrases: string,
+    seed: string,
     overrides?: GasFeeOverrides,
   ) {
     let result: {
@@ -839,7 +865,7 @@ class QrlStore {
       const signedTransaction =
         await this.qrlInstance?.accounts.signTransaction(
           transactionObject,
-          getHexSeedFromMnemonic(mnemonicPhrases),
+          seed,
         );
 
       if (!signedTransaction) {

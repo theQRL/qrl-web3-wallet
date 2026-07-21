@@ -598,7 +598,13 @@ class LedgerStore {
     const signatureBytes = Buffer.from(signResult.signature!.replace("0x", ""), "hex");
     const publicKeyBytes = Buffer.from(publicKey.replace("0x", ""), "hex");
 
-    const signedTxValues = [...rawValues.slice(0, 9), publicKeyBytes, signatureBytes, descriptor];
+    const signedTxValues = [
+      ...rawValues.slice(0, 9),
+      descriptor,
+      extraParams,
+      signatureBytes,
+      publicKeyBytes,
+    ];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const signedTx = FeeMarketEIP1559Transaction.fromValuesArray(signedTxValues as any, { common });
     const signedRawTx = signedTx.serialize();

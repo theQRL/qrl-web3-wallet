@@ -43,7 +43,7 @@ describe("ImportToken", () => {
     });
     await userEvent.type(
       inputField,
-      "0x0db3981cb93db985e4e3a62ff695f7a1b242dd7c",
+      "Q000000000000000000000000000000000000000000000000000000000db3981cb93db985e4e3a62ff695f7a1b242dd7c00000000000000000000000000000000",
     );
     expect(fetchTokenButton).toBeEnabled();
   });

@@ -16,15 +16,21 @@ import {
 import { Input } from "@/components/UI/Input";
 import { Label } from "@/components/UI/Label";
 import { NATIVE_TOKEN } from "@/constants/nativeToken";
+import {
+  ZRC_20_CONTRACT_ABI,
+  ZRC_20_TOKEN_UNITS_OF_GAS,
+} from "@/constants/zrc20Token";
 import { formatFiatCompact } from "@/functions/formatFiat";
 import { parseBalanceValue } from "@/functions/parseBalanceValue";
 import { ROUTES } from "@/router/router";
 import { useStore } from "@/stores/store";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
+import AddressUtil from "@/utilities/addressUtil";
+import { isSuccessfulReceiptStatus } from "@/utilities/receiptStatusUtil";
 import StorageUtil from "@/utilities/storageUtil";
 import { isQrnsName, resolveQrnsName } from "@/utilities/qrnsResolver";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { validator, utils, qrl } from "@theqrl/web3";
+import { utils, qrl } from "@theqrl/web3";
 import { BigNumber } from "bignumber.js";
 import { Loader, Send, X } from "lucide-react";
 import { observer } from "mobx-react-lite";
@@ -48,15 +54,15 @@ const { Common } = qrl.accounts;
 const createFormSchema = (t: TFunction) =>
   z
     .object({
-      receiverAddress: z.string().min(1, t('validation.receiverRequired')),
-      amount: z.coerce.number().gt(0, t('validation.amountPositive')),
+      receiverAddress: z.string().min(1, t("validation.receiverRequired")),
+      amount: z.coerce.number().gt(0, t("validation.amountPositive")),
     })
     .refine(
       (fields) =>
-        validator.isAddressString(fields.receiverAddress) ||
+        AddressUtil.isQrlAddress(fields.receiverAddress.trim()) ||
         isQrnsName(fields.receiverAddress),
       {
-        message: t('validation.addressInvalid'),
+        message: t("validation.addressInvalid"),
         path: ["receiverAddress"],
       },
     );
@@ -66,9 +72,15 @@ const TokenTransfer = observer(() => {
   const FormSchema = createFormSchema(t);
   const { state } = useLocation();
   const navigate = useNavigate();
-  const { lockStore, qrlStore, ledgerStore, transactionHistoryStore, priceStore, settingsStore } =
-    useStore();
-  const { getMnemonicPhrases } = lockStore;
+  const {
+    lockStore,
+    qrlStore,
+    ledgerStore,
+    transactionHistoryStore,
+    priceStore,
+    settingsStore,
+  } = useStore();
+  const { getAccountSeed } = lockStore;
   const {
     activeAccount,
     signNativeToken,
@@ -109,23 +121,27 @@ const TokenTransfer = observer(() => {
     data?: string;
   };
 
-  const signNativeTokenLocal = async (formData: z.infer<typeof FormSchema>): Promise<SignResult> => {
+  const signNativeTokenLocal = async (
+    formData: z.infer<typeof FormSchema>,
+  ): Promise<SignResult> => {
     const isLedgerAccount = ledgerStore.isLedgerAccount(accountAddress);
     if (isLedgerAccount) {
       return await signNativeTokenWithLedger(formData);
     } else {
-      const mnemonicPhrases = await getMnemonicPhrases(accountAddress);
+      const seed = await getAccountSeed(accountAddress);
       return await signNativeToken(
         accountAddress,
         formData.receiverAddress,
         formData.amount,
-        mnemonicPhrases,
+        seed,
         gasFeeOverrides,
       );
     }
   };
 
-  const signNativeTokenWithLedger = async (formData: z.infer<typeof FormSchema>): Promise<SignResult> => {
+  const signNativeTokenWithLedger = async (
+    formData: z.infer<typeof FormSchema>,
+  ): Promise<SignResult> => {
     let result: SignResult = { error: "" };
 
     try {
@@ -149,7 +165,11 @@ const TokenTransfer = observer(() => {
         data: "0x",
       };
 
-      const signedRawTxHex = await ledgerStore.signAndSerializeTransaction(accountAddress, txData, common);
+      const signedRawTxHex = await ledgerStore.signAndSerializeTransaction(
+        accountAddress,
+        txData,
+        common,
+      );
       const transactionHash = utils.sha3(signedRawTxHex);
 
       result = {
@@ -169,17 +189,88 @@ const TokenTransfer = observer(() => {
     return result;
   };
 
-  const signZrc20TokenLocal = async (formData: z.infer<typeof FormSchema>): Promise<SignResult> => {
-    const mnemonicPhrases = await getMnemonicPhrases(accountAddress);
-    return await signZrc20Token(
-      accountAddress,
-      formData.receiverAddress,
-      formData.amount,
-      mnemonicPhrases,
-      tokenContractAddress,
-      tokenDecimals,
-      gasFeeOverrides,
-    );
+  const signZrc20TokenLocal = async (
+    formData: z.infer<typeof FormSchema>,
+  ): Promise<SignResult> => {
+    const isLedgerAccount = ledgerStore.isLedgerAccount(accountAddress);
+    if (isLedgerAccount) {
+      return await signZrc20TokenWithLedger(formData);
+    } else {
+      const seed = await getAccountSeed(accountAddress);
+      return await signZrc20Token(
+        accountAddress,
+        formData.receiverAddress,
+        formData.amount,
+        seed,
+        tokenContractAddress,
+        tokenDecimals,
+        gasFeeOverrides,
+      );
+    }
+  };
+
+  const signZrc20TokenWithLedger = async (
+    formData: z.infer<typeof FormSchema>,
+  ): Promise<SignResult> => {
+    let result: SignResult = { error: "" };
+
+    try {
+      if (!qrlInstance?.Contract) {
+        throw new Error("Blockchain connection not available");
+      }
+
+      const contract = new qrlInstance.Contract(
+        ZRC_20_CONTRACT_ABI,
+        tokenContractAddress,
+      );
+      const contractTransfer = contract.methods.transfer(
+        formData.receiverAddress,
+        BigInt(formData.amount * 10 ** tokenDecimals),
+      );
+      const encodedData = contractTransfer.encodeABI();
+      const { maxFeePerGas, maxPriorityFeePerGas } =
+        await getGasFeeData(gasFeeOverrides);
+      const gasLimit =
+        gasFeeOverrides?.tier === "advanced" && gasFeeOverrides.gasLimit
+          ? gasFeeOverrides.gasLimit
+          : ZRC_20_TOKEN_UNITS_OF_GAS;
+      const nonce = await qrlInstance.getTransactionCount(accountAddress);
+      const chainId = await qrlInstance.getChainId();
+
+      const common = Common.custom({ chainId: Number(chainId) });
+      const txData = {
+        nonce: `0x${(nonce ?? 0).toString(16)}`,
+        maxPriorityFeePerGas: `0x${Number(maxPriorityFeePerGas).toString(16)}`,
+        maxFeePerGas: `0x${Number(maxFeePerGas).toString(16)}`,
+        gasLimit: `0x${BigInt(gasLimit).toString(16)}`,
+        to: tokenContractAddress,
+        value: "0x0",
+        data: encodedData,
+      };
+
+      const signedRawTxHex = await ledgerStore.signAndSerializeTransaction(
+        accountAddress,
+        txData,
+        common,
+      );
+      const transactionHash = utils.sha3(signedRawTxHex);
+
+      result = {
+        transactionHash: transactionHash?.toString(),
+        rawTransaction: signedRawTxHex,
+        error: "",
+        nonce: Number(nonce),
+        maxFeePerGas: maxFeePerGas.toString(),
+        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+        gasLimit,
+        data: encodedData,
+      };
+    } catch (error) {
+      console.error("[TokenTransfer] Ledger ZRC-20 signing failed:", error);
+      result.error = error instanceof Error ? error.message : String(error);
+    }
+
+    return result;
   };
 
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
@@ -197,18 +288,27 @@ const TokenTransfer = observer(() => {
         signResult = await signNativeTokenLocal(formData);
       }
 
-      const { transactionHash, rawTransaction, error, nonce, maxFeePerGas, maxPriorityFeePerGas, gasLimit, data } = signResult;
+      const {
+        transactionHash,
+        rawTransaction,
+        error,
+        nonce,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        gasLimit,
+        data,
+      } = signResult;
 
       if (error) {
         control.setError("amount", {
-          message: t('transfer.errorOccurred', { error }),
+          message: t("transfer.errorOccurred", { error }),
         });
         return;
       }
 
       if (!transactionHash || !rawTransaction) {
         control.setError("amount", {
-          message: t('transfer.errorFailed'),
+          message: t("transfer.errorFailed"),
         });
         return;
       }
@@ -239,13 +339,16 @@ const TokenTransfer = observer(() => {
         gasLimit,
         data,
       };
-      await transactionHistoryStore.addTransaction(accountAddress, historyEntry);
+      await transactionHistoryStore.addTransaction(
+        accountAddress,
+        historyEntry,
+      );
 
       // Step 3: Broadcast in background — don't await
       sendRawTransaction(rawTransaction).then(
         async (receipt) => {
           if (receipt) {
-            const isSuccess = receipt.status?.toString() === "1";
+            const isSuccess = isSuccessfulReceiptStatus(receipt.status);
             await transactionHistoryStore.updateTransaction(
               accountAddress,
               transactionHash,
@@ -265,7 +368,11 @@ const TokenTransfer = observer(() => {
           await transactionHistoryStore.updateTransaction(
             accountAddress,
             transactionHash,
-            { pendingStatus: "failed", status: false },
+            {
+              pendingStatus: "failed",
+              status: false,
+              errorMessage: err instanceof Error ? err.message : String(err),
+            },
           );
         },
       );
@@ -275,7 +382,7 @@ const TokenTransfer = observer(() => {
       navigate(ROUTES.TRANSACTION_HISTORY);
     } catch (error) {
       control.setError("amount", {
-        message: t('transfer.errorOccurred', { error }),
+        message: t("transfer.errorOccurred", { error }),
       });
     }
   }
@@ -403,25 +510,29 @@ const TokenTransfer = observer(() => {
     if (isZrc20Token) {
       const tokenBal = parseBalanceValue(tokenBalance);
       if (sendAmount.greaterThan(tokenBal)) {
-        setBalanceError(t('transfer.errorInsufficientToken', { tokenSymbol }));
+        setBalanceError(t("transfer.errorInsufficientToken", { tokenSymbol }));
         return;
       }
       if (gasFee.greaterThan(nativeBalance)) {
-        setBalanceError(t('transfer.errorInsufficientGas'));
+        setBalanceError(t("transfer.errorInsufficientGas"));
         return;
       }
     } else {
       const totalCost = sendAmount.plus(gasFee);
       if (totalCost.greaterThan(nativeBalance)) {
-        setBalanceError(
-          t('transfer.errorInsufficientBalance'),
-        );
+        setBalanceError(t("transfer.errorInsufficientBalance"));
         return;
       }
     }
 
     setBalanceError("");
-  }, [watchedAmount, estimatedGasFee, tokenBalance, isZrc20Token, accountAddress]);
+  }, [
+    watchedAmount,
+    estimatedGasFee,
+    tokenBalance,
+    isZrc20Token,
+    accountAddress,
+  ]);
 
   const watchedReceiver = watch("receiverAddress");
   const resolveTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -451,7 +562,7 @@ const TokenTransfer = observer(() => {
         })
         .catch(() => {
           setResolvedAddress(null);
-          setQrnsError(t('transfer.qrnsResolutionFailed'));
+          setQrnsError(t("transfer.qrnsResolutionFailed"));
         })
         .finally(() => setQrnsResolving(false));
     }, 500);
@@ -475,18 +586,20 @@ const TokenTransfer = observer(() => {
             </CardHeader>
             <CardContent className="flex flex-col gap-8 pt-6">
               <div className="flex flex-col gap-1">
-                <Label className="text-lg">{t('transfer.activeAccount')}</Label>
+                <Label className="text-lg">{t("transfer.activeAccount")}</Label>
                 <AccountAddressSection tokenBalance={tokenBalance} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label className="text-lg">{t('transfer.makeTransaction')}</Label>
+                <Label className="text-lg">
+                  {t("transfer.makeTransaction")}
+                </Label>
                 <div className="flex flex-col gap-4">
                   <FormField
                     control={control}
                     name="receiverAddress"
                     render={({ field }) => (
                       <FormItem>
-                        <Label>{t('transfer.sendTo')}</Label>
+                        <Label>{t("transfer.sendTo")}</Label>
                         <div className="flex items-center gap-1">
                           <FormControl>
                             <Input
@@ -494,7 +607,7 @@ const TokenTransfer = observer(() => {
                               aria-label={field.name}
                               autoComplete="off"
                               disabled={isSubmitting}
-                              placeholder={t('transfer.receiverPlaceholder')}
+                              placeholder={t("transfer.receiverPlaceholder")}
                             />
                           </FormControl>
                           <RecipientPicker
@@ -508,12 +621,12 @@ const TokenTransfer = observer(() => {
                           />
                         </div>
                         <FormDescription>
-                          {t('transfer.receiverDescription')}
+                          {t("transfer.receiverDescription")}
                         </FormDescription>
                         {qrnsResolving && (
                           <p className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Loader className="h-3 w-3 animate-spin" />
-                            {t('transfer.qrnsResolving')}
+                            {t("transfer.qrnsResolving")}
                           </p>
                         )}
                         {resolvedAddress && !qrnsResolving && (
@@ -536,21 +649,23 @@ const TokenTransfer = observer(() => {
                       name="amount"
                       render={({ field }) => (
                         <FormItem>
-                          <Label>{t('transfer.amountLabel')}</Label>
+                          <Label>{t("transfer.amountLabel")}</Label>
                           <FormControl>
                             <Input
                               {...field}
                               aria-label={field.name}
                               autoComplete="off"
                               disabled={isSubmitting}
-                              placeholder={t('transfer.amountPlaceholder')}
+                              placeholder={t("transfer.amountPlaceholder")}
                               type="number"
                               step="any"
-                              onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                              onWheel={(e) =>
+                                (e.target as HTMLInputElement).blur()
+                              }
                             />
                           </FormControl>
                           <FormDescription>
-                            {t('transfer.amountDescription')}
+                            {t("transfer.amountDescription")}
                             {!isZrc20Token &&
                               settingsStore.showBalanceAndPrice &&
                               priceStore.getPrice(settingsStore.currency) > 0 &&
@@ -597,17 +712,26 @@ const TokenTransfer = observer(() => {
                 onClick={() => cancelTransaction()}
               >
                 <X className="mr-2 h-4 w-4" />
-                {t('transfer.cancelButton')}
+                {t("transfer.cancelButton")}
               </Button>
-              <Button disabled={isSubmitting || !isValid || !!balanceError || qrnsResolving || (isQrnsName(watchedReceiver) && !resolvedAddress)} className="w-full">
+              <Button
+                disabled={
+                  isSubmitting ||
+                  !isValid ||
+                  !!balanceError ||
+                  qrnsResolving ||
+                  (isQrnsName(watchedReceiver) && !resolvedAddress)
+                }
+                className="w-full"
+              >
                 {isSubmitting ? (
                   <Loader className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="mr-2 h-4 w-4" />
                 )}
                 {isSubmitting
-                  ? t('transfer.sendingButton', { tokenSymbol })
-                  : t('transfer.sendButton', { tokenSymbol })}
+                  ? t("transfer.sendingButton", { tokenSymbol })
+                  : t("transfer.sendButton", { tokenSymbol })}
               </Button>
             </CardFooter>
           </Card>

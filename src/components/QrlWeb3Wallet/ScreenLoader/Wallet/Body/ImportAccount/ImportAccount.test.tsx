@@ -88,7 +88,7 @@ describe("ImportAccount", () => {
             accounts: {
               seedToAccount: (_seed: string | Uint8Array) => {
                 return {
-                  address: "Q2090E9F38771876FB6Fc51a6b464121d3cC093A1",
+                  address: "Q000000000000000000000000000000000000000000000000000000002090E9F38771876FB6Fc51a6b464121d3cC093A100000000000000000000000000000000",
                   seed: "",
                   sign: (_data: string | Record<string, unknown>) => {
                     return { messageHash: "", signature: "" };

@@ -58,7 +58,9 @@ import type { DecryptedKeyType } from "@/scripts/lockManager/lockManager";
 
 const MOCK_KEYS: DecryptedKeyType[] = [
   {
-    address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+    password: "test123",
+    address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
+    seed: "0x010000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     mnemonicPhrases: "mocked mnemonic",
   },
 ];

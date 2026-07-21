@@ -2,6 +2,7 @@ import { ObjectMultiplex } from "@theqrl/qrl-wallet-provider/object-multiplex";
 import type { ExtensionPortStream } from "extension-port-stream";
 import { pipeline } from "readable-stream";
 import { EXTENSION_MESSAGES } from "../constants/streamConstants";
+import { asDuplexStream } from "./streamTypeUtils";
 
 // Sets up stream multiplexing for the given stream
 export function setupMultiplex(connectionStream: ExtensionPortStream) {
@@ -11,10 +12,15 @@ export function setupMultiplex(connectionStream: ExtensionPortStream) {
    * We need to tell the multiplexer to ignore them, else we get the "orphaned data for stream" warnings
    */
   mux.ignoreStream(EXTENSION_MESSAGES.CONNECTION_READY);
-  pipeline(connectionStream, mux, connectionStream, (err: Error | null) => {
-    if (err && !err.message?.match("Premature close")) {
-      console.error(err);
-    }
-  });
+  pipeline(
+    asDuplexStream(connectionStream),
+    asDuplexStream(mux),
+    asDuplexStream(connectionStream),
+    (err: Error | null) => {
+      if (err && !err.message?.match("Premature close")) {
+        console.error(err);
+      }
+    },
+  );
   return mux;
 }

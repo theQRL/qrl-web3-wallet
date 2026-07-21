@@ -15,6 +15,7 @@ import type {
   TransactionHistoryEntry,
 } from "@/types/transactionHistory";
 import StorageUtil from "@/utilities/storageUtil";
+import { isSuccessfulReceiptStatus } from "@/utilities/receiptStatusUtil";
 import { utils } from "@theqrl/web3";
 import {
   Ban,
@@ -171,10 +172,8 @@ const TransactionDetail = observer(() => {
         return;
       }
 
-      const mnemonicPhrases = await lockStore.getMnemonicPhrases(
-        transaction.from,
-      );
-      if (!mnemonicPhrases) {
+      const seed = await lockStore.getAccountSeed(transaction.from);
+      if (!seed) {
         setActionError("Could not retrieve account keys. Is the wallet unlocked?");
         setIsProcessing(false);
         return;
@@ -183,7 +182,7 @@ const TransactionDetail = observer(() => {
       const result = await qrlStore.signAndSendReplacementTransaction(
         transaction,
         action,
-        mnemonicPhrases,
+        seed,
         { tier: "aggressive" },
       );
 
@@ -245,7 +244,7 @@ const TransactionDetail = observer(() => {
       qrlStore.sendRawTransaction(result.rawTransaction).then(
         (receipt) => {
           if (action === "speed-up") {
-            const isSuccess = receipt?.status?.toString() === "1";
+            const isSuccess = isSuccessfulReceiptStatus(receipt?.status);
             transactionHistoryStore.updateTransaction(
               transaction.from,
               result.transactionHash!,
@@ -308,6 +307,7 @@ const TransactionDetail = observer(() => {
     gasUsed,
     effectiveGasPrice,
     timestamp,
+    errorMessage,
     replacementTransactionHash,
     replacedByAction,
   } = transaction;
@@ -415,6 +415,16 @@ const TransactionDetail = observer(() => {
                   <Separator />
                 </>
               )}
+
+            {errorMessage && (
+              <>
+                <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-500">
+                  <div className="mb-1 font-medium">Broadcast error</div>
+                  <div className="break-words">{errorMessage}</div>
+                </div>
+                <Separator />
+              </>
+            )}
 
             <div className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">{t('txDetail.amount')}</span>

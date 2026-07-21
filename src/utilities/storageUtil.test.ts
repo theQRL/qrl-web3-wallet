@@ -65,8 +65,8 @@ const clearStore = (store: Record<string, any>) => {
   for (const k of Object.keys(store)) delete store[k];
 };
 
-const ACCOUNT = "Q20B714091cF2a62DADda2847803e3f1B9D2D3779";
-const ACCOUNT_2 = "Q20fB08fF1f1376A14C055E9F56df80563E16722b";
+const ACCOUNT = "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000";
+const ACCOUNT_2 = "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000";
 
 const makeTxEntry = (
   overrides: Partial<TransactionHistoryEntry> = {},
@@ -555,7 +555,7 @@ describe("StorageUtil", () => {
     it("should return undefined for unknown ledger address", async () => {
       await StorageUtil.setLedgerAccounts([ledgerAccount1]);
       const result = await StorageUtil.getLedgerAccountByAddress(
-        "Q0000000000000000000000000000000000000000",
+        "Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
       );
       expect(result).toBeUndefined();
     });

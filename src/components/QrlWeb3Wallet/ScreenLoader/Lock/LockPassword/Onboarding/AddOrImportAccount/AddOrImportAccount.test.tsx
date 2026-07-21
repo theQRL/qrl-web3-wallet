@@ -161,7 +161,7 @@ describe("AddOrImportAccount", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q208318ecd68f26726CE7C54b29CaBA94584969B6",
+            accountAddress: "Q00000000000000000000000000000000000000000000000000000000208318ecd68f26726CE7C54b29CaBA94584969B600000000000000000000000000000000",
           },
         },
       }),

@@ -17,6 +17,7 @@ export type EncryptAccountType = {
 
 export type DecryptedKeyType = {
   address: string;
+  seed: string;
   mnemonicPhrases: string;
 };
 
@@ -171,6 +172,7 @@ class LockManager {
         const { address, seed } = await decrypt(keyStore, normalisedPassword);
         decryptedKeys.push({
           address,
+          seed,
           mnemonicPhrases: getMnemonicFromHexSeed(seed),
         });
       }
@@ -253,6 +255,7 @@ class LockManager {
     // instead of re-decrypting everything (which would block the SW).
     const newKey: DecryptedKeyType = {
       address: encryptedKeyStore.address,
+      seed: seed as string,
       mnemonicPhrases: getMnemonicFromHexSeed(seed as string),
     };
     this.walletPassword = password;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { QRL_ADDRESS_BYTES, QRL_ADDRESS_LENGTH } from "@/constants/address";
 import { LEDGER_CONFIG } from "@/constants/ledger";
 import {
   packDerivationPath,
@@ -320,8 +321,8 @@ describe("ledgerApdu", () => {
 
   describe("parseQrlAddress", () => {
     it("should parse valid QRL address from response", () => {
-      // 'Q' prefix (0x51) + 20 bytes address + success status
-      const addressBytes = Buffer.alloc(20, 0xab);
+      // 'Q' prefix (0x51) + 64 bytes address + success status
+      const addressBytes = Buffer.alloc(QRL_ADDRESS_BYTES, 0xab);
       const response = Buffer.concat([
         Buffer.from([0x51]), // 'Q'
         addressBytes,
@@ -331,13 +332,13 @@ describe("ledgerApdu", () => {
       const address = parseQrlAddress(response);
 
       expect(address.startsWith("Q")).toBe(true);
-      expect(address.length).toBe(41); // Q + 40 hex chars
+      expect(address.length).toBe(QRL_ADDRESS_LENGTH);
     });
 
     it("should throw for invalid prefix", () => {
       const response = Buffer.concat([
         Buffer.from([0x58]), // 'X' instead of 'Q'
-        Buffer.alloc(20, 0xab),
+        Buffer.alloc(QRL_ADDRESS_BYTES, 0xab),
         Buffer.from([0x90, 0x00]),
       ]);
 
@@ -357,7 +358,7 @@ describe("ledgerApdu", () => {
     it("should throw for error status", () => {
       const response = Buffer.concat([
         Buffer.from([0x51]),
-        Buffer.alloc(20, 0xab),
+        Buffer.alloc(QRL_ADDRESS_BYTES, 0xab),
         Buffer.from([0x69, 0x85]), // User rejection
       ]);
 
@@ -367,8 +368,8 @@ describe("ledgerApdu", () => {
 
   describe("parsePublicKeyResponse", () => {
     it("should parse address without public key", () => {
-      // 'Q' prefix + 20 bytes address + success status (no public key)
-      const addressBytes = Buffer.alloc(20, 0xab);
+      // 'Q' prefix + 64 bytes address + success status (no public key)
+      const addressBytes = Buffer.alloc(QRL_ADDRESS_BYTES, 0xab);
       const response = Buffer.concat([
         Buffer.from([0x51]), // 'Q'
         addressBytes,
@@ -378,13 +379,13 @@ describe("ledgerApdu", () => {
       const result = parsePublicKeyResponse(response);
 
       expect(result.address.startsWith("Q")).toBe(true);
-      expect(result.address.length).toBe(41); // Q + 40 hex chars
+      expect(result.address.length).toBe(QRL_ADDRESS_LENGTH);
       expect(result.publicKey).toBe(""); // No public key in response
     });
 
     it("should parse address with public key", () => {
-      // 'Q' prefix + 20 bytes address + public key + success status
-      const addressBytes = Buffer.alloc(20, 0xab);
+      // 'Q' prefix + 64 bytes address + public key + success status
+      const addressBytes = Buffer.alloc(QRL_ADDRESS_BYTES, 0xab);
       const publicKeyBytes = Buffer.alloc(100, 0xcc); // Simplified public key
       const response = Buffer.concat([
         Buffer.from([0x51]), // 'Q'
@@ -396,14 +397,14 @@ describe("ledgerApdu", () => {
       const result = parsePublicKeyResponse(response);
 
       expect(result.address.startsWith("Q")).toBe(true);
-      expect(result.address.length).toBe(41);
+      expect(result.address.length).toBe(QRL_ADDRESS_LENGTH);
       expect(result.publicKey).toMatch(/^0x/);
       expect(result.publicKey.length).toBe(2 + 100 * 2); // 0x + 100 bytes as hex
     });
 
     it("should parse full Dilithium public key", () => {
-      // 'Q' prefix + 20 bytes address + 2528 bytes Dilithium key + success status
-      const addressBytes = Buffer.alloc(20, 0xab);
+      // 'Q' prefix + 64 bytes address + 2528 bytes Dilithium key + success status
+      const addressBytes = Buffer.alloc(QRL_ADDRESS_BYTES, 0xab);
       const publicKeyBytes = Buffer.alloc(DILITHIUM_PUBLIC_KEY_SIZE, 0xdd);
       const response = Buffer.concat([
         Buffer.from([0x51]), // 'Q'
@@ -423,7 +424,7 @@ describe("ledgerApdu", () => {
     it("should throw for invalid prefix", () => {
       const response = Buffer.concat([
         Buffer.from([0x58]), // 'X' instead of 'Q'
-        Buffer.alloc(20, 0xab),
+        Buffer.alloc(QRL_ADDRESS_BYTES, 0xab),
         Buffer.from([0x90, 0x00]),
       ]);
 
@@ -443,7 +444,7 @@ describe("ledgerApdu", () => {
     it("should throw for error status", () => {
       const response = Buffer.concat([
         Buffer.from([0x51]),
-        Buffer.alloc(20, 0xab),
+        Buffer.alloc(QRL_ADDRESS_BYTES, 0xab),
         Buffer.from([0x69, 0x85]), // User rejection
       ]);
 

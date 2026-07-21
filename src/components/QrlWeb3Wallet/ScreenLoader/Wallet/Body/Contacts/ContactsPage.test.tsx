@@ -6,15 +6,13 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import ContactsPage from "./ContactsPage";
 
-vi.mock("@theqrl/web3", () => ({
-  validator: {
-    isAddressString: (addr: string) =>
-      typeof addr === "string" && addr.startsWith("Q") && addr.length >= 41,
-  },
-}));
-
 describe("ContactsPage", () => {
   afterEach(cleanup);
+
+  const contactAddress =
+    "Q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000";
+  const newContactAddress =
+    "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000";
 
   const renderComponent = (mockedStoreValues = mockedStore()) =>
     render(
@@ -65,7 +63,7 @@ describe("ContactsPage", () => {
           contacts: [
             {
               name: "Alice",
-              address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+              address: contactAddress,
             },
           ],
         },
@@ -82,7 +80,7 @@ describe("ContactsPage", () => {
           contacts: [
             {
               name: "Alice",
-              address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+              address: contactAddress,
             },
           ],
         },
@@ -102,7 +100,7 @@ describe("ContactsPage", () => {
           contacts: [
             {
               name: "Alice",
-              address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+              address: contactAddress,
             },
           ],
           removeContact,
@@ -113,7 +111,7 @@ describe("ContactsPage", () => {
     await userEvent.click(screen.getByLabelText("Delete contact"));
 
     expect(removeContact).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      contactAddress,
     );
   });
 
@@ -135,7 +133,7 @@ describe("ContactsPage", () => {
     );
     await userEvent.type(
       screen.getByPlaceholderText("Q address"),
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      newContactAddress,
     );
 
     const saveButton = screen.getByRole("button", { name: /Save/i });
@@ -148,7 +146,7 @@ describe("ContactsPage", () => {
     await waitFor(() => {
       expect(addContact).toHaveBeenCalledWith({
         name: "Bob",
-        address: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+        address: newContactAddress,
       });
     });
 
@@ -164,7 +162,7 @@ describe("ContactsPage", () => {
           contacts: [
             {
               name: "Alice",
-              address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+              address: contactAddress,
             },
           ],
           updateContact,
@@ -187,10 +185,10 @@ describe("ContactsPage", () => {
 
     await waitFor(() => {
       expect(updateContact).toHaveBeenCalledWith(
-        "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+        contactAddress,
         {
           name: "Alice Updated",
-          address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+          address: contactAddress,
         },
       );
     });

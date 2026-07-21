@@ -55,7 +55,7 @@ describe("ContactsStore", () => {
 
   it("should load contacts from storage", async () => {
     const contacts: Contact[] = [
-      { name: "Alice", address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779" },
+      { name: "Alice", address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000" },
     ];
     await StorageUtil.setContacts(contacts);
 
@@ -68,7 +68,7 @@ describe("ContactsStore", () => {
   it("should add a contact", async () => {
     const contact: Contact = {
       name: "Bob",
-      address: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      address: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     };
 
     await store.addContact(contact);
@@ -84,11 +84,11 @@ describe("ContactsStore", () => {
   it("should remove a contact by address", async () => {
     const c1: Contact = {
       name: "Alice",
-      address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     };
     const c2: Contact = {
       name: "Bob",
-      address: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      address: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     };
     await store.addContact(c1);
     await store.addContact(c2);
@@ -102,11 +102,11 @@ describe("ContactsStore", () => {
   it("should remove contact case-insensitively", async () => {
     const contact: Contact = {
       name: "Alice",
-      address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     };
     await store.addContact(contact);
 
-    await store.removeContact("q20b714091cf2a62dadda2847803e3f1b9d2d3779");
+    await store.removeContact("q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000");
 
     expect(store.contacts).toHaveLength(0);
   });
@@ -114,7 +114,7 @@ describe("ContactsStore", () => {
   it("should update a contact", async () => {
     const contact: Contact = {
       name: "Alice",
-      address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     };
     await store.addContact(contact);
 
@@ -130,7 +130,7 @@ describe("ContactsStore", () => {
   it("should find a contact by address", async () => {
     const contact: Contact = {
       name: "Alice",
-      address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     };
     await store.addContact(contact);
 
@@ -139,21 +139,21 @@ describe("ContactsStore", () => {
   });
 
   it("should return undefined for unknown address", () => {
-    const found = store.getContactByAddress("Q0000000000000000000000000000000000000000");
+    const found = store.getContactByAddress("Q00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
     expect(found).toBeUndefined();
   });
 
   it("should not add duplicate address", async () => {
     const contact: Contact = {
       name: "Alice",
-      address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     };
     await store.addContact(contact);
 
     // Try adding same address with different name
     await store.addContact({
       name: "Alice Duplicate",
-      address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     });
 
     expect(store.contacts).toHaveLength(1);
@@ -163,13 +163,13 @@ describe("ContactsStore", () => {
   it("should not add duplicate address case-insensitively", async () => {
     const contact: Contact = {
       name: "Alice",
-      address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     };
     await store.addContact(contact);
 
     await store.addContact({
       name: "Alice Lower",
-      address: "q20b714091cf2a62dadda2847803e3f1b9d2d3779",
+      address: "q0000000000000000000000000000000000000000000000000000000020b714091cf2a62dadda2847803e3f1b9d2d377900000000000000000000000000000000",
     });
 
     expect(store.contacts).toHaveLength(1);

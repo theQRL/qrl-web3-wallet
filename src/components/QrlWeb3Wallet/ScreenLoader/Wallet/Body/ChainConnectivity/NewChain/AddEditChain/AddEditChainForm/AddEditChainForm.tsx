@@ -125,6 +125,7 @@ const AddEditChainForm = observer(({ chainToEdit }: AddEditChainFormType) => {
   }, [iconUrls]);
 
   const generateBlockchainData = (formData: z.infer<typeof FormSchema>) => {
+    const normalizedQrnsRegistryAddress = qrnsRegistryAddress.trim();
     const chainData: BlockchainDataType = {
       chainName: formData.chainName,
       chainId: "0x".concat(formData.chainId.toString(16)),
@@ -142,7 +143,7 @@ const AddEditChainForm = observer(({ chainToEdit }: AddEditChainFormType) => {
       isTestnet: false,
       defaultWsRpcUrl: "http://127.0.0.1:8545",
       isCustomChain: true,
-      qrnsRegistryAddress: qrnsRegistryAddress || undefined,
+      qrnsRegistryAddress: normalizedQrnsRegistryAddress || undefined,
     };
     return chainData;
   };

@@ -83,24 +83,24 @@ describe("RecipientPicker", () => {
 
   it("should list other accounts excluding active", () => {
     const labels: Record<string, string> = {
-      Q20B714091cF2a62DADda2847803e3f1B9D2D3779: "Account 1",
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: "Account 2",
+      Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000: "Account 1",
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: "Account 2",
     };
     renderComponent(
       vi.fn(),
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
           },
           qrlAccounts: {
             accounts: [
               {
-                accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 accountBalance: "10",
               },
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "5",
               },
             ],
@@ -115,35 +115,35 @@ describe("RecipientPicker", () => {
 
     expect(screen.getByText("Account 2")).toBeInTheDocument();
     expect(
-      screen.getByText(/Q20fB08fF1f1376A14C055E9F56df80563E16722b/),
+      screen.getByText(/Q00000.*020fB.*16722 b/),
     ).toBeInTheDocument();
   });
 
   it("should label Ledger accounts as 'Ledger' with index", () => {
     const labels: Record<string, string> = {
-      Q20B714091cF2a62DADda2847803e3f1B9D2D3779: "Account 1",
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: "Account 2",
-      Q30aA00aA0a0000A00A000A0A00aa00000A00000c: "Ledger 1",
+      Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000: "Account 1",
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: "Account 2",
+      Q0000000000000000000000000000000000000000000000000000000030aA00aA0a0000A00A000A0A00aa00000A00000c00000000000000000000000000000000: "Ledger 1",
     };
     renderComponent(
       vi.fn(),
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
           },
           qrlAccounts: {
             accounts: [
               {
-                accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 accountBalance: "10",
               },
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "5",
               },
               {
-                accountAddress: "Q30aA00aA0a0000A00A000A0A00aa00000A00000c",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000030aA00aA0a0000A00A000A0A00aa00000A00000c00000000000000000000000000000000",
                 accountBalance: "3",
               },
             ],
@@ -166,16 +166,16 @@ describe("RecipientPicker", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
           },
           qrlAccounts: {
             accounts: [
               {
-                accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 accountBalance: "10",
               },
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "5",
               },
             ],
@@ -186,7 +186,7 @@ describe("RecipientPicker", () => {
 
     // With no labels from store, address is shown as both label and address line
     const matches = screen.getAllByText(
-      /Q20fB08fF1f1376A14C055E9F56df80563E16722b/,
+      /Q00000.*020fB.*16722 b/,
     );
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
@@ -207,7 +207,7 @@ describe("RecipientPicker", () => {
           contacts: [
             {
               name: "Alice",
-              address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+              address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
             },
           ],
         },
@@ -235,8 +235,8 @@ describe("RecipientPicker", () => {
           transactions: [
             {
               id: "0x1",
-              from: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
-              to: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+              from: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
+              to: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
               amount: 1,
               tokenSymbol: "QRL",
               tokenName: "QRL",
@@ -259,31 +259,31 @@ describe("RecipientPicker", () => {
     await userEvent.click(screen.getByText("Recent"));
 
     expect(
-      screen.getByText(/Q20fB08fF1f1376A14C055E9F56df80563E16722b/),
+      screen.getByText(/Q00000.*020fB.*16722 b/),
     ).toBeInTheDocument();
   });
 
   it("should call onSelect when an address is clicked", async () => {
     const onSelect = vi.fn<any>();
     const labels: Record<string, string> = {
-      Q20B714091cF2a62DADda2847803e3f1B9D2D3779: "Account 1",
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: "Account 2",
+      Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000: "Account 1",
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: "Account 2",
     };
     renderComponent(
       onSelect,
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+            accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
           },
           qrlAccounts: {
             accounts: [
               {
-                accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 accountBalance: "10",
               },
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "5",
               },
             ],
@@ -299,12 +299,12 @@ describe("RecipientPicker", () => {
     expect(screen.getByText("Account 2")).toBeInTheDocument();
 
     const addressButton = screen.getByText(
-      /Q20fB08fF1f1376A14C055E9F56df80563E16722b/,
+      /Q00000.*020fB.*16722 b/,
     );
     await userEvent.click(addressButton.closest("button")!);
 
     expect(onSelect).toHaveBeenCalledWith(
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     );
   });
 
@@ -317,7 +317,7 @@ describe("RecipientPicker", () => {
           contacts: [
             {
               name: "Alice",
-              address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+              address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
             },
           ],
         },
@@ -329,7 +329,7 @@ describe("RecipientPicker", () => {
     await userEvent.click(contactButton);
 
     expect(onSelect).toHaveBeenCalledWith(
-      "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     );
   });
 
@@ -342,8 +342,8 @@ describe("RecipientPicker", () => {
           transactions: [
             {
               id: "0x1",
-              from: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
-              to: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+              from: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
+              to: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
               amount: 1,
               tokenSymbol: "QRL",
               tokenName: "QRL",
@@ -365,12 +365,12 @@ describe("RecipientPicker", () => {
 
     await userEvent.click(screen.getByText("Recent"));
     const recentButton = screen
-      .getByText(/Q20fB08fF1f1376A14C055E9F56df80563E16722b/)
+      .getByText(/Q00000.*020fB.*16722 b/)
       .closest("button")!;
     await userEvent.click(recentButton);
 
     expect(onSelect).toHaveBeenCalledWith(
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     );
   });
 

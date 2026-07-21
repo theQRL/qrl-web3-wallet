@@ -36,7 +36,7 @@ describe("Receive", () => {
   });
 
   it("should render a QR code for the active account", () => {
-    const address = "Q20B714091cF2a62DADda2847803e3f1B9D2D3779";
+    const address = "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000";
     renderComponent(
       mockedStore({
         qrlStore: { activeAccount: { accountAddress: address } },
@@ -49,7 +49,7 @@ describe("Receive", () => {
   });
 
   it("should use accountAddress from location state when provided", () => {
-    const stateAddress = "Q20fB08fF1f1376A14C055E9F56df80563E16722b";
+    const stateAddress = "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000";
     renderComponent(mockedStore(), { accountAddress: stateAddress });
 
     const qr = screen.getByTestId("qr-code");
@@ -57,19 +57,19 @@ describe("Receive", () => {
   });
 
   it("should display the split address", () => {
-    const address = "Q20B714091cF2a62DADda2847803e3f1B9D2D3779";
+    const address = "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000";
     renderComponent(
       mockedStore({
         qrlStore: { activeAccount: { accountAddress: address } },
       }),
     );
 
-    // Address is rendered as "Q 20B71 4091c ..." (prefix + space-separated chunks)
-    expect(screen.getByText(/Q\s+20B71/)).toBeInTheDocument();
+    // Address is rendered as "Q 00000 00000 ... 020B7 14091 ..." (prefix + space-separated chunks)
+    expect(screen.getByText(/Q\s+00000\s+00000.*020B7\s+14091/)).toBeInTheDocument();
   });
 
   it("should copy address to clipboard on click", async () => {
-    const address = "Q20B714091cF2a62DADda2847803e3f1B9D2D3779";
+    const address = "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000";
     const mockedWriteText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: mockedWriteText },

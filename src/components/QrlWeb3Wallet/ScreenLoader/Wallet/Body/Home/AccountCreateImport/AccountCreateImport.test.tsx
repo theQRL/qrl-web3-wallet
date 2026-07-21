@@ -13,7 +13,7 @@ vi.mock("@/utilities/storageUtil", async () => {
   return {
     ...originalModule,
     getTokenContractsList: vi.fn(async () => [
-      "Qd180388b9a863728fdc2e865d5fea87ce100eb2f",
+      "Q00000000000000000000000000000000000000000000000000000000d180388b9a863728fdc2e865d5fea87ce100eb2f00000000000000000000000000000000",
     ]),
     getNFTCollectionsList: vi.fn(async () => []),
   };
@@ -74,7 +74,7 @@ describe("AccountCreateImport", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q205046e6A6E159eD6ACedE46A36CAD6D449C80A1",
+            accountAddress: "Q00000000000000000000000000000000000000000000000000000000205046e6A6E159eD6ACedE46A36CAD6D449C80A100000000000000000000000000000000",
           },
         },
       }),
@@ -139,7 +139,7 @@ describe("AccountCreateImport", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q205046e6A6E159eD6ACedE46A36CAD6D449C80A1",
+            accountAddress: "Q00000000000000000000000000000000000000000000000000000000205046e6A6E159eD6ACedE46A36CAD6D449C80A100000000000000000000000000000000",
           },
         },
       }),

@@ -21,6 +21,7 @@ export type UnlockWorkerRequest = {
 
 export type DecryptedKey = {
   address: string;
+  seed: string;
   mnemonicPhrases: string;
 };
 
@@ -47,6 +48,7 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
       const { address, seed } = await decrypt(keyStore, normalisedPassword);
       keys.push({
         address,
+        seed,
         mnemonicPhrases: getMnemonicFromHexSeed(seed),
       });
       if (shouldUpgradeKeystoreParams(keyStore)) {

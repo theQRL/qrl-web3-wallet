@@ -38,8 +38,8 @@ describe("SettingsAbout", () => {
           qrlAccounts: {
             isLoading: false,
             accounts: [
-              { accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779", accountBalance: "0" },
-              { accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b", accountBalance: "0" },
+              { accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000", accountBalance: "0" },
+              { accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000", accountBalance: "0" },
             ],
           },
         },

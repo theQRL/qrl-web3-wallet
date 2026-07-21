@@ -30,6 +30,7 @@ export type TransactionHistoryEntry = {
   maxPriorityFeePerGas?: string;
   gasLimit?: number;
   data?: string;
+  errorMessage?: string;
   replacementTransactionHash?: string;
   replacedByAction?: "speed-up" | "cancel";
 };

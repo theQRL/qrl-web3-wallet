@@ -55,7 +55,7 @@ describe("AccountList", () => {
 
   it("should show hidden accounts section when accounts are hidden", () => {
     const hidden: Record<string, boolean> = {
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: true,
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: true,
     };
     renderComponent(
       mockedStore({
@@ -64,11 +64,11 @@ describe("AccountList", () => {
             isLoading: false,
             accounts: [
               {
-                accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 accountBalance: "1.0 QRL",
               },
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "2.0 QRL",
               },
             ],
@@ -76,7 +76,7 @@ describe("AccountList", () => {
         },
         hiddenAccountsStore: {
           hiddenAccounts: hidden,
-          hiddenAddresses: ["Q20fB08fF1f1376A14C055E9F56df80563E16722b"],
+          hiddenAddresses: ["Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000"],
           loadHiddenAccounts: async () => {},
           hideAccount: async () => {},
           unhideAccount: async () => {},
@@ -90,7 +90,7 @@ describe("AccountList", () => {
 
   it("should expand hidden accounts section on click", async () => {
     const hidden: Record<string, boolean> = {
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: true,
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: true,
     };
     renderComponent(
       mockedStore({
@@ -99,11 +99,11 @@ describe("AccountList", () => {
             isLoading: false,
             accounts: [
               {
-                accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 accountBalance: "1.0 QRL",
               },
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "2.0 QRL",
               },
             ],
@@ -111,7 +111,7 @@ describe("AccountList", () => {
         },
         hiddenAccountsStore: {
           hiddenAccounts: hidden,
-          hiddenAddresses: ["Q20fB08fF1f1376A14C055E9F56df80563E16722b"],
+          hiddenAddresses: ["Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000"],
           loadHiddenAccounts: async () => {},
           hideAccount: async () => {},
           unhideAccount: async () => {},
@@ -124,7 +124,7 @@ describe("AccountList", () => {
 
     expect(
       screen.getByText(
-        "Mocked AccountId Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+        "Mocked AccountId Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
       ),
     ).toBeInTheDocument();
   });
@@ -132,7 +132,7 @@ describe("AccountList", () => {
   it("should call unhideAccount when unhide button is clicked", async () => {
     const unhideAccount = vi.fn<any>(() => Promise.resolve());
     const hidden: Record<string, boolean> = {
-      Q20fB08fF1f1376A14C055E9F56df80563E16722b: true,
+      Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000: true,
     };
     renderComponent(
       mockedStore({
@@ -141,11 +141,11 @@ describe("AccountList", () => {
             isLoading: false,
             accounts: [
               {
-                accountAddress: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
                 accountBalance: "1.0 QRL",
               },
               {
-                accountAddress: "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+                accountAddress: "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
                 accountBalance: "2.0 QRL",
               },
             ],
@@ -153,7 +153,7 @@ describe("AccountList", () => {
         },
         hiddenAccountsStore: {
           hiddenAccounts: hidden,
-          hiddenAddresses: ["Q20fB08fF1f1376A14C055E9F56df80563E16722b"],
+          hiddenAddresses: ["Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000"],
           loadHiddenAccounts: async () => {},
           hideAccount: async () => {},
           unhideAccount,
@@ -166,7 +166,7 @@ describe("AccountList", () => {
     await userEvent.click(screen.getByRole("button", { name: "Unhide" }));
 
     expect(unhideAccount).toHaveBeenCalledWith(
-      "Q20fB08fF1f1376A14C055E9F56df80563E16722b",
+      "Q0000000000000000000000000000000000000000000000000000000020fB08fF1f1376A14C055E9F56df80563E16722b00000000000000000000000000000000",
     );
   });
 });

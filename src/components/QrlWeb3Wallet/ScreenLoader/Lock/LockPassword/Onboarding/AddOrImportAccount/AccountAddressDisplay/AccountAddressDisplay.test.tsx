@@ -22,7 +22,7 @@ describe("AccountAddressDisplay", () => {
       mockedStore({
         qrlStore: {
           activeAccount: {
-            accountAddress: "Q208318ecd68f26726CE7C54b29CaBA94584969B6",
+            accountAddress: "Q00000000000000000000000000000000000000000000000000000000208318ecd68f26726CE7C54b29CaBA94584969B600000000000000000000000000000000",
           },
         },
       }),
@@ -30,7 +30,7 @@ describe("AccountAddressDisplay", () => {
 
     expect(screen.getByText("Account address")).toBeInTheDocument();
     expect(
-      screen.getByText("Q 20831 8ecd6 8f267 26CE7 C54b2 9CaBA 94584 969B6"),
+      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 02083 18ecd 68f26 726CE 7C54b 29CaB A9458 4969B 60000 00000 00000 00000 00000 00000 000"),
     ).toBeInTheDocument();
   });
 });
