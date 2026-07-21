@@ -3,6 +3,9 @@
   "minimum_chrome_version": "114",
   "name": "QRL Web3 Wallet",
   "description": "A web3 wallet that run on the QRL blockchain.",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "icons": {
     "16": "icons/qrl/16.png",
     "24": "icons/qrl/24.png",
