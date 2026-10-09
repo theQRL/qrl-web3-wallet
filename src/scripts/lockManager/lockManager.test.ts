@@ -104,7 +104,7 @@ describe("LockManager – keep-alive & auto-lock", () => {
       await LockManager.startKeepAlive();
 
       expect(mockAlarms.create).toHaveBeenCalledWith(LockManager.KEEP_ALIVE_ALARM, {
-        periodInMinutes: 0.4,
+        periodInMinutes: 0.5,
       });
     });
   });
@@ -146,14 +146,14 @@ describe("LockManager – keep-alive & auto-lock", () => {
   // ── Session key backup / restore ───────────────────────────────
 
   describe("session key backup", () => {
-    it("should backup keys to session storage when keys are set", () => {
-      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+    it("should backup keys to session storage when keys are set", async () => {
+      await LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
 
       expect(sessionStore["_LM_CACHED_KEYS"]).toEqual(MOCK_KEYS);
     });
 
     it("should clear session keys on lock", async () => {
-      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+      await LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
       expect(sessionStore["_LM_CACHED_KEYS"]).toBeDefined();
 
       await LockManager.lock();
@@ -220,7 +220,7 @@ describe("LockManager – keep-alive & auto-lock", () => {
       localStore["KEYSTORES"] = JSON.stringify([{ address: "0x123" }]);
       localStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["0x123"] };
 
-      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+      await LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
       await LockManager.startKeepAlive();
 
       await LockManager.handleAutoLockAlarm();
@@ -237,7 +237,7 @@ describe("LockManager – keep-alive & auto-lock", () => {
 
   describe("lock", () => {
     it("should clear keys, session backup, keep-alive alarm, and auto-lock alarm", async () => {
-      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+      await LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
       await LockManager.startKeepAlive();
       alarmsStore[LockManager.AUTO_LOCK_ALARM] = { delayInMinutes: 5 };
 
@@ -250,6 +250,60 @@ describe("LockManager – keep-alive & auto-lock", () => {
 
       expect(mockAlarms.clear).toHaveBeenCalledWith(LockManager.AUTO_LOCK_ALARM);
       expect(mockAlarms.clear).toHaveBeenCalledWith(LockManager.KEEP_ALIVE_ALARM);
+      expect(sessionStore["_LM_CACHED_KEYS"]).toBeUndefined();
+    });
+  });
+
+  // ── Session op ordering (sessionOpQueue) ────────────────────────
+
+  describe("session op ordering", () => {
+    it("should write the LOCKED timestamp before clearing decrypted keys", async () => {
+      await LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+
+      await LockManager.lock();
+
+      expect(localStore["LOCK_MANAGER_LOCKED_TIMESTAMP"]).toBeDefined();
+    });
+
+    it("should queue lock()'s session clear behind a still-in-flight key backup write, and not let it resurrect keys", async () => {
+      const mockSessionSet = browser.storage.session.set as any;
+      let releaseSlowWrite!: () => void;
+      const slowWrite = new Promise<void>((resolve) => {
+        releaseSlowWrite = resolve;
+      });
+      // The next backupKeysToSession() write takes a while to actually
+      // land in storage.
+      mockSessionSet.mockImplementationOnce((data: Record<string, any>) =>
+        slowWrite.then(() => {
+          Object.assign(sessionStore, data);
+        }),
+      );
+
+      // Start the slow write, then lock before it lands.
+      const slowSetPromise = LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+      let lockSettled = false;
+      const lockPromise = LockManager.lock().then(() => {
+        lockSettled = true;
+      });
+
+      // Drain every pending microtask via a macrotask boundary, without
+      // releasing the slow write. lock()'s own session-storage clear goes
+      // through the same sessionOpQueue as the write above, so it cannot
+      // run until the write's own turn finishes: lock() must still be
+      // pending here. (Without that queue, lock() has nothing left to
+      // wait on and would have long since settled by this point.)
+      await new Promise((r) => setTimeout(r, 0));
+      expect(lockSettled).toBe(false);
+
+      // Let the slow write land, and let both operations finish.
+      releaseSlowWrite();
+      await slowSetPromise;
+      await lockPromise;
+
+      expect(lockSettled).toBe(true);
+      // The clear ran after the write's turn, so it is the clear that
+      // sticks: the wallet does not read as unlocked again on the next
+      // service-worker restart.
       expect(sessionStore["_LM_CACHED_KEYS"]).toBeUndefined();
     });
   });
@@ -301,7 +355,7 @@ describe("LockManager – keep-alive & auto-lock", () => {
       localStore["KEYSTORES"] = JSON.stringify([{ address: "0x123" }]);
       localStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["0x123"] };
 
-      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+      await LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
       mockAlarms.create.mockClear();
 
       await LockManager.lockManagerListener({
@@ -332,7 +386,7 @@ describe("LockManager – keep-alive & auto-lock", () => {
     it("should lock wallet on LOCK message", async () => {
       localStore["KEYSTORES"] = JSON.stringify([{ address: "0x123" }]);
       localStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["0x123"] };
-      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+      await LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
 
       await LockManager.lockManagerListener({
         name: LOCK_MANAGER_MESSAGES.LOCK,

@@ -61,8 +61,35 @@ class LockManager {
   static readonly AUTO_LOCK_ALARM = "QRL_AUTO_LOCK";
   static readonly KEEP_ALIVE_ALARM = "QRL_KEEP_ALIVE";
   private static readonly SESSION_KEYS_KEY = "_LM_CACHED_KEYS";
+  // Every read/write against the session-storage key backup runs through
+  // this chain, one at a time, in call order. Without it, a lock() that
+  // clears the backup could race a slightly earlier, still-in-flight
+  // backupKeysToSession() write: the clear finishes first, the stale write
+  // lands after, and the wallet reads as unlocked again on the next
+  // service-worker restart even though the user just locked it.
+  private static sessionOpQueue: Promise<unknown> = Promise.resolve();
 
+  private static queueSessionOp<T>(op: () => Promise<T>): Promise<T> {
+    const result = this.sessionOpQueue.then(op, op);
+    // Keep the chain alive even if this op rejected, so later ops still
+    // run; the rejection itself still reaches whoever awaited `result`.
+    this.sessionOpQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  /**
+   * Locking is the one path every other surface's restart-recovery logic
+   * has to trust, so the LOCKED timestamp is written first, durably,
+   * before anything else: readLockState() on another open surface
+   * compares it against the UNLOCKED timestamp to tell an intentional
+   * lock apart from a service-worker restart, and by the time this
+   * returns that comparison can no longer see a stale (pre-lock) answer.
+   */
   static async lock() {
+    await StorageUtil.updateLockStateTimeStamp(LockState.LOCKED);
     this.clearDecryptedKeys();
     this.walletPassword = undefined;
     await this.clearSessionKeys();
@@ -72,7 +99,11 @@ class LockManager {
 
   static async startKeepAlive() {
     await browser.alarms.create(this.KEEP_ALIVE_ALARM, {
-      periodInMinutes: 0.4, // ~24 seconds — under Chrome's 30s kill threshold
+      // Chrome's alarms API clamps periodInMinutes to a 30-second (0.5)
+      // floor in packaged extensions. Requesting less than that floor did
+      // not make the keep-alive tick fire any faster; it just made the
+      // requested period read wrong.
+      periodInMinutes: 0.5,
     });
   }
 
@@ -111,24 +142,28 @@ class LockManager {
   }
 
   static async handleAutoLockAlarm() {
+    // lock() writes the LOCKED timestamp itself, first, before anything
+    // else. No need to duplicate the write here.
     await this.lock();
-    await StorageUtil.updateLockStateTimeStamp(LockState.LOCKED);
   }
 
   /**
    * Backup decrypted keys to session storage.
    * Session storage survives SW restarts but clears on browser close.
+   * Queued: see sessionOpQueue.
    */
   private static async backupKeysToSession() {
-    if (this.decryptedKeys) {
-      await browser.storage.session.set({
-        [this.SESSION_KEYS_KEY]: this.decryptedKeys,
-      });
-    }
+    const snapshot = this.decryptedKeys;
+    if (!snapshot) return;
+    await this.queueSessionOp(() =>
+      browser.storage.session.set({ [this.SESSION_KEYS_KEY]: snapshot }),
+    );
   }
 
   private static async clearSessionKeys() {
-    await browser.storage.session.remove(this.SESSION_KEYS_KEY);
+    await this.queueSessionOp(() =>
+      browser.storage.session.remove(this.SESSION_KEYS_KEY),
+    );
   }
 
   /**
@@ -137,7 +172,13 @@ class LockManager {
    */
   static async restoreKeysFromSession(): Promise<boolean> {
     try {
-      const data = await browser.storage.session.get(this.SESSION_KEYS_KEY);
+      // Queued alongside the writes (backupKeysToSession/clearSessionKeys):
+      // without this, the read could land between two queued writes and
+      // see a value older than one already durably committed, or newer
+      // than one still in flight.
+      const data = await this.queueSessionOp(() =>
+        browser.storage.session.get(this.SESSION_KEYS_KEY),
+      );
       const keys = data?.[this.SESSION_KEYS_KEY] as
         | DecryptedKeyType[]
         | undefined;
@@ -177,7 +218,7 @@ class LockManager {
         });
       }
       this.walletPassword = normalisedPassword;
-      this.setDecryptedKeys(
+      await this.setDecryptedKeys(
         Array.from(
           new Map(
             decryptedKeys.map((item) => [item.address.toLowerCase(), item]),
@@ -222,14 +263,17 @@ class LockManager {
    * array (the latter for SW-restart re-sends, where the popup may have
    * lost the password but still has cached keys).
    */
-  static setDecryptedKeysFromPopup(
+  static async setDecryptedKeysFromPopup(
     payload: SetDecryptedKeysPayload | DecryptedKeyType[],
-  ) {
+  ): Promise<void> {
     const keys = Array.isArray(payload) ? payload : payload.keys;
     if (!Array.isArray(payload) && payload.walletPassword) {
       this.walletPassword = payload.walletPassword;
     }
-    this.setDecryptedKeys(
+    // Awaited: the caller (and the popup's ack) must not report success
+    // before the session backup write for these keys is durable (see
+    // sessionOpQueue).
+    await this.setDecryptedKeys(
       Array.from(
         new Map(
           keys.map((item) => [item.address.toLowerCase(), item]),
@@ -260,7 +304,7 @@ class LockManager {
     };
     this.walletPassword = password;
     const existingKeys = this.decryptedKeys ?? [];
-    this.setDecryptedKeys(
+    await this.setDecryptedKeys(
       Array.from(
         new Map(
           [...existingKeys, newKey].map((item) => [
@@ -272,9 +316,11 @@ class LockManager {
     );
   }
 
-  private static setDecryptedKeys(decryptedKeys: DecryptedKeyType[]) {
+  private static async setDecryptedKeys(
+    decryptedKeys: DecryptedKeyType[],
+  ): Promise<void> {
     this.decryptedKeys = decryptedKeys;
-    this.backupKeysToSession();
+    await this.backupKeysToSession();
   }
 
   static getWalletPassword() {
@@ -320,7 +366,7 @@ class LockManager {
       result = await LockManager.isLocked();
     } else if (message.name === LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS) {
       // The popup decrypted the keystores locally and is sending us the results.
-      LockManager.setDecryptedKeysFromPopup(message?.data ?? []);
+      await LockManager.setDecryptedKeysFromPopup(message?.data ?? []);
       await LockManager.startKeepAlive();
       await LockManager.setupAutoLockAlarm();
       result = { success: true };

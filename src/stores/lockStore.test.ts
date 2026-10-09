@@ -206,4 +206,21 @@ describe("LockStore – readLockState timestamp check", () => {
       expect(store.isLocked).toBe(true);
     });
   });
+
+  describe("lock (no client-side timestamp duplication)", () => {
+    it("should not write the LOCKED timestamp itself: LockManager.lock() (SW-side) already writes it durably before clearing anything", async () => {
+      const store = await createLockStore();
+
+      mockSendMessage
+        .mockResolvedValueOnce({ success: true }) // LOCK
+        .mockResolvedValueOnce({ isLocked: true, hasPasswordSet: true }); // IS_LOCKED
+
+      await store.lock();
+
+      expect(store.isLocked).toBe(true);
+      // A second, unawaited write from the client here used to be able to
+      // race another open surface's read of this same timestamp.
+      expect(localStore["LOCK_MANAGER_LOCKED_TIMESTAMP"]).toBeUndefined();
+    });
+  });
 });

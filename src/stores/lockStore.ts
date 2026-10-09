@@ -271,6 +271,12 @@ class LockStore {
   async lock() {
     this.cachedKeys = undefined;
     this.cachedPassword = undefined;
+    // LockManager.lock() writes the LOCKED timestamp itself, durably,
+    // before it clears anything: by the time this message resolves, every
+    // other open surface's readLockState() already sees it. Writing it a
+    // second time here, unawaited, was a race: this fire-and-forget write
+    // could land after another surface had already read the (still stale)
+    // timestamp and mistaken the lock for a service-worker restart.
     await browser.runtime.sendMessage({
       name: LOCK_MANAGER_MESSAGES.LOCK,
     });
@@ -278,7 +284,6 @@ class LockStore {
       name: LOCK_MANAGER_MESSAGES.IS_LOCKED,
     });
     this.isLocked = isLocked;
-    StorageUtil.updateLockStateTimeStamp(LockState.LOCKED);
   }
 
   /**
