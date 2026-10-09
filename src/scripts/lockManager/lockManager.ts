@@ -2,13 +2,26 @@ import StorageUtil, { LockState } from "@/utilities/storageUtil";
 import { Bytes } from "@theqrl/web3";
 import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
+import { EXTENSION_MESSAGES } from "../constants/streamConstants";
 import browser from "webextension-polyfill";
 
 type MessageType = {
-  name: string;
+  name?: string;
+  // A dApp approval/rejection response uses this `action` field as its
+  // discriminator. See EXTENSION_MESSAGES.DAPP_RESPONSE in
+  // dAppRequestStore.ts.
+  action?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any;
+  data?: any;
 };
+
+// Session-storage keys that are automated background traffic: LockStore's
+// own storage-change listener needs to recognise these so it can leave
+// them out of what counts as user activity (see
+// AUTO_LOCK_ACTIVITY_MESSAGE_NAMES below for the message-based half of the
+// same guarantee).
+export const SESSION_KEYS_STORAGE_KEY = "_LM_CACHED_KEYS";
+export const KEEP_ALIVE_SESSION_KEY = "keepAlive";
 
 export type EncryptAccountType = {
   seed: Bytes;
@@ -43,7 +56,25 @@ export const LOCK_MANAGER_MESSAGES = {
   SET_DECRYPTED_KEYS: "SET_DECRYPTED_KEYS",
   UPDATE_AUTO_LOCK: "LOCK_MANAGER_UPDATE_AUTO_LOCK",
   SEND_TX_NOTIFICATION: "SEND_TX_NOTIFICATION",
+  // A throttled ping the open surfaces send on pointer/keyboard/focus
+  // activity, purely so the auto-lock timer can tell "the user is actively
+  // using an open surface" apart from automated traffic (keep-alive ticks,
+  // IS_LOCKED polling). Carries no data.
+  USER_ACTIVITY: "LOCK_MANAGER_USER_ACTIVITY",
 } as const;
+
+// Message names that represent a deliberate user action or a user-initiated
+// write, and therefore postpone the inactivity auto-lock. Everything else,
+// reads (GET_*, IS_LOCKED) and automated background traffic, must not
+// postpone it, or the wallet never locks while any surface is left open.
+// See lockManagerListener() below for the dApp approval/rejection
+// exception, which is keyed by its own `action` field.
+const AUTO_LOCK_ACTIVITY_MESSAGE_NAMES: ReadonlySet<string> = new Set([
+  LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS,
+  LOCK_MANAGER_MESSAGES.ENCRYPT_ACCOUNT,
+  LOCK_MANAGER_MESSAGES.UPDATE_AUTO_LOCK,
+  LOCK_MANAGER_MESSAGES.USER_ACTIVITY,
+]);
 
 /**
  * The lock manager, which is part of the extension service worker handles lock related data and functions.
@@ -60,7 +91,7 @@ class LockManager {
   private static walletPassword?: string;
   static readonly AUTO_LOCK_ALARM = "QRL_AUTO_LOCK";
   static readonly KEEP_ALIVE_ALARM = "QRL_KEEP_ALIVE";
-  private static readonly SESSION_KEYS_KEY = "_LM_CACHED_KEYS";
+  private static readonly SESSION_KEYS_KEY = SESSION_KEYS_STORAGE_KEY;
 
   static async lock() {
     this.clearDecryptedKeys();
@@ -91,7 +122,7 @@ class LockManager {
       await this.restoreKeysFromSession();
     }
     // Write to session storage to keep the SW alive
-    await browser.storage.session.set({ keepAlive: Date.now() });
+    await browser.storage.session.set({ [KEEP_ALIVE_SESSION_KEY]: Date.now() });
   }
 
   static async setupAutoLockAlarm() {
@@ -335,10 +366,21 @@ class LockManager {
       result = LockManager.getWalletPassword();
     } else if (message.name === LOCK_MANAGER_MESSAGES.ENCRYPT_ACCOUNT) {
       result = await LockManager.encryptAccount(message?.data ?? {});
+    } else if (message.name === LOCK_MANAGER_MESSAGES.USER_ACTIVITY) {
+      result = { success: true };
     }
 
-    // Any message while wallet is unlocked resets the auto-lock timer.
-    if (LockManager.decryptedKeys !== undefined) {
+    // Only a deliberate user action or user-initiated write postpones the
+    // inactivity auto-lock: the allow-list above, plus the dApp
+    // approval/rejection response, the one activity signal carrying an
+    // `action` field (see MessageType above) as its discriminator.
+    // Everything else this global listener happens to overhear, reads
+    // (IS_LOCKED, GET_*) and any other message, leaves the timer alone.
+    const isUserActivity =
+      (typeof message.name === "string" &&
+        AUTO_LOCK_ACTIVITY_MESSAGE_NAMES.has(message.name)) ||
+      message.action === EXTENSION_MESSAGES.DAPP_RESPONSE;
+    if (isUserActivity && LockManager.decryptedKeys !== undefined) {
       await LockManager.setupAutoLockAlarm();
     }
 

@@ -53,7 +53,10 @@ const NFT_COLLECTIONS_IDENTIFIER = "NFT_COLLECTIONS";
 const ALL_NFT_COLLECTIONS_IDENTIFIER = "ALL_NFT_COLLECTIONS";
 
 const SETTINGS_IDENTIFIER = "SETTINGS";
-const PRICE_CACHE_IDENTIFIER = "PRICE_CACHE";
+// Exported so LockStore's storage-change listener can recognise (and
+// ignore) this key: it is written on a periodic timer and should not
+// postpone the inactivity auto-lock.
+export const PRICE_CACHE_IDENTIFIER = "PRICE_CACHE";
 
 export type WalletSettings = {
   themePreference?: "system" | "light" | "dark";

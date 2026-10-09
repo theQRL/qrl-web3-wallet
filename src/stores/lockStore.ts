@@ -1,17 +1,37 @@
 import {
   DecryptedKeyType,
   EncryptAccountType,
+  KEEP_ALIVE_SESSION_KEY,
   LOCK_MANAGER_MESSAGES,
 } from "@/scripts/lockManager/lockManager";
 import type {
   ChangePasswordWorkerResponse,
 } from "@/scripts/workers/changePasswordWorker";
-import StorageUtil, { LockState } from "@/utilities/storageUtil";
+import StorageUtil, {
+  LockState,
+  PRICE_CACHE_IDENTIFIER,
+} from "@/utilities/storageUtil";
 import { KeyStore, Web3BaseWalletAccount } from "@theqrl/web3";
 import { action, makeAutoObservable, runInAction } from "mobx";
 import browser from "webextension-polyfill";
 
 const PORT_RECONNECT_DELAY = 1000;
+
+// Storage keys written by automated background traffic: a storage change
+// limited to these keys must not trigger readLockState() (which pings the
+// SW and can run the SET_DECRYPTED_KEYS resend path), or the periodic price
+// refresh and the ~30s keep-alive tick would keep this store busy, and the
+// inactivity auto-lock effectively reset, for no user activity at all. The
+// session-storage decrypted-keys backup itself is deliberately NOT in this
+// set: a change there is how one surface learns another surface just
+// unlocked (or locked) the wallet, and must still drive readLockState().
+const AUTOMATED_LOCAL_STORAGE_KEYS = new Set([PRICE_CACHE_IDENTIFIER]);
+const AUTOMATED_SESSION_STORAGE_KEYS = new Set([KEEP_ALIVE_SESSION_KEY]);
+
+// At most one USER_ACTIVITY ping per this many ms, so a user actively
+// moving the mouse or typing in an open surface does not flood the SW with
+// messages; see registerActivityPing().
+const ACTIVITY_PING_THROTTLE_MS = 30_000;
 
 class LockStore {
   hasPasswordSet = true;
@@ -30,6 +50,8 @@ class LockStore {
    * either store do not necessarily leak both.
    */
   private cachedPassword?: string;
+  /** Timestamp of the last USER_ACTIVITY ping sent, for throttling. */
+  private lastActivityPingAt = 0;
 
   constructor() {
     makeAutoObservable(this, {
@@ -45,6 +67,44 @@ class LockStore {
 
     this.connectKeepAlive();
     this.initialize();
+    this.registerActivityPing();
+  }
+
+  /**
+   * Auto-lock semantics: the wallet locks after N minutes with no user
+   * interaction in any open wallet surface (popup, side panel, or tab). A
+   * surface left open and actively used, clicking, typing, scrolling a
+   * list, or simply being the visible tab, sends this throttled ping so the
+   * SW can tell that apart from an idle-but-open one. See lockManager.ts's
+   * USER_ACTIVITY message and its auto-lock activity allow-list.
+   */
+  private registerActivityPing() {
+    if (typeof document === "undefined") return;
+    const ping = () => {
+      const now = Date.now();
+      if (now - this.lastActivityPingAt < ACTIVITY_PING_THROTTLE_MS) {
+        return;
+      }
+      this.lastActivityPingAt = now;
+      browser.runtime
+        .sendMessage({ name: LOCK_MANAGER_MESSAGES.USER_ACTIVITY })
+        .catch(() => {
+          // SW not reachable right now - the next activity tick, or the
+          // keep-alive port reconnect, will retry. Not worth surfacing.
+        });
+    };
+    const passiveListener: AddEventListenerOptions = { passive: true };
+    document.addEventListener("pointerdown", ping, passiveListener);
+    document.addEventListener("keydown", ping, passiveListener);
+    document.addEventListener("wheel", ping, passiveListener);
+    document.addEventListener("focus", ping, true);
+    // Capture: a scrolling container (e.g. the account/history list) fires
+    // its own scroll event, which does not bubble. A capturing listener on
+    // document still sees it.
+    document.addEventListener("scroll", ping, { passive: true, capture: true });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") ping();
+    });
   }
 
   /**
@@ -110,7 +170,26 @@ class LockStore {
   }
 
   initializeStorageListener() {
-    browser.storage.onChanged.addListener(async () => {
+    browser.storage.onChanged.addListener(async (changes, areaName) => {
+      const changedKeys = Object.keys(changes);
+      if (changedKeys.length === 0) return;
+      // Ignore storage changes that are entirely automated background
+      // traffic (the periodic price refresh, the ~30s keep-alive tick):
+      // reacting to them would poll the SW (readLockState) for no user
+      // activity at all, and the wallet would effectively never look idle
+      // while any surface stays open. See the constants above.
+      if (
+        areaName === "local" &&
+        changedKeys.every((key) => AUTOMATED_LOCAL_STORAGE_KEYS.has(key))
+      ) {
+        return;
+      }
+      if (
+        areaName === "session" &&
+        changedKeys.every((key) => AUTOMATED_SESSION_STORAGE_KEYS.has(key))
+      ) {
+        return;
+      }
       await this.readLockState();
     });
   }

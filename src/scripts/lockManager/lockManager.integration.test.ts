@@ -241,9 +241,11 @@ describe("Auto-lock integration scenarios", () => {
       await advanceAndFireAlarms(minutes(10));
       expect(await checkLocked()).toBe(false);
 
-      // Activity at 10 min — sends a GET_WALLET_PASSWORD message
+      // Activity at 10 min: sends a USER_ACTIVITY ping (a read like
+      // GET_WALLET_PASSWORD is no longer treated as activity; see the
+      // auto-lock activity allow-list).
       // This triggers the activity reset in lockManagerListener
-      await sendMessage(LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD);
+      await sendMessage(LOCK_MANAGER_MESSAGES.USER_ACTIVITY);
       // The alarm was recreated with fresh 15 minutes from now
 
       // 10 more minutes (total 20 min from start, but only 10 from last activity)
@@ -263,8 +265,10 @@ describe("Auto-lock integration scenarios", () => {
       for (let i = 0; i < 6; i++) {
         await advanceAndFireAlarms(minutes(10));
         expect(await checkLocked()).toBe(false);
-        // Activity — e.g. user checks balance
-        await sendMessage(LOCK_MANAGER_MESSAGES.GET_DECRYPTED_KEYS);
+        // Activity, e.g. the user clicked or typed in an open surface,
+        // sends a USER_ACTIVITY ping. Checking a balance alone (a read
+        // like GET_DECRYPTED_KEYS) is no longer treated as activity.
+        await sendMessage(LOCK_MANAGER_MESSAGES.USER_ACTIVITY);
       }
 
       // Total 60 minutes of activity — still unlocked
@@ -272,6 +276,30 @@ describe("Auto-lock integration scenarios", () => {
 
       // Now stop activity — should lock after 15 minutes
       const fired = await advanceAndFireAlarms(minutes(15) + 1);
+      expect(fired).toBeGreaterThanOrEqual(1);
+      expect(await checkLocked()).toBe(true);
+    });
+
+    it("should still lock on schedule even while reads (not activity) keep happening", async () => {
+      await unlockWallet();
+
+      // A read every 3 minutes, well inside the 15-minute window: none of
+      // these are on the activity allow-list, so none should postpone the
+      // auto-lock timer set by unlockWallet() above.
+      for (let i = 0; i < 4; i++) {
+        await advanceAndFireAlarms(minutes(3));
+        expect(await checkLocked()).toBe(false);
+        await sendMessage(LOCK_MANAGER_MESSAGES.IS_LOCKED);
+        await sendMessage(LOCK_MANAGER_MESSAGES.GET_DECRYPTED_KEYS);
+        await sendMessage(LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD);
+      }
+      // 12 minutes of reads have passed; still well inside the original,
+      // never-postponed 15-minute window.
+      expect(await checkLocked()).toBe(false);
+
+      // 3 more minutes (15 total from unlockWallet(), none of it reset by
+      // the reads above): the original alarm fires on schedule.
+      const fired = await advanceAndFireAlarms(minutes(3) + 1);
       expect(fired).toBeGreaterThanOrEqual(1);
       expect(await checkLocked()).toBe(true);
     });

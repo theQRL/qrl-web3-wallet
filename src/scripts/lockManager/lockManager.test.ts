@@ -296,7 +296,47 @@ describe("LockManager – keep-alive & auto-lock", () => {
       });
     });
 
-    it("should reset auto-lock timer on any message while unlocked", async () => {
+    it("should reset auto-lock timer on an activity message (USER_ACTIVITY) while unlocked", async () => {
+      localStore["SETTINGS"] = { autoLockMinutes: 5 };
+      localStore["KEYSTORES"] = JSON.stringify([{ address: "0x123" }]);
+      localStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["0x123"] };
+
+      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+      mockAlarms.create.mockClear();
+
+      await LockManager.lockManagerListener({
+        name: LOCK_MANAGER_MESSAGES.USER_ACTIVITY,
+        data: undefined,
+      });
+
+      expect(mockAlarms.create).toHaveBeenCalledWith(LockManager.AUTO_LOCK_ALARM, {
+        delayInMinutes: 5,
+      });
+
+      await LockManager.lock();
+    });
+
+    it("should reset auto-lock timer on a dApp approval/rejection response (keyed by `action`) while unlocked", async () => {
+      localStore["SETTINGS"] = { autoLockMinutes: 5 };
+      localStore["KEYSTORES"] = JSON.stringify([{ address: "0x123" }]);
+      localStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["0x123"] };
+
+      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+      mockAlarms.create.mockClear();
+
+      await LockManager.lockManagerListener({
+        action: "QRL_WALLET_DAPP_RESPONSE",
+        data: undefined,
+      });
+
+      expect(mockAlarms.create).toHaveBeenCalledWith(LockManager.AUTO_LOCK_ALARM, {
+        delayInMinutes: 5,
+      });
+
+      await LockManager.lock();
+    });
+
+    it("should NOT reset auto-lock timer on a read (IS_LOCKED) while unlocked", async () => {
       localStore["SETTINGS"] = { autoLockMinutes: 5 };
       localStore["KEYSTORES"] = JSON.stringify([{ address: "0x123" }]);
       localStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["0x123"] };
@@ -309,9 +349,7 @@ describe("LockManager – keep-alive & auto-lock", () => {
         data: undefined,
       });
 
-      expect(mockAlarms.create).toHaveBeenCalledWith(LockManager.AUTO_LOCK_ALARM, {
-        delayInMinutes: 5,
-      });
+      expect(mockAlarms.create).not.toHaveBeenCalled();
 
       await LockManager.lock();
     });
