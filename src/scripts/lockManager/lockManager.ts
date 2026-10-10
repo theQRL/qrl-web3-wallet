@@ -1,6 +1,7 @@
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
 import { Bytes } from "@theqrl/web3";
-import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
+import { encrypt } from "@theqrl/web3-qrl-accounts";
+import { decryptKeystore } from "./keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import browser from "webextension-polyfill";
 
@@ -48,7 +49,7 @@ export const LOCK_MANAGER_MESSAGES = {
 /**
  * The lock manager, which is part of the extension service worker handles lock related data and functions.
  *
- * IMPORTANT: CPU-heavy cryptographic operations (decrypt / encrypt via scrypt)
+ * IMPORTANT: CPU-heavy cryptographic operations (decrypt / encrypt via Argon2id)
  * are performed in the popup, NOT in the service worker.  The popup sends the
  * resulting keys to the SW via the SET_DECRYPTED_KEYS message so that the SW
  * only stores them in memory.  This avoids Chrome killing the SW mid-decrypt.
@@ -169,7 +170,10 @@ class LockManager {
         // Yield the event loop between decryptions so Chrome
         // doesn't consider the service worker unresponsive.
         await new Promise((r) => setTimeout(r, 0));
-        const { address, seed } = await decrypt(keyStore, normalisedPassword);
+        const { address, seed } = await decryptKeystore(
+          keyStore,
+          normalisedPassword,
+        );
         decryptedKeys.push({
           address,
           seed,
@@ -258,8 +262,7 @@ class LockManager {
         ).values(),
       ),
     );
-    // Add the new account key directly to in-memory keys
-    // instead of re-decrypting everything (which would block the SW).
+    // Add the new account key directly to in-memory keys.
     const newKey: DecryptedKeyType = {
       address: encryptedKeyStore.address,
       seed: seed as string,

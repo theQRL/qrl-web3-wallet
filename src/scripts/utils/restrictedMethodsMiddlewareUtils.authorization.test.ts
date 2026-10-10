@@ -7,7 +7,7 @@ import {
   revalidateAuthorizedDAppRequest,
 } from "./restrictedMethodsMiddlewareUtils";
 
-const ACCOUNT = "Q20B714091cF2a62DADda2847803e3f1B9D2D3779";
+const ACCOUNT = `Q${"ab".repeat(64)}`;
 const ORIGIN = "https://audit-dapp.example";
 
 const request = (method: string, params: unknown[]) =>

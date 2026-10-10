@@ -24,6 +24,17 @@ describe("ImportAccount", () => {
       </StoreProvider>,
     );
 
+  const pasteMnemonic = async () => {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("textbox", { name: "mnemonicPhrases" }));
+    await user.paste(
+      "knight paddy india glow play chew lame mature sock ill deadly olive blink marble breach hey mile mature tacit mean polo crawl khaya stud number speed viking windy jump subtle mildew sewage",
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Import account" })).toBeEnabled(),
+    );
+  };
+
   it("should render the import account component with field and button", async () => {
     renderComponent();
 
@@ -54,10 +65,7 @@ describe("ImportAccount", () => {
         screen.getByRole("button", { name: "Import account" }),
       ).toBeDisabled();
     });
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "mnemonicPhrases" }),
-      "knight paddy india glow play chew lame mature sock ill deadly olive blink marble breach hey mile mature tacit mean polo crawl khaya stud number speed viking windy jump subtle mildew sewage",
-    );
+    await pasteMnemonic();
     expect(
       screen.getByRole("button", { name: "Import account" }),
     ).toBeEnabled();
@@ -67,10 +75,7 @@ describe("ImportAccount", () => {
     renderComponent();
 
     const handleOnSubmitMock = vi.fn();
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "mnemonicPhrases" }),
-      "knight paddy india glow play chew lame mature sock ill deadly olive blink marble breach hey mile mature tacit mean polo crawl khaya stud number speed viking windy jump subtle mildew sewage",
-    );
+    await pasteMnemonic();
     screen.getByRole("form", { name: "importAccount" }).onsubmit =
       handleOnSubmitMock;
     const button = screen.getByRole("button", { name: "Import account" });
@@ -170,10 +175,7 @@ describe("ImportAccount", () => {
     );
 
     const handleOnSubmitMock = vi.fn();
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "mnemonicPhrases" }),
-      "knight paddy india glow play chew lame mature sock ill deadly olive blink marble breach hey mile mature tacit mean polo crawl khaya stud number speed viking windy jump subtle mildew sewage",
-    );
+    await pasteMnemonic();
     screen.getByRole("form", { name: "importAccount" }).onsubmit =
       handleOnSubmitMock;
     const button = screen.getByRole("button", { name: "Import account" });

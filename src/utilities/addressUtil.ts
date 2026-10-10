@@ -4,6 +4,9 @@ import {
   toChecksumAddress,
 } from "@theqrl/web3-validator";
 
+export const LEGACY_ACCOUNT_RECOVERY_MESSAGE =
+  "This account uses a legacy 20-byte address. Export its recovery phrases and import them as a 64-byte account. Balances and transaction history require a separate network migration.";
+
 class AddressUtil {
   static isQrlAddress(address: string): boolean {
     return isAddressString(address);

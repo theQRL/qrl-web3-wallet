@@ -1,14 +1,17 @@
 /**
  * Web Worker that re-encrypts all keystores with a new password.
  *
- * 1. Decrypts each keystore with the old password (CPU-heavy scrypt).
+ * 1. Decrypts each keystore with the old password (CPU-heavy Argon2id).
  * 2. Re-encrypts each seed with the new password.
  * 3. Returns the new keystores and decrypted key metadata.
  *
  * Runs in a dedicated thread so the popup UI stays responsive.
  */
 
-import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
+import {
+  decryptKeystore,
+  reencryptKeystore,
+} from "@/scripts/lockManager/keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import type { KeyStore } from "@theqrl/web3";
 
@@ -28,9 +31,7 @@ export type ChangePasswordWorkerResponse =
   | { success: true; newKeystores: KeyStore[]; newKeys: DecryptedKey[] }
   | { success: false };
 
-self.onmessage = async (
-  event: MessageEvent<ChangePasswordWorkerRequest>,
-) => {
+self.onmessage = async (event: MessageEvent<ChangePasswordWorkerRequest>) => {
   const { keystores, oldPassword, newPassword } = event.data;
   // Normalise both passwords to NFC so the same visual password yields the
   // same bytes regardless of the platform / IME the user typed it on.
@@ -41,8 +42,12 @@ self.onmessage = async (
     const newKeys: DecryptedKey[] = [];
 
     for (const keyStore of keystores) {
-      const { address, seed } = await decrypt(keyStore, normalisedOld);
-      const reEncrypted = await encrypt(seed, normalisedNew);
+      const { address, seed } = await decryptKeystore(keyStore, normalisedOld);
+      const reEncrypted = await reencryptKeystore(
+        keyStore,
+        seed,
+        normalisedNew,
+      );
       newKeystores.push(reEncrypted);
       newKeys.push({
         address,

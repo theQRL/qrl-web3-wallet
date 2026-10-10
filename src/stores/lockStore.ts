@@ -7,6 +7,9 @@ import type {
   ChangePasswordWorkerResponse,
 } from "@/scripts/workers/changePasswordWorker";
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
+import AddressUtil, {
+  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+} from "@/utilities/addressUtil";
 import { KeyStore, Web3BaseWalletAccount } from "@theqrl/web3";
 import { action, makeAutoObservable, runInAction } from "mobx";
 import browser from "webextension-polyfill";
@@ -161,6 +164,9 @@ class LockStore {
   }
 
   async getAccountSeed(accountAddress: string) {
+    if (AddressUtil.isLegacyQrlAddress(accountAddress)) {
+      throw new Error(LEGACY_ACCOUNT_RECOVERY_MESSAGE);
+    }
     const decryptedKeys: DecryptedKeyType[] =
       await browser.runtime.sendMessage({
         name: LOCK_MANAGER_MESSAGES.GET_DECRYPTED_KEYS,
@@ -334,7 +340,7 @@ class LockStore {
   }
 
   /**
-   * Unlock the wallet.  The CPU-heavy scrypt decryption runs in a dedicated
+   * Unlock the wallet.  The CPU-heavy Argon2id decryption runs in a dedicated
    * Web Worker thread so the popup UI stays fully responsive (spinner animates).
    * After decryption the keys are sent to the SW for in-memory storage.
    *

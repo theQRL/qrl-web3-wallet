@@ -243,8 +243,8 @@ describe("QrlSendTransactionForContent", () => {
 
   it("should render the Value row for contract interaction when value is non-zero", async () => {
     const requestForInteractionWithValue = {
-      from: "Q20D20b8026B8F02540246f58120ddAAf35AECD9B",
-      to: "0x20EE9760786AD48aB90E326c5cd78c6269Ba10AB",
+      from: `Q${"ab".repeat(64)}`,
+      to: `Q${"cd".repeat(64)}`,
       data: "0x608060405234",
       value: "0x30",
       gas: "0x1cbb3",

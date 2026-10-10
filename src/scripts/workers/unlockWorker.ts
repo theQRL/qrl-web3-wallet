@@ -1,12 +1,15 @@
 /**
- * Web Worker that performs the CPU-heavy keystore decryption (scrypt / argon2id).
+ * Web Worker that performs the CPU-heavy keystore decryption (Argon2id).
  *
  * Running in a dedicated worker thread keeps the popup UI fully responsive
  * while the decryption is in progress AND avoids Chrome's MV3 service-worker
  * lifecycle issues (Chrome can't kill a worker that runs inside the popup).
  */
 
-import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
+import {
+  decryptKeystore,
+  reencryptKeystore,
+} from "@/scripts/lockManager/keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import {
   RECOMMENDED_KEYSTORE_KDF_PARAMS,
@@ -45,7 +48,10 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
     const keys: DecryptedKey[] = [];
     let upgradedKeystores: KeyStore[] | undefined;
     for (const keyStore of keystores) {
-      const { address, seed } = await decrypt(keyStore, normalisedPassword);
+      const { address, seed } = await decryptKeystore(
+        keyStore,
+        normalisedPassword,
+      );
       keys.push({
         address,
         seed,
@@ -55,7 +61,11 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
         if (!upgradedKeystores) {
           upgradedKeystores = [...keystores];
         }
-        const reEncrypted = await encrypt(seed, normalisedPassword);
+        const reEncrypted = await reencryptKeystore(
+          keyStore,
+          seed,
+          normalisedPassword,
+        );
         const idx = upgradedKeystores.findIndex(
           (k) => k.address?.toLowerCase() === keyStore.address?.toLowerCase(),
         );

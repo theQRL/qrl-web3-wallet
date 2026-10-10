@@ -77,23 +77,23 @@ describe("TokenTransfer", () => {
       </StoreProvider>,
     );
 
-  const fillAndSubmitForm = async (buttonName = "Send QRL") => {
+  const fillForm = async (amount: string) => {
+    const user = userEvent.setup();
     const receiverAddressField = screen.getByRole("textbox", {
       name: "receiverAddress",
     });
     const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "2.5");
-      },
-      { timeout: 5000 },
+    await user.click(receiverAddressField);
+    await user.paste(
+      "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
     );
+    await user.type(amountField, amount);
+  };
+
+  const fillAndSubmitForm = async (buttonName = "Send QRL") => {
+    await fillForm("2.5");
     const sendButton = screen.getByRole("button", { name: buttonName });
-    expect(sendButton).toBeEnabled();
+    await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
       await userEvent.click(sendButton);
     });
@@ -133,27 +133,23 @@ describe("TokenTransfer", () => {
   });
 
   it("should enable the send quanta button once receiver address, amount and mnemonic phrases are entered", async () => {
+    const user = userEvent.setup();
     renderComponent();
 
     const receiverAddressField = screen.getByRole("textbox", {
       name: "receiverAddress",
     });
     const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "2.5");
-      },
-      { timeout: 5000 },
+    await user.click(receiverAddressField);
+    await user.paste(
+      "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
     );
+    await user.type(amountField, "2.5");
     const sendQuantaButton = screen.getByRole("button", {
       name: "Send QRL",
     });
     expect(sendQuantaButton).toBeInTheDocument();
-    expect(sendQuantaButton).toBeEnabled();
+    await waitFor(() => expect(sendQuantaButton).toBeEnabled());
   });
 
   it("should display the error message if amount is not valid", async () => {
@@ -484,20 +480,7 @@ describe("TokenTransfer", () => {
       }),
     );
 
-    const receiverAddressField = screen.getByRole("textbox", {
-      name: "receiverAddress",
-    });
-    const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "10");
-      },
-      { timeout: 5000 },
-    );
+    await fillForm("10");
 
     await waitFor(
       () => {
@@ -524,20 +507,7 @@ describe("TokenTransfer", () => {
       }),
     );
 
-    const receiverAddressField = screen.getByRole("textbox", {
-      name: "receiverAddress",
-    });
-    const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "5");
-      },
-      { timeout: 5000 },
-    );
+    await fillForm("5");
 
     await waitFor(() => {
       expect(screen.getByText("Gas fee")).toBeInTheDocument();
@@ -578,20 +548,7 @@ describe("TokenTransfer", () => {
       expect(screen.getByText("Send TST")).toBeInTheDocument();
     });
 
-    const receiverAddressField = screen.getByRole("textbox", {
-      name: "receiverAddress",
-    });
-    const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "100");
-      },
-      { timeout: 5000 },
-    );
+    await fillForm("100");
 
     await waitFor(
       () => {
@@ -629,20 +586,7 @@ describe("TokenTransfer", () => {
       expect(screen.getByText("Send TST")).toBeInTheDocument();
     });
 
-    const receiverAddressField = screen.getByRole("textbox", {
-      name: "receiverAddress",
-    });
-    const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "10");
-      },
-      { timeout: 5000 },
-    );
+    await fillForm("10");
 
     await waitFor(
       () => {

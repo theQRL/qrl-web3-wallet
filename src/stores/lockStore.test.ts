@@ -86,6 +86,21 @@ describe("LockStore – readLockState timestamp check", () => {
     return store;
   }
 
+  it("keeps legacy recovery phrases readable and blocks signing with a migration message", async () => {
+    const store = await createLockStore();
+    const legacyAddress = `Q${"ab".repeat(20)}`;
+    mockSendMessage.mockResolvedValueOnce([
+      { ...MOCK_KEYS[0], address: legacyAddress },
+    ]);
+
+    expect(await store.getMnemonicPhrases(legacyAddress)).toBe("mocked mnemonic");
+    const callsBeforeSigning = mockSendMessage.mock.calls.length;
+    await expect(store.getAccountSeed(legacyAddress)).rejects.toThrow(
+      "This account uses a legacy 20-byte address",
+    );
+    expect(mockSendMessage).toHaveBeenCalledTimes(callsBeforeSigning);
+  });
+
   describe("readLockState with cachedKeys", () => {
     it("should clear cachedKeys when LOCKED timestamp > UNLOCKED timestamp (intentional lock)", async () => {
       const store = await createLockStore();
