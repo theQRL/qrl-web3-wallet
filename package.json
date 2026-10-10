@@ -48,7 +48,7 @@
     "@theqrl/web3-rpc-methods": "0.5.0",
     "@theqrl/web3-types": "0.5.0",
     "@theqrl/web3-utils": "0.5.0",
-    "@theqrl/web3-validator": "0.5.0",
+    "@theqrl/web3-validator": "1.0.3",
     "@types/chrome": "0.0.272",
     "@types/debug": "4.1.13",
     "@types/node": "20.19.39",

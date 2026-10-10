@@ -84,7 +84,6 @@ const clearStore = (store: Record<string, any>) => {
 
 const MOCK_KEYS: DecryptedKeyType[] = [
   {
-    password: "test123",
     address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     seed: "0x010000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     mnemonicPhrases: "mocked mnemonic",

@@ -10,7 +10,8 @@ import QrlSignTypedDataV4Content from "./QrlSignTypedDataV4Content";
 describe("QrlSignTypedDataV4Content", () => {
   afterEach(cleanup);
 
-  const fromAddress = "Q0000000000000000000000000000000000000000000000000000000020D20b8026B8F02540246f58120ddAAf35AECD9B00000000000000000000000000000000";
+  const fromAddress =
+    "Q0000000000000000000000000000000000000000000000000000000020D20b8026B8F02540246f58120ddAAf35AECD9B00000000000000000000000000000000";
   const msgParams = {
     types: {
       EIP712Domain: [
@@ -61,16 +62,19 @@ describe("QrlSignTypedDataV4Content", () => {
       name: "Ether Mail",
       version: "1",
       chainId: 1,
-      verifyingContract: "Q00000000000000000000000000000000000000000000000000000000CcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC00000000000000000000000000000000",
+      verifyingContract:
+        "Q00000000000000000000000000000000000000000000000000000000CcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC00000000000000000000000000000000",
     },
     message: {
       from: {
         name: "Cow",
-        wallet: "Q00000000000000000000000000000000000000000000000000000000CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD82600000000000000000000000000000000",
+        wallet:
+          "Q00000000000000000000000000000000000000000000000000000000CD2a3d9F938E13CD947Ec05AbC7FE734Df8DD82600000000000000000000000000000000",
       },
       to: {
         name: "Bob",
-        wallet: "Q00000000000000000000000000000000000000000000000000000000bBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB00000000000000000000000000000000",
+        wallet:
+          "Q00000000000000000000000000000000000000000000000000000000bBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB00000000000000000000000000000000",
       },
       contents: "Hello, Bob!",
     },
@@ -101,7 +105,9 @@ describe("QrlSignTypedDataV4Content", () => {
     // Header / from-account
     expect(screen.getByText("From Address")).toBeInTheDocument();
     expect(
-      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 020D2 0b802 6B8F0 25402 46f58 120dd AAf35 AECD9 B0000 00000 00000 00000 00000 00000 000"),
+      screen.getByText(
+        "Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 020D2 0b802 6B8F0 25402 46f58 120dd AAf35 AECD9 B0000 00000 00000 00000 00000 00000 000",
+      ),
     ).toBeInTheDocument();
 
     // Domain accordion: Name, Version, Chain ID, Verifying Contract are
@@ -112,18 +118,18 @@ describe("QrlSignTypedDataV4Content", () => {
     expect(screen.getByText("Chain ID")).toBeInTheDocument();
     expect(screen.getByText("Verifying Contract")).toBeInTheDocument();
     expect(
-      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CcCC ccccC CCCcC CCCCC cCcCc cCcCC CcCcc ccccc C0000 00000 00000 00000 00000 00000 000"),
+      screen.getByText(
+        "Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CcCC ccccC CCCcC CCCCC cCcCc cCcCC CcCcc ccccc C0000 00000 00000 00000 00000 00000 000",
+      ),
     ).toBeInTheDocument();
 
     // Message accordion: structured-data banner + primary type
-    expect(
-      screen.getByText(/Structured-data signature/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Structured-data signature/i)).toBeInTheDocument();
     expect(screen.getByText("Primary Type")).toBeInTheDocument();
     expect(screen.getByText("Mail")).toBeInTheDocument();
 
-    // Recursive renderer surfaces every message field — including nested
-    // structs (from / to) — using the dApp-supplied keys verbatim. This is
+    // Recursive renderer surfaces every message field, including nested
+    // structs (from / to), using the dApp-supplied keys verbatim. This is
     // the F-6 fix: previously only the hardcoded "Mail"-schema fields were
     // shown, leaving Permit / Permit2 / Seaport schemas blank.
     expect(screen.getByText("contents")).toBeInTheDocument();
@@ -132,12 +138,8 @@ describe("QrlSignTypedDataV4Content", () => {
     expect(screen.getByText("to")).toBeInTheDocument();
     expect(screen.getByText("Cow")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
-    expect(
-      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CD2a 3d9F9 38E13 CD947 Ec05A bC7FE 734Df 8DD82 60000 00000 00000 00000 00000 00000 000"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0bBbB BBBbb BBBbb bBbbB bbbbB BbBbb bbBbB bbBBb B0000 00000 00000 00000 00000 00000 000"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(msgParams.message.from.wallet)).toBeInTheDocument();
+    expect(screen.getByText(msgParams.message.to.wallet)).toBeInTheDocument();
 
     const copyButton = screen.getByRole("button", {
       name: "Copy message data",
@@ -164,7 +166,9 @@ describe("QrlSignTypedDataV4Content", () => {
     expect(screen.getByText("Ether Mail")).toBeInTheDocument();
     expect(screen.getByText("Verifying Contract")).toBeInTheDocument();
     expect(
-      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CcCC ccccC CCCcC CCCCC cCcCc cCcCC CcCcc ccccc C0000 00000 00000 00000 00000 00000 000"),
+      screen.getByText(
+        "Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CcCC ccccC CCCcC CCCCC cCcCc cCcCC CcCcc ccccc C0000 00000 00000 00000 00000 00000 000",
+      ),
     ).toBeInTheDocument();
 
     await userEvent.click(accordionForDomain);
@@ -172,12 +176,10 @@ describe("QrlSignTypedDataV4Content", () => {
     expect(screen.queryByText("Ether Mail")).not.toBeInTheDocument();
     expect(screen.queryByText("Verifying Contract")).not.toBeInTheDocument();
     expect(
-      screen.queryByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CcCC ccccC CCCcC CCCCC cCcCc cCcCC CcCcc ccccc C0000 00000 00000 00000 00000 00000 000"),
+      screen.queryByText(
+        "Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CcCC ccccC CCCcC CCCCC cCcCc cCcCC CcCcc ccccc C0000 00000 00000 00000 00000 00000 000",
+      ),
     ).not.toBeInTheDocument();
-    const accordionForMessage = screen.getByRole("button", {
-      name: "Message",
-    });
-
     const accordionForMessage = screen.getByRole("button", { name: "Message" });
     expect(accordionForMessage).toBeInTheDocument();
     expect(accordionForMessage).toBeEnabled();
@@ -188,15 +190,11 @@ describe("QrlSignTypedDataV4Content", () => {
     expect(screen.getByText("from")).toBeInTheDocument();
     expect(screen.getByText("to")).toBeInTheDocument();
     expect(screen.getByText("Cow")).toBeInTheDocument();
-    expect(screen.getAllByText("Account Address")).toHaveLength(2);
-    expect(
-      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CD2a 3d9F9 38E13 CD947 Ec05A bC7FE 734Df 8DD82 60000 00000 00000 00000 00000 00000 000"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("To")).toBeInTheDocument();
+    expect(screen.getAllByText("wallet")).toHaveLength(2);
+    expect(screen.getByText(msgParams.message.from.wallet)).toBeInTheDocument();
+    expect(screen.getAllByText("name")).toHaveLength(2);
     expect(screen.getByText("Bob")).toBeInTheDocument();
-    expect(
-      screen.getByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0bBbB BBBbb BBBbb bBbbB bbbbB BbBbb bbBbB bbBBb B0000 00000 00000 00000 00000 00000 000"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(msgParams.message.to.wallet)).toBeInTheDocument();
 
     await userEvent.click(accordionForMessage);
     expect(screen.queryByText("Primary Type")).not.toBeInTheDocument();
@@ -205,14 +203,14 @@ describe("QrlSignTypedDataV4Content", () => {
     expect(screen.queryByText("from")).not.toBeInTheDocument();
     expect(screen.queryByText("to")).not.toBeInTheDocument();
     expect(screen.queryByText("Cow")).not.toBeInTheDocument();
-    expect(screen.queryByText("Account Address")).not.toBeInTheDocument();
+    expect(screen.queryByText("wallet")).not.toBeInTheDocument();
     expect(
-      screen.queryByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0CD2a 3d9F9 38E13 CD947 Ec05A bC7FE 734Df 8DD82 60000 00000 00000 00000 00000 00000 000"),
+      screen.queryByText(msgParams.message.from.wallet),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("To")).not.toBeInTheDocument();
+    expect(screen.queryByText("name")).not.toBeInTheDocument();
     expect(screen.queryByText("Bob")).not.toBeInTheDocument();
     expect(
-      screen.queryByText("Q 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 00000 0bBbB BBBbb BBBbb bBbbB bbbbB BbBbb bbBbB bbBBb B0000 00000 00000 00000 00000 00000 000"),
+      screen.queryByText(msgParams.message.to.wallet),
     ).not.toBeInTheDocument();
   });
 
