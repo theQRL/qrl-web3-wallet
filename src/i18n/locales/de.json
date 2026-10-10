@@ -85,6 +85,7 @@
   "account.copied": "Kopiert",
   "account.copy": "Kopieren",
   "account.done": "Fertig",
+  "account.passwordUnavailable": "Ihre entsperrte Sitzung ist abgelaufen. Es wurde nichts gespeichert. Entsperren Sie das Wallet erneut und versuchen Sie es noch einmal.",
 
   "transfer.activeAccount": "Aktives Konto",
   "transfer.makeTransaction": "Transaktion durchführen",

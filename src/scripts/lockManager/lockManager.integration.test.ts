@@ -158,7 +158,15 @@ async function sendMessage(name: string, data?: any) {
 }
 
 async function unlockWallet() {
-  return sendMessage(LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS, MOCK_KEYS);
+  // Mirror a real unlock (lockStore.unlock): send the password alongside
+  // the keys, not just the bare keys array. GET_WALLET_PASSWORD now fails
+  // closed when the password was never set, so a scenario that later
+  // exercises that message needs a wallet that was actually "unlocked
+  // with a password", not just holding decrypted keys.
+  return sendMessage(LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS, {
+    keys: MOCK_KEYS,
+    walletPassword: "correct horse battery staple",
+  });
 }
 
 /**

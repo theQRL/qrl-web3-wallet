@@ -70,8 +70,11 @@ vi.mock("@/functions/getMnemonicFromHexSeed", () => ({
 }));
 
 import browser from "webextension-polyfill";
+import { encrypt } from "@theqrl/web3-qrl-accounts";
 import LockManager, { LOCK_MANAGER_MESSAGES } from "./lockManager";
 import type { DecryptedKeyType } from "./lockManager";
+
+const mockEncrypt = encrypt as unknown as ReturnType<typeof vi.fn>;
 
 const mockAlarms = browser.alarms as any;
 
@@ -343,6 +346,68 @@ describe("LockManager – keep-alive & auto-lock", () => {
       expect(isLocked).toBe(true);
       // Session keys cleared — no restore after intentional lock
       expect(sessionStore["_LM_CACHED_KEYS"]).toBeUndefined();
+    });
+  });
+
+  // ── getWalletPassword / encryptAccount (empty-password guard) ──
+
+  describe("getWalletPassword", () => {
+    it("should return the password after a normal unlock", async () => {
+      LockManager.setDecryptedKeysFromPopup({
+        keys: MOCK_KEYS,
+        walletPassword: "correct horse battery staple",
+      });
+
+      expect(LockManager.getWalletPassword()).toBe(
+        "correct horse battery staple",
+      );
+
+      await LockManager.lock();
+    });
+
+    it("should throw when the decrypted keys self-healed from session storage but the password did not", async () => {
+      // Simulate a service-worker restart: the popup re-sends only the
+      // bare keys array (its SW-restart re-send path), so decryptedKeys is
+      // populated but walletPassword stays unset.
+      LockManager.setDecryptedKeysFromPopup(MOCK_KEYS);
+
+      expect(() => LockManager.getWalletPassword()).toThrow(
+        "QRL Web3 Wallet password is unavailable",
+      );
+
+      await LockManager.lock();
+    });
+  });
+
+  describe("encryptAccount", () => {
+    it("should refuse an empty password and persist no keystore", async () => {
+      await expect(
+        LockManager.encryptAccount({ seed: "" as any, password: "" }),
+      ).rejects.toThrow(
+        "Refusing to encrypt an account without a password",
+      );
+
+      expect(mockEncrypt).not.toHaveBeenCalled();
+      expect(localStore["KEYSTORES"]).toBeUndefined();
+    });
+
+    it("should encrypt and persist the keystore with a non-empty password", async () => {
+      mockEncrypt.mockResolvedValueOnce({
+        address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      });
+
+      await LockManager.encryptAccount({
+        seed: "" as any,
+        password: "correct horse battery staple",
+      });
+
+      expect(mockEncrypt).toHaveBeenCalledWith(
+        "",
+        "correct horse battery staple",
+      );
+      expect(localStore["KEYSTORES"]).toBeDefined();
+
+      await LockManager.lock();
     });
   });
 

@@ -241,6 +241,13 @@ class LockManager {
   static async encryptAccount(accountData: EncryptAccountType) {
     const { password: rawPassword, seed } = accountData;
     const password = rawPassword.normalize("NFC");
+    // Never persist a keystore under an empty password: the KDF accepts ""
+    // and the ciphertext is then trivially recomputable from the cleartext
+    // salt stored beside it. Defence in depth behind getWalletPassword's own
+    // guard below, which is the path every caller is expected to use.
+    if (!password) {
+      throw new Error("Refusing to encrypt an account without a password");
+    }
     const keystores = await StorageUtil.getKeystores();
     const encryptedKeyStore = await encrypt(seed, password);
     const updatedKeyStores = [...keystores, encryptedKeyStore];
@@ -280,7 +287,16 @@ class LockManager {
   static getWalletPassword() {
     // Force the locked-state error if keys are gone.
     this.getDecryptedKeys();
-    return this.walletPassword ?? "";
+    // After a service-worker restart the decrypted keys self-heal from
+    // session storage, but the password does not: it is held in memory
+    // only (see the field comment above). Returning "" here would let a
+    // caller silently encrypt a new account's keystore under an empty
+    // password. Fail closed instead: the caller can re-arm the session
+    // (e.g. from a still-cached password) or ask the user to unlock again.
+    if (!this.walletPassword) {
+      throw new Error("QRL Web3 Wallet password is unavailable");
+    }
+    return this.walletPassword;
   }
 
   static getDecryptedKeys() {

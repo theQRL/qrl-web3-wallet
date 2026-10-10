@@ -80,6 +80,63 @@ describe("ImportAccount", () => {
     });
   });
 
+  it("should show an error and not add the account when the password is unavailable", async () => {
+    renderComponent(
+      mockedStore({
+        lockStore: {
+          getWalletPassword: async () => {
+            throw new Error("QRL Web3 Wallet password is unavailable");
+          },
+        },
+        qrlStore: {
+          setActiveAccount: async () => {
+            throw new Error("setActiveAccount must not run before the password check");
+          },
+          qrlInstance: {
+            accounts: {
+              seedToAccount: (_seed: string | Uint8Array) => {
+                return {
+                  address: "Q2090E9F38771876FB6Fc51a6b464121d3cC093A1",
+                  seed: "",
+                  sign: (_data: string | Record<string, unknown>) => {
+                    return { messageHash: "", signature: "" };
+                  },
+                  signTransaction: async (_tx: Transaction) => {
+                    return {
+                      messageHash: "",
+                      rawTransaction: "",
+                      signature: "",
+                      transactionHash: "",
+                    };
+                  },
+                  encrypt: async () => {
+                    throw new Error("Not implemented");
+                  },
+                };
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "mnemonicPhrases" }),
+      "knight paddy india glow play chew lame mature sock ill deadly olive blink marble breach hey mile mature tacit mean polo crawl khaya stud number speed viking windy jump subtle mildew sewage",
+    );
+    const button = screen.getByRole("button", { name: "Import account" });
+    await userEvent.click(button);
+
+    expect(
+      await screen.findByText(
+        "Your unlocked session expired. Nothing was saved. Unlock the wallet again and retry.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Mocked Account Import Success"),
+    ).not.toBeInTheDocument();
+  });
+
   it("should display the account import success component on successful submit", async () => {
     renderComponent(
       mockedStore({

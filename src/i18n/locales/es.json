@@ -85,6 +85,7 @@
   "account.copied": "Copiado",
   "account.copy": "Copiar",
   "account.done": "Listo",
+  "account.passwordUnavailable": "Su sesión desbloqueada expiró. No se guardó nada. Desbloquee la billetera de nuevo y reinténtelo.",
 
   "transfer.activeAccount": "Cuenta activa",
   "transfer.makeTransaction": "Realizar una transacción",
