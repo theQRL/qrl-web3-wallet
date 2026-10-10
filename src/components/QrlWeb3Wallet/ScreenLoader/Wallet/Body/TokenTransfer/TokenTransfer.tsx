@@ -43,6 +43,7 @@ import { z } from "zod";
 import type { GasFeeOverrides } from "@/types/gasFee";
 import BackButton from "../../../Shared/BackButton/BackButton";
 import CircuitBackground from "../../../Shared/CircuitBackground/CircuitBackground";
+import { useAccountSigning } from "../../../Shared/useAccountSigning";
 import AccountAddressSection from "./AccountAddressSection/AccountAddressSection";
 import { GasFeeSelector } from "./GasFeeNotice/GasFeeSelector";
 import RecipientPicker from "./RecipientPicker/RecipientPicker";
@@ -92,6 +93,7 @@ const TokenTransfer = observer(() => {
     getAccountBalance,
   } = qrlStore;
   const { accountAddress } = activeAccount;
+  const { signingError, canSign } = useAccountSigning(accountAddress);
 
   const [isZrc20Token, setIsZrc20Token] = useState(false);
   const [tokenContractAddress, setTokenContractAddress] = useState("");
@@ -274,6 +276,7 @@ const TokenTransfer = observer(() => {
   };
 
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
+    if (!canSign) return;
     try {
       // Use resolved QRNS address if available
       if (isQrnsName(formData.receiverAddress) && resolvedAddress) {
@@ -498,7 +501,7 @@ const TokenTransfer = observer(() => {
 
   const watchedAmount = watch("amount");
   useEffect(() => {
-    if (!watchedAmount || watchedAmount <= 0 || !estimatedGasFee) {
+    if (!canSign || !watchedAmount || watchedAmount <= 0 || !estimatedGasFee) {
       setBalanceError("");
       return;
     }
@@ -532,6 +535,7 @@ const TokenTransfer = observer(() => {
     tokenBalance,
     isZrc20Token,
     accountAddress,
+    canSign,
   ]);
 
   const watchedReceiver = watch("receiverAddress");
@@ -585,6 +589,11 @@ const TokenTransfer = observer(() => {
               />
             </CardHeader>
             <CardContent className="flex flex-col gap-8 pt-6">
+              {signingError && (
+                <p className="text-sm font-medium text-destructive">
+                  {signingError}
+                </p>
+              )}
               <div className="flex flex-col gap-1">
                 <Label className="text-lg">{t("transfer.activeAccount")}</Label>
                 <AccountAddressSection tokenBalance={tokenBalance} />
@@ -680,7 +689,7 @@ const TokenTransfer = observer(() => {
                               )}
                           </FormDescription>
                           <FormMessage />
-                          {balanceError && (
+                          {canSign && balanceError && (
                             <p className="text-sm font-medium text-destructive">
                               {balanceError}
                             </p>
@@ -690,17 +699,19 @@ const TokenTransfer = observer(() => {
                     />
                     <div className="w-8 pt-8 text-lg">{tokenSymbol}</div>
                   </div>
-                  <GasFeeSelector
-                    isZrc20Token={isZrc20Token}
-                    tokenContractAddress={tokenContractAddress}
-                    tokenDecimals={tokenDecimals}
-                    from={accountAddress}
-                    to={watch().receiverAddress}
-                    value={watch().amount}
-                    disabled={isSubmitting}
-                    onOverridesChange={setGasFeeOverrides}
-                    onGasFeeCalculated={setEstimatedGasFee}
-                  />
+                  {canSign && (
+                    <GasFeeSelector
+                      isZrc20Token={isZrc20Token}
+                      tokenContractAddress={tokenContractAddress}
+                      tokenDecimals={tokenDecimals}
+                      from={accountAddress}
+                      to={watch().receiverAddress}
+                      value={watch().amount}
+                      disabled={isSubmitting}
+                      onOverridesChange={setGasFeeOverrides}
+                      onGasFeeCalculated={setEstimatedGasFee}
+                    />
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -716,6 +727,7 @@ const TokenTransfer = observer(() => {
               </Button>
               <Button
                 disabled={
+                  !canSign ||
                   isSubmitting ||
                   !isValid ||
                   !!balanceError ||

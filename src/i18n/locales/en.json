@@ -103,6 +103,8 @@
   "transfer.errorInsufficientBalance": "Insufficient QRL balance (amount + gas fee exceeds balance)",
   "transfer.errorOccurred": "An error occured. {{error}}",
   "transfer.errorFailed": "Transaction failed.",
+  "transfer.errorLegacyAccount": "This account uses a legacy 20-byte address and cannot sign on this network. Import the recovery phrase you saved for it to use the same keys as a 64-byte account. Funds at the 20-byte address need a separate network migration.",
+  "transfer.errorRecoveryOnlyAccount": "This account is available for recovery only. Its keys remain stored unchanged. This wallet version cannot sign with them. Use the recovery phrase you saved for it with a compatible wallet.",
   "transfer.dialogRunning": "Transaction running",
   "transfer.dialogPleaseWait": "Please wait while the transaction completes.",
   "transfer.dialogSigning": "Signing transaction",

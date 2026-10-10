@@ -195,6 +195,13 @@ describe("Auto-lock integration scenarios", () => {
     vi.useRealTimers();
   });
 
+  it("returns recovery-only status through GET_DECRYPTED_KEYS", async () => {
+    const keys = [{ ...MOCK_KEYS[0], recoveryOnly: true }];
+    await sendMessage(LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS, keys);
+
+    expect(await sendMessage(LOCK_MANAGER_MESSAGES.GET_DECRYPTED_KEYS)).toEqual(keys);
+  });
+
   // ── Scenario 1: Basic auto-lock at 15 minutes ─────────────────
 
   describe("15-minute auto-lock", () => {

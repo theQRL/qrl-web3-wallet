@@ -5,7 +5,10 @@ import {
 } from "@theqrl/web3-validator";
 
 export const LEGACY_ACCOUNT_RECOVERY_MESSAGE =
-  "This account uses a legacy 20-byte address. Export its recovery phrases and import them as a 64-byte account. Balances and transaction history require a separate network migration.";
+  "This account uses a legacy 20-byte address and cannot sign on this network. Import the recovery phrase you saved for it to use the same keys as a 64-byte account. Funds at the 20-byte address need a separate network migration.";
+
+export const RECOVERY_ONLY_ACCOUNT_MESSAGE =
+  "This account is available for recovery only. Its keys remain stored unchanged. This wallet version cannot sign with them. Use the recovery phrase you saved for it with a compatible wallet.";
 
 class AddressUtil {
   static isQrlAddress(address: string): boolean {

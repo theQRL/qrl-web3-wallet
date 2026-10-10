@@ -103,6 +103,8 @@
   "transfer.errorInsufficientBalance": "Saldo QRL insuficiente (monto + tarifa de gas excede el saldo)",
   "transfer.errorOccurred": "Ocurrió un error. {{error}}",
   "transfer.errorFailed": "La transacción falló.",
+  "transfer.errorLegacyAccount": "Esta cuenta usa una dirección antigua de 20 bytes y no puede firmar en esta red. Importa la frase de recuperación que guardaste para usar las mismas claves en una cuenta de 64 bytes. Los fondos de la dirección de 20 bytes necesitan una migración de red independiente.",
+  "transfer.errorRecoveryOnlyAccount": "Esta cuenta solo está disponible para recuperación. Sus claves siguen almacenadas sin cambios. Esta versión de la billetera no puede firmar con ellas. Usa la frase de recuperación que guardaste con una billetera compatible.",
   "transfer.dialogRunning": "Transacción en curso",
   "transfer.dialogPleaseWait": "Por favor espera mientras se completa la transacción.",
   "transfer.dialogSigning": "Firmando transacción",

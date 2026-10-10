@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+  RECOVERY_ONLY_ACCOUNT_MESSAGE,
+} from "@/utilities/addressUtil";
 
 // ── Plain object stores (hoisting-safe) ────────────────────────────
 const localStore: Record<string, any> = {};
@@ -104,7 +108,7 @@ describe("LockStore – readLockState timestamp check", () => {
       );
       const callsBeforeSigning = mockSendMessage.mock.calls.length;
       await expect(store.getAccountSeed(requestedAddress)).rejects.toThrow(
-        "This account uses a legacy 20-byte address",
+        LEGACY_ACCOUNT_RECOVERY_MESSAGE,
       );
       expect(mockSendMessage).toHaveBeenCalledTimes(callsBeforeSigning + 1);
       expect(mockSendMessage).toHaveBeenLastCalledWith({
@@ -128,7 +132,7 @@ describe("LockStore – readLockState timestamp check", () => {
         key.mnemonicPhrases,
       );
       await expect(store.getAccountSeed(requestedAddress)).rejects.toThrow(
-        "available for recovery only",
+        RECOVERY_ONLY_ACCOUNT_MESSAGE,
       );
 
       mockSendMessage.mockResolvedValue(MOCK_KEYS);

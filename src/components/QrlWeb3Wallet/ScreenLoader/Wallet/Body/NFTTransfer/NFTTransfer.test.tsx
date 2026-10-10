@@ -1,9 +1,15 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
 import { StoreProvider } from "@/stores/store";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { QRL_EXAMPLE_ADDRESS } from "@/constants/address";
+import {
+  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+  RECOVERY_ONLY_ACCOUNT_MESSAGE,
+} from "@/utilities/addressUtil";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import browser from "webextension-polyfill";
 import NFTTransfer from "./NFTTransfer";
 
 vi.mock("@/utilities/storageUtil", () => ({
@@ -24,6 +30,9 @@ const defaultState = {
 
 describe("NFTTransfer", () => {
   afterEach(cleanup);
+  beforeEach(() => {
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue([]);
+  });
 
   const renderComponent = (
     state = defaultState,
@@ -36,6 +45,114 @@ describe("NFTTransfer", () => {
         </MemoryRouter>
       </StoreProvider>,
     );
+
+  it.each([
+    {
+      accountType: "legacy",
+      address: `Q${"ab".repeat(20)}`,
+      recoveryOnly: false,
+      message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+    },
+    {
+      accountType: "legacy recovery-only",
+      address: `Q${"ab".repeat(20)}`,
+      recoveryOnly: true,
+      message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+    },
+    {
+      accountType: "64-byte recovery-only",
+      address: QRL_EXAMPLE_ADDRESS,
+      recoveryOnly: true,
+      message: RECOVERY_ONLY_ACCOUNT_MESSAGE,
+    },
+  ])(
+    "blocks a $accountType account before submission",
+    async ({ address, recoveryOnly, message }) => {
+      vi.mocked(browser.runtime.sendMessage).mockResolvedValue([
+        {
+          address: address.toUpperCase(),
+          recoveryOnly,
+          seed: "",
+          mnemonicPhrases: "",
+        },
+      ]);
+      const getAccountSeed = vi.fn(async () => "");
+      const getGasFeeData = vi.fn();
+      const signNftTransfer = vi.fn();
+      renderComponent(
+        defaultState,
+        mockedStore({
+          lockStore: { getAccountSeed },
+          qrlStore: {
+            activeAccount: { accountAddress: address },
+            getGasFeeData,
+            signNftTransfer,
+          },
+        }),
+      );
+
+      expect(await screen.findByText(message)).toHaveClass("text-destructive");
+      const sendButton = screen.getByRole("button", { name: "Send NFT" });
+      expect(sendButton).toBeDisabled();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("textbox", { name: "receiverAddress" }));
+      await user.paste(QRL_EXAMPLE_ADDRESS);
+      expect(sendButton).toBeDisabled();
+      await user.click(sendButton);
+      expect(screen.getByText(message)).toBeInTheDocument();
+      expect(getGasFeeData).not.toHaveBeenCalled();
+      expect(getAccountSeed).not.toHaveBeenCalled();
+      expect(signNftTransfer).not.toHaveBeenCalled();
+    },
+  );
+
+  it("signs a 64-byte account while another account is recovery-only", async () => {
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue([
+      {
+        address: `Q${"ff".repeat(64)}`,
+        recoveryOnly: true,
+        seed: "",
+        mnemonicPhrases: "",
+      },
+    ]);
+    const signNftTransfer = vi.fn(async () => ({
+      transactionHash: "0xtxhash",
+      rawTransaction: "0xraw",
+      error: "",
+    }));
+    const addTransaction = vi.fn(async () => {});
+    renderComponent(
+      defaultState,
+      mockedStore({
+        qrlStore: { signNftTransfer },
+        transactionHistoryStore: { addTransaction },
+      }),
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("textbox", { name: "receiverAddress" }));
+    await user.paste(QRL_EXAMPLE_ADDRESS);
+    const sendButton = screen.getByRole("button", { name: "Send NFT" });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await user.click(sendButton);
+    expect(signNftTransfer).toHaveBeenCalledWith(
+      QRL_EXAMPLE_ADDRESS,
+      QRL_EXAMPLE_ADDRESS,
+      defaultState.tokenId,
+      QRL_EXAMPLE_ADDRESS,
+      defaultState.contractAddress,
+    );
+    expect(addTransaction).toHaveBeenCalledWith(
+      QRL_EXAMPLE_ADDRESS,
+      expect.objectContaining({
+        transactionHash: "0xtxhash",
+        pendingStatus: "pending",
+      }),
+    );
+    expect(
+      screen.queryByText(RECOVERY_ONLY_ACCOUNT_MESSAGE),
+    ).not.toBeInTheDocument();
+  });
 
   it("should render the send NFT heading", () => {
     renderComponent();

@@ -9,6 +9,7 @@ import type {
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
 import AddressUtil, {
   LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+  RECOVERY_ONLY_ACCOUNT_MESSAGE,
 } from "@/utilities/addressUtil";
 import { KeyStore, Web3BaseWalletAccount } from "@theqrl/web3";
 import { action, makeAutoObservable, runInAction } from "mobx";
@@ -172,9 +173,7 @@ class LockStore {
       (key) => key?.address?.toLowerCase() === accountAddress?.toLowerCase(),
     );
     if (accountKey?.recoveryOnly) {
-      throw new Error(
-        "This account is available for recovery only. Export its recovery phrases to recover it with a compatible wallet.",
-      );
+      throw new Error(RECOVERY_ONLY_ACCOUNT_MESSAGE);
     }
     if (accountKey && AddressUtil.isLegacyQrlAddress(accountKey.address)) {
       throw new Error(LEGACY_ACCOUNT_RECOVERY_MESSAGE);

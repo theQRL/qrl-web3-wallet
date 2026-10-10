@@ -15,7 +15,7 @@ import {
   Permission,
 } from "../middlewares/middlewareTypes";
 
-const getFromAddress = (req: JsonRpcRequest<JsonRpcRequest>) => {
+export const getFromAddress = (req: JsonRpcRequest<JsonRpcRequest>) => {
   switch (req.method) {
     case RESTRICTED_METHODS.QRL_SEND_TRANSACTION:
       // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime for this RPC method

@@ -1,4 +1,7 @@
 import StorageUtil from "@/utilities/storageUtil";
+import AddressUtil, {
+  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+} from "@/utilities/addressUtil";
 import { JsonRpcMiddleware } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
 import { v4 as uuid } from "uuid";
 import {
@@ -13,6 +16,7 @@ import {
   EXTENSION_MESSAGES,
 } from "../constants/streamConstants";
 import { checkDomain } from "../phishing/phishingDetector";
+import LockManager from "../lockManager/lockManager";
 import {
   checkAccountHasBeenAuthorized,
   checkAccountAndChainHaveBeenAuthorized,
@@ -21,6 +25,7 @@ import {
   checkWalletRequestPermissionParams,
   checkWalletSwitchQrlChainParams,
   checkWalletWatchAssetParams,
+  getFromAddress,
   updateAccountsAndBlockchainsForUrlOrigin,
 } from "../utils/restrictedMethodsMiddlewareUtils";
 import { DAppRequestType, DAppResponseType } from "./middlewareTypes";
@@ -281,6 +286,26 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       requestedMethod as RestrictedMethodValue,
     )
   ) {
+    if (
+      requestedMethod === RESTRICTED_METHODS.QRL_SEND_TRANSACTION ||
+      requestedMethod === RESTRICTED_METHODS.PERSONAL_SIGN ||
+      requestedMethod === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4
+    ) {
+      const fromAddress = getFromAddress(req);
+      if (
+        typeof fromAddress === "string" &&
+        (AddressUtil.isLegacyQrlAddress(fromAddress) ||
+          (!(await LockManager.isLocked()).isLocked &&
+            LockManager.getDecryptedKeys().find(
+              (key) => key.address.toLowerCase() === fromAddress.toLowerCase(),
+            )?.recoveryOnly))
+      ) {
+        res.error = providerErrors.unauthorized({
+          message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+        });
+        return end();
+      }
+    }
     if (isRequestPending) {
       try {
         const settings = await StorageUtil.getSettings();
@@ -384,7 +409,7 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
             case RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4:
             case RESTRICTED_METHODS.PERSONAL_SIGN: {
               const signedData = restrictedMethodResult?.response;
-              if (signedData) {
+              if (signedData && !signedData.error) {
                 res.result = signedData;
               } else {
                 res.error = providerErrors.unsupportedMethod({

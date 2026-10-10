@@ -1,9 +1,15 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
 import { StoreProvider } from "@/stores/store";
+import { QRL_EXAMPLE_ADDRESS } from "@/constants/address";
+import {
+  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+  RECOVERY_ONLY_ACCOUNT_MESSAGE,
+} from "@/utilities/addressUtil";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import browser from "webextension-polyfill";
 import TokenTransfer from "./TokenTransfer";
 
 const {
@@ -48,6 +54,7 @@ describe("TokenTransfer", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
+    vi.mocked(browser.runtime.sendMessage).mockResolvedValue([]);
     mockGetTransactionValues.mockResolvedValue({
       receiverAddress: "",
       amount: 0,
@@ -98,6 +105,118 @@ describe("TokenTransfer", () => {
       await userEvent.click(sendButton);
     });
   };
+
+  describe.each([
+    {
+      accountType: "legacy",
+      address: `Q${"ab".repeat(20)}`,
+      recoveryOnly: false,
+      message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+    },
+    {
+      accountType: "legacy recovery-only",
+      address: `Q${"ab".repeat(20)}`,
+      recoveryOnly: true,
+      message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+    },
+    {
+      accountType: "64-byte recovery-only",
+      address: QRL_EXAMPLE_ADDRESS,
+      recoveryOnly: true,
+      message: RECOVERY_ONLY_ACCOUNT_MESSAGE,
+    },
+  ])("$accountType account", ({ address, recoveryOnly, message }) => {
+    it.each([false, true])(
+      "shows the refusal before gas or balance validation (QRC20: %s)",
+      async (isZrc20Token) => {
+        vi.mocked(browser.runtime.sendMessage).mockResolvedValue([
+          {
+            address: address.toUpperCase(),
+            recoveryOnly,
+            seed: "",
+            mnemonicPhrases: "",
+          },
+        ]);
+        const getAccountSeed = vi.fn(async () => "");
+        const getNativeTokenGas = vi.fn(async () => "0.001");
+        const getZrc20TokenGas = vi.fn(async () => "0.001");
+        const signNativeToken = vi.fn(async () => successSignResult);
+        const signZrc20Token = vi.fn(async () => successSignResult);
+        const tokenSymbol = isZrc20Token ? "TST" : "QRL";
+        renderComponentWithState(
+          {
+            tokenDetails: {
+              isZrc20Token,
+              tokenContractAddress: QRL_EXAMPLE_ADDRESS,
+              tokenDecimals: 18,
+              tokenImage: "token.png",
+              tokenBalance: "0.0",
+              tokenName: "Test Token",
+              tokenSymbol,
+            },
+          },
+          mockedStore({
+            lockStore: { getAccountSeed },
+            qrlStore: {
+              activeAccount: { accountAddress: address },
+              getAccountBalance: () => "Unavailable",
+              getNativeTokenGas,
+              getZrc20TokenGas,
+              signNativeToken,
+              signZrc20Token,
+            },
+          }),
+        );
+
+        expect(await screen.findByText(message)).toHaveClass("text-destructive");
+        const sendButton = await screen.findByRole("button", {
+          name: `Send ${tokenSymbol}`,
+        });
+        expect(sendButton).toBeDisabled();
+        await fillForm("2.5");
+        expect(sendButton).toBeDisabled();
+        await userEvent.click(sendButton);
+        expect(screen.getByText(message)).toBeInTheDocument();
+        expect(screen.queryByText(/Insufficient/)).not.toBeInTheDocument();
+        expect(getNativeTokenGas).not.toHaveBeenCalled();
+        expect(getZrc20TokenGas).not.toHaveBeenCalled();
+        expect(getAccountSeed).not.toHaveBeenCalled();
+        expect(signNativeToken).not.toHaveBeenCalled();
+        expect(signZrc20Token).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  it("waits for the active account check before enabling Send or estimating gas", async () => {
+    let resolveKeys: (
+      keys: { address: string; recoveryOnly: boolean }[],
+    ) => void = () => {};
+    vi.mocked(browser.runtime.sendMessage).mockReturnValue(
+      new Promise((resolve) => {
+        resolveKeys = resolve;
+      }),
+    );
+    const getNativeTokenGas = vi.fn(async () => "0.001");
+    renderComponent(
+      mockedStore({
+        qrlStore: { getAccountBalance: () => "100.0 QRL", getNativeTokenGas },
+      }),
+    );
+
+    await fillForm("2.5");
+    const sendButton = screen.getByRole("button", { name: "Send QRL" });
+    expect(sendButton).toBeDisabled();
+    expect(getNativeTokenGas).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveKeys([{ address: `Q${"ff".repeat(64)}`, recoveryOnly: true }]);
+    });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    expect(getNativeTokenGas).toHaveBeenCalled();
+    expect(
+      screen.queryByText(RECOVERY_ONLY_ACCOUNT_MESSAGE),
+    ).not.toBeInTheDocument();
+  });
 
   it("should render the account details component", () => {
     renderComponent();
