@@ -207,3 +207,152 @@ describe("LockStore – readLockState timestamp check", () => {
     });
   });
 });
+
+describe("LockStore – unlock worker fan-out", () => {
+  type WorkerResponse = Record<string, unknown>;
+  type WorkerBehavior = (request: {
+    keystores: unknown[];
+    password: string;
+  }) => WorkerResponse | "error";
+
+  /**
+   * Stub for the global Worker: each spawned instance consumes the next
+   * scripted behavior, mirroring the pool's fresh-worker-per-chunk model.
+   */
+  let behaviors: WorkerBehavior[] = [];
+  let spawned = 0;
+
+  class StubWorker {
+    onmessage: ((event: { data: WorkerResponse }) => void) | null = null;
+    onerror: ((event: unknown) => void) | null = null;
+    private readonly behavior: WorkerBehavior;
+    constructor() {
+      const next = behaviors[Math.min(spawned, behaviors.length - 1)];
+      this.behavior = next;
+      spawned += 1;
+    }
+    postMessage(request: { keystores: unknown[]; password: string }) {
+      queueMicrotask(() => {
+        const result = this.behavior(request);
+        if (result === "error") {
+          this.onerror?.(new Event("error"));
+        } else {
+          this.onmessage?.({ data: result });
+        }
+      });
+    }
+    terminate() {}
+  }
+
+  const KEYSTORE_A = { address: "qaaa", crypto: {} };
+  const KEYSTORE_B = { address: "qbbb", crypto: {} };
+  const KEY_A = { address: "Qaaa", mnemonicPhrases: "mnemonic a" };
+  const KEY_B = { address: "Qbbb", mnemonicPhrases: "mnemonic b" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearStore(localStore);
+    behaviors = [];
+    spawned = 0;
+    vi.stubGlobal("Worker", StubWorker);
+    Object.defineProperty(navigator, "hardwareConcurrency", {
+      value: 4,
+      configurable: true,
+    });
+    localStore["KEYSTORES"] = JSON.stringify([KEYSTORE_A, KEYSTORE_B]);
+  });
+
+  async function createLockStore() {
+    mockSendMessage.mockResolvedValue({ isLocked: false, hasPasswordSet: true });
+    const module = await import("./lockStore");
+    const store = new module.default();
+    await new Promise((r) => setTimeout(r, 300));
+    return store;
+  }
+
+  it("fans keystores out over one worker per chunk and merges the keys in order", async () => {
+    const store = await createLockStore();
+    behaviors = [
+      () => ({ success: true, keys: [KEY_A], upgraded: [null] }),
+      () => ({ success: true, keys: [KEY_B], upgraded: [null] }),
+    ];
+
+    const unlocked = await store.unlock("pw");
+
+    expect(unlocked).toBe(true);
+    expect(spawned).toBe(2);
+    const setKeysCall: any = mockSendMessage.mock.calls.find(
+      (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
+    );
+    expect(setKeysCall?.[0]?.data?.keys).toEqual([KEY_A, KEY_B]);
+  });
+
+  it("returns false without retrying when a worker reports a wrong password", async () => {
+    const store = await createLockStore();
+    behaviors = [
+      () => ({ success: true, keys: [KEY_A], upgraded: [null] }),
+      () => ({ success: false, wrongPassword: true }),
+    ];
+
+    const unlocked = await store.unlock("bad-pw");
+
+    expect(unlocked).toBe(false);
+    expect(spawned).toBe(2);
+    const setKeysCalls = mockSendMessage.mock.calls.filter(
+      (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
+    );
+    expect(setKeysCalls).toHaveLength(0);
+  });
+
+  it("retries sequentially after an infrastructure failure and succeeds", async () => {
+    const store = await createLockStore();
+    behaviors = [
+      () => ({ success: true, keys: [KEY_A], upgraded: [null] }),
+      () => "error",
+      // Sequential retry gets ALL keystores in one request.
+      (req) => ({
+        success: true,
+        keys: req.keystores.length === 2 ? [KEY_A, KEY_B] : [],
+        upgraded: [null, null],
+      }),
+    ];
+
+    const unlocked = await store.unlock("pw");
+
+    expect(unlocked).toBe(true);
+    expect(spawned).toBe(3);
+    const setKeysCall: any = mockSendMessage.mock.calls.find(
+      (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
+    );
+    expect(setKeysCall?.[0]?.data?.keys).toEqual([KEY_A, KEY_B]);
+  });
+
+  it("throws a distinct error when the sequential retry also fails on infrastructure", async () => {
+    const store = await createLockStore();
+    behaviors = [
+      () => "error",
+      () => ({ success: true, keys: [KEY_B], upgraded: [null] }),
+      () => ({ success: false, wrongPassword: false }),
+    ];
+
+    await expect(store.unlock("pw")).rejects.toThrow(/free memory/);
+    expect(spawned).toBe(3);
+  });
+
+  it("persists upgraded keystores index-aligned with the original list", async () => {
+    const store = await createLockStore();
+    const upgradedB = { address: "qbbb", crypto: { upgraded: true } };
+    behaviors = [
+      () => ({ success: true, keys: [KEY_A], upgraded: [null] }),
+      () => ({ success: true, keys: [KEY_B], upgraded: [upgradedB] }),
+    ];
+
+    const unlocked = await store.unlock("pw");
+
+    expect(unlocked).toBe(true);
+    expect(JSON.parse(localStore["KEYSTORES"])).toEqual([
+      KEYSTORE_A,
+      upgradedB,
+    ]);
+  });
+});

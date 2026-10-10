@@ -1,14 +1,20 @@
 /**
- * Web Worker that re-encrypts all keystores with a new password.
+ * Web Worker that re-encrypts keystores with a new password.
  *
- * 1. Decrypts each keystore with the old password (CPU-heavy scrypt).
+ * 1. Decrypts each keystore with the old password (CPU-heavy argon2id,
+ *    executed via hash-wasm, see src/crypto/keystoreCrypto.ts).
  * 2. Re-encrypts each seed with the new password.
- * 3. Returns the new keystores and decrypted key metadata.
+ * 3. Returns the new keystores and decrypted key metadata, aligned with the
+ *    request's keystore order.
  *
- * Runs in a dedicated thread so the popup UI stays responsive.
+ * Runs in a dedicated thread so the popup UI stays responsive; the popup
+ * fans keystores out over several instances via keystoreWorkerPool.
  */
 
-import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
+import {
+  decryptKeystore,
+  encryptKeystore,
+} from "@/crypto/keystoreCrypto";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import type { KeyStore } from "@theqrl/web3";
 
@@ -26,7 +32,19 @@ export type DecryptedKey = {
 
 export type ChangePasswordWorkerResponse =
   | { success: true; newKeystores: KeyStore[]; newKeys: DecryptedKey[] }
-  | { success: false };
+  | {
+      success: false;
+      /**
+       * true when the AES-GCM auth tag rejected (wrong old password); false
+       * for infrastructure failures so the popup can retry sequentially
+       * instead of blaming the password.
+       */
+      wrongPassword: boolean;
+    };
+
+/** WebCrypto surfaces a failed GCM auth-tag check as an OperationError. */
+const isWrongPasswordError = (error: unknown): boolean =>
+  error instanceof DOMException && error.name === "OperationError";
 
 self.onmessage = async (
   event: MessageEvent<ChangePasswordWorkerRequest>,
@@ -41,8 +59,8 @@ self.onmessage = async (
     const newKeys: DecryptedKey[] = [];
 
     for (const keyStore of keystores) {
-      const { address, seed } = await decrypt(keyStore, normalisedOld);
-      const reEncrypted = await encrypt(seed, normalisedNew);
+      const { address, seed } = await decryptKeystore(keyStore, normalisedOld);
+      const reEncrypted = await encryptKeystore(seed, normalisedNew);
       newKeystores.push(reEncrypted);
       newKeys.push({
         address,
@@ -56,8 +74,10 @@ self.onmessage = async (
       newKeystores,
       newKeys,
     } satisfies ChangePasswordWorkerResponse);
-  } catch {
-    // decrypt() throws when the old password is wrong
-    self.postMessage({ success: false } satisfies ChangePasswordWorkerResponse);
+  } catch (error) {
+    self.postMessage({
+      success: false,
+      wrongPassword: isWrongPasswordError(error),
+    } satisfies ChangePasswordWorkerResponse);
   }
 };

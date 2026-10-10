@@ -61,9 +61,8 @@ vi.mock("webextension-polyfill", () => ({
 }));
 
 vi.mock("@theqrl/web3", () => ({ Bytes: class {} }));
-vi.mock("@theqrl/web3-qrl-accounts", () => ({
-  decrypt: vi.fn(),
-  encrypt: vi.fn(),
+vi.mock("@/crypto/keystoreCrypto", () => ({
+  encryptKeystore: vi.fn(),
 }));
 vi.mock("@/functions/getMnemonicFromHexSeed", () => ({
   getMnemonicFromHexSeed: vi.fn(() => "mocked mnemonic"),

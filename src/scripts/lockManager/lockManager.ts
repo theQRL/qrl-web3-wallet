@@ -1,6 +1,6 @@
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
 import { Bytes } from "@theqrl/web3";
-import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
+import { encryptKeystore } from "@/crypto/keystoreCrypto";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import browser from "webextension-polyfill";
 
@@ -36,7 +36,6 @@ export const LOCK_MANAGER_MESSAGES = {
   IS_LOCKED: "LOCK_MANAGER_IS_LOCKED",
   ENCRYPT_ACCOUNT: "ENCRYPT_ACCOUNT",
   LOCK: "LOCK_MANAGER_LOCK",
-  UNLOCK: "LOCK_MANAGER_UNLOCK",
   LOCK_MANAGER_KEEP_LIVE: "LOCK_MANAGER_KEEP_LIVE",
   GET_DECRYPTED_KEYS: "GET_DECRYPTED_KEYS",
   GET_WALLET_PASSWORD: "GET_WALLET_PASSWORD",
@@ -48,10 +47,13 @@ export const LOCK_MANAGER_MESSAGES = {
 /**
  * The lock manager, which is part of the extension service worker handles lock related data and functions.
  *
- * IMPORTANT: CPU-heavy cryptographic operations (decrypt / encrypt via scrypt)
- * are performed in the popup, NOT in the service worker.  The popup sends the
+ * IMPORTANT: CPU-heavy keystore decryption (argon2id) is performed in the
+ * popup's worker pool, NOT in the service worker.  The popup sends the
  * resulting keys to the SW via the SET_DECRYPTED_KEYS message so that the SW
  * only stores them in memory.  This avoids Chrome killing the SW mid-decrypt.
+ * The one KDF the SW does run itself is encryptAccount (new account
+ * create/import); it goes through the hash-wasm-backed encryptKeystore, ~2 s
+ * instead of the ~20 s the pure-JS KDF took.
  */
 class LockManager {
   private static decryptedKeys?: DecryptedKeyType[];
@@ -151,47 +153,6 @@ class LockManager {
     return false;
   }
 
-  /**
-   * Decrypt all keystores with the given password.
-   * Called via a dedicated port connection so there is no message-channel
-   * timeout — the port stays open as long as needed.
-   * Returns true on success, false on wrong password or empty keystores.
-   */
-  static async unlock(password: string): Promise<boolean> {
-    try {
-      // Normalise to NFC so the same visual password yields the same bytes
-      // regardless of the platform / IME the user typed it on.
-      const normalisedPassword = password.normalize("NFC");
-      const keyStores = await StorageUtil.getKeystores();
-      if (!keyStores.length) return false;
-      const decryptedKeys: DecryptedKeyType[] = [];
-      for (const keyStore of keyStores) {
-        // Yield the event loop between decryptions so Chrome
-        // doesn't consider the service worker unresponsive.
-        await new Promise((r) => setTimeout(r, 0));
-        const { address, seed } = await decrypt(keyStore, normalisedPassword);
-        decryptedKeys.push({
-          address,
-          seed,
-          mnemonicPhrases: getMnemonicFromHexSeed(seed),
-        });
-      }
-      this.walletPassword = normalisedPassword;
-      this.setDecryptedKeys(
-        Array.from(
-          new Map(
-            decryptedKeys.map((item) => [item.address.toLowerCase(), item]),
-          ).values(),
-        ),
-      );
-      return true;
-    } catch {
-      this.clearDecryptedKeys();
-      this.walletPassword = undefined;
-      return false;
-    }
-  }
-
   static async isLocked() {
     const keyStores = await StorageUtil.getKeystores();
     const accounts = await StorageUtil.getAllAccounts();
@@ -242,7 +203,7 @@ class LockManager {
     const { password: rawPassword, seed } = accountData;
     const password = rawPassword.normalize("NFC");
     const keystores = await StorageUtil.getKeystores();
-    const encryptedKeyStore = await encrypt(seed, password);
+    const encryptedKeyStore = await encryptKeystore(seed, password);
     const updatedKeyStores = [...keystores, encryptedKeyStore];
     await StorageUtil.setKeystores(
       Array.from(

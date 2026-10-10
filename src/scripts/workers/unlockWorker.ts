@@ -1,17 +1,19 @@
 /**
- * Web Worker that performs the CPU-heavy keystore decryption (scrypt / argon2id).
+ * Web Worker that performs the CPU-heavy keystore decryption (argon2id).
  *
  * Running in a dedicated worker thread keeps the popup UI fully responsive
  * while the decryption is in progress AND avoids Chrome's MV3 service-worker
  * lifecycle issues (Chrome can't kill a worker that runs inside the popup).
+ *
+ * The popup fans the keystores out over several of these workers via
+ * keystoreWorkerPool, so each instance receives a contiguous chunk of the
+ * full keystore list and returns results aligned with its chunk order.
+ * The KDF itself runs via hash-wasm (see src/crypto/keystoreCrypto.ts).
  */
 
-import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
+import { decryptKeystore, encryptKeystore } from "@/crypto/keystoreCrypto";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
-import {
-  RECOMMENDED_KEYSTORE_KDF_PARAMS,
-  shouldUpgradeKeystoreParams,
-} from "@/scripts/lockManager/keystoreParams";
+import { shouldUpgradeKeystoreParams } from "@/scripts/lockManager/keystoreParams";
 import type { KeyStore } from "@theqrl/web3";
 
 export type UnlockWorkerRequest = {
@@ -28,13 +30,30 @@ export type DecryptedKey = {
 export type UnlockWorkerResponse =
   | {
       success: true;
+      /** Aligned with the request's keystore order. */
       keys: DecryptedKey[];
-      // Populated when one or more keystores were re-encrypted with stronger
-      // KDF parameters. The popup-side persists these in place of the old
-      // keystores so the user does not need to take any explicit action.
-      upgradedKeystores?: KeyStore[];
+      /**
+       * Aligned with the request's keystore order; a non-null entry is that
+       * keystore re-encrypted with stronger KDF parameters. The popup-side
+       * persists these in place of the old keystores so the user does not
+       * need to take any explicit action.
+       */
+      upgraded: (KeyStore | null)[];
     }
-  | { success: false };
+  | {
+      success: false;
+      /**
+       * true when the AES-GCM auth tag rejected (wrong password); false for
+       * infrastructure failures (e.g. the WASM memory allocation failed), so
+       * the popup can retry or surface a distinct error instead of telling
+       * the user their correct password is wrong.
+       */
+      wrongPassword: boolean;
+    };
+
+/** WebCrypto surfaces a failed GCM auth-tag check as an OperationError. */
+const isWrongPasswordError = (error: unknown): boolean =>
+  error instanceof DOMException && error.name === "OperationError";
 
 self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
   const { keystores, password } = event.data;
@@ -43,34 +62,32 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
   const normalisedPassword = password.normalize("NFC");
   try {
     const keys: DecryptedKey[] = [];
-    let upgradedKeystores: KeyStore[] | undefined;
+    const upgraded: (KeyStore | null)[] = [];
     for (const keyStore of keystores) {
-      const { address, seed } = await decrypt(keyStore, normalisedPassword);
+      const { address, seed } = await decryptKeystore(
+        keyStore,
+        normalisedPassword,
+      );
       keys.push({
         address,
         seed,
         mnemonicPhrases: getMnemonicFromHexSeed(seed),
       });
-      if (shouldUpgradeKeystoreParams(keyStore)) {
-        if (!upgradedKeystores) {
-          upgradedKeystores = [...keystores];
-        }
-        const reEncrypted = await encrypt(seed, normalisedPassword);
-        const idx = upgradedKeystores.findIndex(
-          (k) => k.address?.toLowerCase() === keyStore.address?.toLowerCase(),
-        );
-        if (idx >= 0) upgradedKeystores[idx] = reEncrypted;
-      }
+      upgraded.push(
+        shouldUpgradeKeystoreParams(keyStore)
+          ? await encryptKeystore(seed, normalisedPassword)
+          : null,
+      );
     }
-    // Reference the constant so tree-shaking does not drop the import.
-    void RECOMMENDED_KEYSTORE_KDF_PARAMS;
     self.postMessage({
       success: true,
       keys,
-      upgradedKeystores,
+      upgraded,
     } satisfies UnlockWorkerResponse);
-  } catch {
-    // decrypt() throws when the password is wrong
-    self.postMessage({ success: false } satisfies UnlockWorkerResponse);
+  } catch (error) {
+    self.postMessage({
+      success: false,
+      wrongPassword: isWrongPasswordError(error),
+    } satisfies UnlockWorkerResponse);
   }
 };
