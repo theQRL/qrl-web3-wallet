@@ -1,6 +1,7 @@
 import StorageUtil from "@/utilities/storageUtil";
 import AddressUtil, {
   LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+  RECOVERY_ONLY_ACCOUNT_MESSAGE,
 } from "@/utilities/addressUtil";
 import { JsonRpcMiddleware } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
 import { v4 as uuid } from "uuid";
@@ -286,24 +287,35 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       requestedMethod as RestrictedMethodValue,
     )
   ) {
+    const precheckResult = await checkRequestCanProceed(req);
+    const { canProceed, proceedError } = precheckResult;
+    const authorizedChainId =
+      "authorizedChainId" in precheckResult
+        ? (precheckResult.authorizedChainId as string | undefined)
+        : undefined;
+    if (!canProceed) {
+      res.error = proceedError?.serialize();
+      return end();
+    }
+
     if (
       requestedMethod === RESTRICTED_METHODS.QRL_SEND_TRANSACTION ||
       requestedMethod === RESTRICTED_METHODS.PERSONAL_SIGN ||
       requestedMethod === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4
     ) {
       const fromAddress = getFromAddress(req);
-      if (
-        typeof fromAddress === "string" &&
-        (AddressUtil.isLegacyQrlAddress(fromAddress) ||
-          (!(await LockManager.isLocked()).isLocked &&
-            LockManager.getDecryptedKeys().find(
-              (key) => key.address.toLowerCase() === fromAddress.toLowerCase(),
-            )?.recoveryOnly))
-      ) {
-        res.error = providerErrors.unauthorized({
-          message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-        });
-        return end();
+      if (typeof fromAddress === "string") {
+        const recoveryOnly =
+          !(await LockManager.isLocked()).isLocked &&
+          LockManager.getAccountSigningStatus(fromAddress).recoveryOnly;
+        if (recoveryOnly || AddressUtil.isLegacyQrlAddress(fromAddress)) {
+          res.error = providerErrors.unauthorized({
+            message: recoveryOnly
+              ? RECOVERY_ONLY_ACCOUNT_MESSAGE
+              : LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+          });
+          return end();
+        }
       }
     }
     if (isRequestPending) {
@@ -319,19 +331,6 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       }
       return end();
     } else {
-      // check if the request can proceed
-      const precheckResult = await checkRequestCanProceed(req);
-      const { canProceed, proceedError } = precheckResult;
-      const authorizedChainId =
-        "authorizedChainId" in precheckResult
-          ? (precheckResult.authorizedChainId as string | undefined)
-          : undefined;
-      if (!canProceed) {
-        // @ts-expect-error - proceedError type from provider library is not assignable to res.error's narrow type
-        res.error = proceedError;
-        return end();
-      }
-
       // check if the request can complete silently without user interaction
       const { hasCompleted, completionResult, completionError } =
         await checkRequestCanCompleteSilently(req);

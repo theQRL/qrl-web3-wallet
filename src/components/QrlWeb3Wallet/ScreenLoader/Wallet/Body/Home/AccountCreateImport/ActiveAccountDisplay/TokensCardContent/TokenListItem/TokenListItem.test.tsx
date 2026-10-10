@@ -1,5 +1,6 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
 import { StoreProvider } from "@/stores/store";
+import i18n from "@/i18n";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -26,7 +27,10 @@ vi.mock(
 );
 
 describe("TokenListItem", () => {
-  afterEach(cleanup);
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage("en");
+  });
 
   const renderComponent = (
     mockedStoreValues = mockedStore(),
@@ -49,6 +53,18 @@ describe("TokenListItem", () => {
         </MemoryRouter>
       </StoreProvider>,
     );
+
+  it.each([
+    ["en", "Unavailable"],
+    ["de", "Nicht verfügbar"],
+    ["es", "No disponible"],
+  ])("translates an unavailable balance in %s", async (language, message) => {
+    await i18n.changeLanguage(language);
+    renderComponent(mockedStore(), {
+      balance: "Unavailable", name: "QRL", symbol: "QRL", image: "",
+    });
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
 
   it("should render the token list item component", () => {
     renderComponent();

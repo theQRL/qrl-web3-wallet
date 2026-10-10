@@ -51,7 +51,12 @@ export default defineConfig({
     setupFiles: ["src/__mocks__/i18nTestSetup.ts", "vitest.setup.ts"],
     server: {
       deps: {
-        inline: ["@theqrl/abi", "@theqrl/qrl-cryptography", "@noble/hashes"],
+        inline: [
+          "@theqrl/abi",
+          "@theqrl/qrl-cryptography",
+          "@theqrl/web3-qrl-accounts",
+          "@noble/hashes",
+        ],
       },
     },
     coverage: {

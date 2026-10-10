@@ -3,6 +3,8 @@ import {
   encrypt as encryptAes,
 } from "@theqrl/qrl-cryptography/aes.js";
 import { argon2id } from "@theqrl/qrl-cryptography/argon2id.js";
+import { shake256 } from "@theqrl/qrl-cryptography/keccak.js";
+import { newWalletFromExtendedSeed } from "@theqrl/wallet.js";
 import type { KeyStore } from "@theqrl/web3";
 import { encrypt, seedToAccount } from "@theqrl/web3-qrl-accounts";
 import { bytesToHex, hexToBytes, utf8ToHex } from "@theqrl/web3-utils";
@@ -32,7 +34,29 @@ function accountFromSeed(
   let account: ReturnType<typeof seedToAccount>;
   try {
     account = seedToAccount(seed);
-  } catch {
+  } catch (error) {
+    if (
+      seed.length !== 51 ||
+      seed[0] !== 1 ||
+      (seed[1] === 0 && seed[2] === 0)
+    ) {
+      throw error;
+    }
+    const canonicalSeed = seed.slice();
+    canonicalSeed.set([1, 0, 0]);
+    let wallet: ReturnType<typeof newWalletFromExtendedSeed> | undefined;
+    try {
+      wallet = newWalletFromExtendedSeed(canonicalSeed);
+      const publicKey = wallet.getPK();
+      const input = new Uint8Array(3 + publicKey.length);
+      input.set(seed.subarray(0, 3));
+      input.set(publicKey, 3);
+      const address = `Q${bytesToHex(shake256(input, { dkLen: 20 })).slice(2)}`;
+      checkStoredAddress(storedAddress, address);
+    } finally {
+      canonicalSeed.fill(0);
+      wallet?.zeroize();
+    }
     return {
       address: storedAddress,
       seed: bytesToHex(seed),

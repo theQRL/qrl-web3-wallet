@@ -1,5 +1,8 @@
 import { DEFAULT_BLOCKCHAIN } from "@/configuration/qrlBlockchainConfig";
-import { LEGACY_ACCOUNT_RECOVERY_MESSAGE } from "@/utilities/addressUtil";
+import {
+  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+  RECOVERY_ONLY_ACCOUNT_MESSAGE,
+} from "@/utilities/addressUtil";
 import StorageUtil from "@/utilities/storageUtil";
 import { JsonRpcEngine } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
 import type { Json, JsonRpcRequest } from "@theqrl/qrl-wallet-provider/utils";
@@ -85,7 +88,7 @@ describe("restrictedMethodsMiddleware signing", () => {
     ]);
     vi.spyOn(StorageUtil, "getDAppsConnectedAccountsData").mockResolvedValue({
       urlOrigin: ORIGIN,
-      accounts: [ACCOUNT, LEGACY_ACCOUNT],
+      accounts: [ACCOUNT, LEGACY_ACCOUNT, LEGACY_ACCOUNT.toLowerCase()],
       blockchains: [DEFAULT_BLOCKCHAIN],
       permissions: [],
     });
@@ -138,9 +141,39 @@ describe("restrictedMethodsMiddleware signing", () => {
         const result = await handle(method, account);
 
         expect(result).toMatchObject({
-          error: { code: 4100, message: LEGACY_ACCOUNT_RECOVERY_MESSAGE },
+          error: {
+            code: 4100,
+            message: recoveryOnly
+              ? RECOVERY_ONLY_ACCOUNT_MESSAGE
+              : LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+          },
         });
         expect(result).not.toHaveProperty("result");
+        expect(StorageUtil.setDAppsRequestData).not.toHaveBeenCalled();
+        expect(browser.action.openPopup).not.toHaveBeenCalled();
+        expect(browser.runtime.onMessage.addListener).not.toHaveBeenCalled();
+        expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
+        expect(rpc).not.toHaveBeenCalled();
+        expect(fetch).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([ACCOUNT, LEGACY_ACCOUNT])(
+      "returns the authorization error for an unconnected origin requesting %s",
+      async (account) => {
+        vi.mocked(StorageUtil.getDAppsConnectedAccountsData).mockResolvedValue(undefined);
+        vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
+          { address: account, seed: "", mnemonicPhrases: "", recoveryOnly: true },
+        ]);
+
+        expect(await handle(method, account)).toMatchObject({
+          error: {
+            code: 4100,
+            message: `The requested account ${account} has not been authorized by the user.`,
+          },
+        });
+        expect(LockManager.isLocked).not.toHaveBeenCalled();
+        expect(LockManager.getDecryptedKeys).not.toHaveBeenCalled();
         expect(StorageUtil.setDAppsRequestData).not.toHaveBeenCalled();
         expect(browser.action.openPopup).not.toHaveBeenCalled();
         expect(browser.runtime.onMessage.addListener).not.toHaveBeenCalled();

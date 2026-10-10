@@ -88,17 +88,25 @@ describe("version 1 keystore compatibility", () => {
   );
 
   it.each([fixtures.D, fixtures.D2])(
-    "authenticates $label before returning a recovery-only seed",
+    "binds $label to its recovery-only seed and authenticates its ciphertext",
     async ({ keystore, typedPassword, expected }) => {
-      const relabeled = await decryptKeystore(
-        { ...keystore, address: account.address } as KeyStore,
+      const restored = await decryptKeystore(
+        { ...keystore, address: keystore.address.toUpperCase() } as KeyStore,
         typedPassword,
       );
-      expect(relabeled).toEqual({
-        address: account.address,
+      expect(restored).toEqual({
+        address: keystore.address.toUpperCase(),
         seed: expected.seed,
         recoveryOnly: true,
       });
+      for (const address of [`Q${"ab".repeat(20)}`, account.address]) {
+        await expect(
+          decryptKeystore({ ...keystore, address } as KeyStore, typedPassword),
+        ).rejects.toThrow("Keystore address does not match its seed");
+        await expect(
+          reencryptKeystore({ ...keystore, address } as KeyStore, expected.seed, typedPassword),
+        ).rejects.toThrow("Keystore address does not match its seed");
+      }
       const ciphertext = keystore.crypto.ciphertext;
       const tampered = {
         ...keystore,

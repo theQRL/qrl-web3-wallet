@@ -94,6 +94,7 @@ const TokenTransfer = observer(() => {
   } = qrlStore;
   const { accountAddress } = activeAccount;
   const { signingError, canSign } = useAccountSigning(accountAddress);
+  const accountBalance = getAccountBalance(accountAddress);
 
   const [isZrc20Token, setIsZrc20Token] = useState(false);
   const [tokenContractAddress, setTokenContractAddress] = useState("");
@@ -111,6 +112,9 @@ const TokenTransfer = observer(() => {
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [qrnsResolving, setQrnsResolving] = useState(false);
   const [qrnsError, setQrnsError] = useState<string | null>(null);
+  const isBalanceUnavailable =
+    accountBalance === "Unavailable" ||
+    (isZrc20Token && tokenBalance === "Unavailable");
 
   type SignResult = {
     transactionHash?: string;
@@ -276,7 +280,7 @@ const TokenTransfer = observer(() => {
   };
 
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
-    if (!canSign) return;
+    if (!canSign || balanceError || isBalanceUnavailable) return;
     try {
       // Use resolved QRNS address if available
       if (isQrnsName(formData.receiverAddress) && resolvedAddress) {
@@ -501,14 +505,22 @@ const TokenTransfer = observer(() => {
 
   const watchedAmount = watch("amount");
   useEffect(() => {
-    if (!canSign || !watchedAmount || watchedAmount <= 0 || !estimatedGasFee) {
+    if (!canSign) {
+      setBalanceError("");
+      return;
+    }
+    if (isBalanceUnavailable) {
+      setBalanceError(t("transfer.errorBalanceUnavailable"));
+      return;
+    }
+    if (!watchedAmount || watchedAmount <= 0 || !estimatedGasFee) {
       setBalanceError("");
       return;
     }
 
     const gasFee = new BigNumber(estimatedGasFee);
     const sendAmount = new BigNumber(watchedAmount);
-    const nativeBalance = parseBalanceValue(getAccountBalance(accountAddress));
+    const nativeBalance = parseBalanceValue(accountBalance);
 
     if (isZrc20Token) {
       const tokenBal = parseBalanceValue(tokenBalance);
@@ -535,7 +547,10 @@ const TokenTransfer = observer(() => {
     tokenBalance,
     isZrc20Token,
     accountAddress,
+    accountBalance,
+    isBalanceUnavailable,
     canSign,
+    t,
   ]);
 
   const watchedReceiver = watch("receiverAddress");
@@ -731,6 +746,7 @@ const TokenTransfer = observer(() => {
                   isSubmitting ||
                   !isValid ||
                   !!balanceError ||
+                  isBalanceUnavailable ||
                   qrnsResolving ||
                   (isQrnsName(watchedReceiver) && !resolvedAddress)
                 }

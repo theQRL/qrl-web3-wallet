@@ -86,7 +86,9 @@ const TokenListItem = observer(
         <div className="flex items-center gap-4">
           <TokenListItemIcon icon={image ?? ""} symbol={symbol} />
           <div className="flex w-full flex-col gap-1">
-            <div className="text-xs font-bold">{balance}</div>
+            <div className="text-xs font-bold">
+              {balance === "Unavailable" ? t("common.unavailable") : balance}
+            </div>
             <div className="text-xs">{name}</div>
           </div>
         </div>

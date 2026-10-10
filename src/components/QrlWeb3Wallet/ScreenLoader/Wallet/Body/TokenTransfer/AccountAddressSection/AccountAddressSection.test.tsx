@@ -1,21 +1,40 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
 import { StoreProvider } from "@/stores/store";
+import i18n from "@/i18n";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AccountAddressSection from "./AccountAddressSection";
 
 describe("AccountAddressSection", () => {
-  afterEach(cleanup);
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage("en");
+  });
 
-  const renderComponent = (mockedStoreValues = mockedStore()) =>
+  const renderComponent = (mockedStoreValues = mockedStore(), tokenBalance?: string) =>
     render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter>
-          <AccountAddressSection />
+          <AccountAddressSection tokenBalance={tokenBalance} />
         </MemoryRouter>
       </StoreProvider>,
     );
+
+  it.each([
+    ["en", "Unavailable"],
+    ["de", "Nicht verfügbar"],
+    ["es", "No disponible"],
+  ])("translates unavailable native and token balances in %s", async (language, message) => {
+    await i18n.changeLanguage(language);
+    for (const tokenBalance of [undefined, "Unavailable"]) {
+      renderComponent(mockedStore({
+        qrlStore: { getAccountBalance: () => "Unavailable" },
+      }), tokenBalance);
+      expect(screen.getByText(message)).toBeInTheDocument();
+      cleanup();
+    }
+  });
 
   it("should render the account address section component", () => {
     renderComponent();

@@ -28,6 +28,37 @@ import {
   shouldUpgradeKeystoreParams,
 } from "./keystoreParams";
 
+vi.mock("@theqrl/qrl-cryptography/argon2id.js", async (importOriginal) => {
+  const original = await importOriginal<
+    typeof import("@theqrl/qrl-cryptography/argon2id.js")
+  >();
+  // Reuse real derivations for deterministic test salts. Each caller gets a
+  // copy because the compatibility reader clears its derived key after use.
+  const cache = new Map<string, Uint8Array>();
+  const cacheKey = ([password, salt, ...params]: Parameters<typeof original.argon2id>) =>
+    JSON.stringify([Array.from(password), Array.from(salt), ...params]);
+  return {
+    argon2id: async (...args: Parameters<typeof original.argon2id>) => {
+      const key = cacheKey(args);
+      let derived = cache.get(key);
+      if (!derived) {
+        derived = await original.argon2id(...args);
+        cache.set(key, derived);
+      }
+      return derived.slice();
+    },
+    argon2idSync: (...args: Parameters<typeof original.argon2idSync>) => {
+      const key = cacheKey(args);
+      let derived = cache.get(key);
+      if (!derived) {
+        derived = original.argon2idSync(...args);
+        cache.set(key, derived);
+      }
+      return derived.slice();
+    },
+  };
+});
+
 vi.mock("webextension-polyfill", () => ({
   default: {
     runtime: {
@@ -60,6 +91,15 @@ async function runWorker<
   Request extends UnlockWorkerRequest | ChangePasswordWorkerRequest,
   Response extends UnlockWorkerResponse | ChangePasswordWorkerResponse,
 >(load: () => Promise<unknown>, request: Request): Promise<Response> {
+  const getRandomValues = crypto.getRandomValues.bind(crypto);
+  vi.spyOn(crypto, "getRandomValues").mockImplementation((array) => {
+    if (array instanceof Uint8Array && array.length === 32) {
+      array.fill(0x5a);
+    } else {
+      getRandomValues(array);
+    }
+    return array;
+  });
   const scope = {
     onmessage: undefined as
       | ((event: MessageEvent<Request>) => Promise<void>)
@@ -119,7 +159,7 @@ describe("legacy unlock and recovery", () => {
           await expect(store.getAccountSeed(address)).rejects.toThrow(
             vault === fixtures.C
               ? "legacy 20-byte address"
-              : "available for recovery only",
+              : "this wallet version cannot read",
           );
         }
       }

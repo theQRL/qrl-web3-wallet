@@ -189,6 +189,7 @@ const mockedStoreValues: StoreType = {
     getAccountSeed: async (accountAddress: string) => {
       return accountAddress;
     },
+    getAccountSigningStatus: async () => ({ recoveryOnly: false, known: true }),
     changePassword: async () => {
       return true;
     },

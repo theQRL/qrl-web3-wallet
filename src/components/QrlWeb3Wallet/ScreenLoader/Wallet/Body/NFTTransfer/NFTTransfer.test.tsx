@@ -9,8 +9,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import browser from "webextension-polyfill";
+import type { AccountSigningStatus } from "@/scripts/lockManager/lockManager";
 import NFTTransfer from "./NFTTransfer";
+
+const getAccountSigningStatus = vi.fn<
+  (address: string) => Promise<AccountSigningStatus>
+>();
 
 vi.mock("@/utilities/storageUtil", () => ({
   __esModule: true,
@@ -31,20 +35,24 @@ const defaultState = {
 describe("NFTTransfer", () => {
   afterEach(cleanup);
   beforeEach(() => {
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue([]);
+    getAccountSigningStatus
+      .mockReset()
+      .mockResolvedValue({ known: true, recoveryOnly: false });
   });
 
   const renderComponent = (
     state = defaultState,
     mockedStoreValues = mockedStore(),
-  ) =>
-    render(
+  ) => {
+    mockedStoreValues.lockStore.getAccountSigningStatus = getAccountSigningStatus;
+    return render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter initialEntries={[{ pathname: "/nft-transfer", state }]}>
           <NFTTransfer />
         </MemoryRouter>
       </StoreProvider>,
     );
+  };
 
   it.each([
     {
@@ -57,7 +65,7 @@ describe("NFTTransfer", () => {
       accountType: "legacy recovery-only",
       address: `Q${"ab".repeat(20)}`,
       recoveryOnly: true,
-      message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+      message: RECOVERY_ONLY_ACCOUNT_MESSAGE,
     },
     {
       accountType: "64-byte recovery-only",
@@ -68,14 +76,7 @@ describe("NFTTransfer", () => {
   ])(
     "blocks a $accountType account before submission",
     async ({ address, recoveryOnly, message }) => {
-      vi.mocked(browser.runtime.sendMessage).mockResolvedValue([
-        {
-          address: address.toUpperCase(),
-          recoveryOnly,
-          seed: "",
-          mnemonicPhrases: "",
-        },
-      ]);
+      getAccountSigningStatus.mockResolvedValue({ known: true, recoveryOnly });
       const getAccountSeed = vi.fn(async () => "");
       const getGasFeeData = vi.fn();
       const signNftTransfer = vi.fn();
@@ -101,20 +102,14 @@ describe("NFTTransfer", () => {
       await user.click(sendButton);
       expect(screen.getByText(message)).toBeInTheDocument();
       expect(getGasFeeData).not.toHaveBeenCalled();
+      expect(getAccountSigningStatus).toHaveBeenCalledWith(address);
       expect(getAccountSeed).not.toHaveBeenCalled();
       expect(signNftTransfer).not.toHaveBeenCalled();
     },
   );
 
-  it("signs a 64-byte account while another account is recovery-only", async () => {
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue([
-      {
-        address: `Q${"ff".repeat(64)}`,
-        recoveryOnly: true,
-        seed: "",
-        mnemonicPhrases: "",
-      },
-    ]);
+  it("signs a 64-byte account after checking its signing status", async () => {
+    getAccountSigningStatus.mockResolvedValue({ known: true, recoveryOnly: false });
     const signNftTransfer = vi.fn(async () => ({
       transactionHash: "0xtxhash",
       rawTransaction: "0xraw",

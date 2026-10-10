@@ -23,6 +23,11 @@ export type DecryptedKeyType = {
   recoveryOnly?: boolean;
 };
 
+export type AccountSigningStatus = {
+  recoveryOnly: boolean;
+  known: boolean;
+};
+
 // SET_DECRYPTED_KEYS payload: keys are stored alongside the wallet password
 // so the SW can re-encrypt new accounts during the unlock session, but the
 // password is held in a separate field (not interleaved with each key) and
@@ -41,6 +46,7 @@ export const LOCK_MANAGER_MESSAGES = {
   UNLOCK: "LOCK_MANAGER_UNLOCK",
   LOCK_MANAGER_KEEP_LIVE: "LOCK_MANAGER_KEEP_LIVE",
   GET_DECRYPTED_KEYS: "GET_DECRYPTED_KEYS",
+  GET_ACCOUNT_SIGNING_STATUS: "GET_ACCOUNT_SIGNING_STATUS",
   GET_WALLET_PASSWORD: "GET_WALLET_PASSWORD",
   SET_DECRYPTED_KEYS: "SET_DECRYPTED_KEYS",
   UPDATE_AUTO_LOCK: "LOCK_MANAGER_UPDATE_AUTO_LOCK",
@@ -311,6 +317,13 @@ class LockManager {
     return this.decryptedKeys;
   }
 
+  static getAccountSigningStatus(accountAddress: string): AccountSigningStatus {
+    const key = this.getDecryptedKeys().find(
+      (key) => key?.address?.toLowerCase() === accountAddress?.toLowerCase(),
+    );
+    return { recoveryOnly: key?.recoveryOnly === true, known: !!key };
+  }
+
   private static clearDecryptedKeys() {
     this.decryptedKeys = undefined;
   }
@@ -351,6 +364,9 @@ class LockManager {
       result = { success: true };
     } else if (message.name === LOCK_MANAGER_MESSAGES.GET_DECRYPTED_KEYS) {
       result = LockManager.getDecryptedKeys();
+    } else if (message.name === LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS) {
+      await LockManager.isLocked();
+      result = LockManager.getAccountSigningStatus(message.data?.address);
     } else if (message.name === LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD) {
       result = LockManager.getWalletPassword();
     } else if (message.name === LOCK_MANAGER_MESSAGES.ENCRYPT_ACCOUNT) {

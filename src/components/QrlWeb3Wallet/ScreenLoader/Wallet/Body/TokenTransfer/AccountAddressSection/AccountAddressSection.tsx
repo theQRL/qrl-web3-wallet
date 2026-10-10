@@ -27,7 +27,11 @@ const AccountAddressSection = observer(
         </div>
         <div className="flex flex-col gap-1">
           <div>{t('transfer.balance')}</div>
-          <div className="font-bold text-secondary">{tokenAccountBalance}</div>
+          <div className="font-bold text-secondary">
+            {tokenAccountBalance === "Unavailable"
+              ? t("common.unavailable")
+              : tokenAccountBalance}
+          </div>
         </div>
       </div>
     );

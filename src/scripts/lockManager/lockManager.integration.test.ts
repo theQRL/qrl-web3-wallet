@@ -81,6 +81,7 @@ vi.mock("webextension-polyfill", () => ({
       },
     },
     runtime: {
+      getURL: (path: string) => `chrome-extension://test-wallet/${path}`,
       onMessage: { addListener: vi.fn() },
       sendMessage: vi.fn(() => Promise.resolve()),
       connect: vi.fn(() => ({
@@ -200,6 +201,73 @@ describe("Auto-lock integration scenarios", () => {
     await sendMessage(LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS, keys);
 
     expect(await sendMessage(LOCK_MANAGER_MESSAGES.GET_DECRYPTED_KEYS)).toEqual(keys);
+  });
+
+  it("returns only the requested account's signing status to extension pages", async () => {
+    const recoveryAddress = `Q${"ab".repeat(20)}`;
+    await sendMessage(LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS, [
+      ...MOCK_KEYS,
+      { ...MOCK_KEYS[0], address: recoveryAddress, recoveryOnly: true },
+    ]);
+    for (const [address, status] of [
+      [recoveryAddress.toUpperCase(), { known: true, recoveryOnly: true }],
+      [recoveryAddress.toLowerCase(), { known: true, recoveryOnly: true }],
+      [MOCK_KEYS[0].address, { known: true, recoveryOnly: false }],
+      [`Q${"cd".repeat(64)}`, { known: false, recoveryOnly: false }],
+    ] as const) {
+      expect(await LockManager.lockManagerListener(
+        { name: LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS, data: { address } },
+        { url: "chrome-extension://test-wallet/popup.html" },
+      )).toEqual(status);
+    }
+  });
+
+  it("rejects signing-status requests from content scripts", async () => {
+    await unlockWallet();
+    const lookup = vi.spyOn(LockManager, "getAccountSigningStatus");
+    try {
+      expect(await LockManager.lockManagerListener(
+        {
+          name: LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS,
+          data: { address: MOCK_KEYS[0].address },
+        },
+        { url: "https://dapp.example" },
+      )).toBeUndefined();
+      expect(lookup).not.toHaveBeenCalled();
+    } finally {
+      lookup.mockRestore();
+    }
+  });
+
+  it("rejects signing-status requests while locked", async () => {
+    await expect(sendMessage(
+      LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS,
+      { address: MOCK_KEYS[0].address },
+    )).rejects.toThrow("QRL Web3 Wallet is locked");
+  });
+
+  it("restores signing status from the session after a service-worker restart", async () => {
+    await unlockWallet();
+    Reflect.set(LockManager, "decryptedKeys", undefined);
+    expect(await sendMessage(
+      LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS,
+      { address: MOCK_KEYS[0].address },
+    )).toEqual({ known: true, recoveryOnly: false });
+  });
+
+  it("ignores keys with missing addresses during a signing-status lookup", () => {
+    const lookup = vi.spyOn(LockManager, "getDecryptedKeys").mockReturnValue([
+      { ...MOCK_KEYS[0], address: undefined } as unknown as DecryptedKeyType,
+      ...MOCK_KEYS,
+    ]);
+    try {
+      expect(LockManager.getAccountSigningStatus(MOCK_KEYS[0].address)).toEqual({
+        known: true,
+        recoveryOnly: false,
+      });
+    } finally {
+      lookup.mockRestore();
+    }
   });
 
   // ── Scenario 1: Basic auto-lock at 15 minutes ─────────────────

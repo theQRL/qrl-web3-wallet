@@ -9,8 +9,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import browser from "webextension-polyfill";
+import type { AccountSigningStatus } from "@/scripts/lockManager/lockManager";
+import i18n from "@/i18n";
+import { observable } from "mobx";
 import TokenTransfer from "./TokenTransfer";
+
+const getAccountSigningStatus = vi.fn<
+  (address: string) => Promise<AccountSigningStatus>
+>();
 
 const {
   mockGetTransactionValues,
@@ -51,10 +57,15 @@ const successSignResult = {
 };
 
 describe("TokenTransfer", () => {
-  afterEach(cleanup);
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage("en");
+  });
 
   beforeEach(() => {
-    vi.mocked(browser.runtime.sendMessage).mockResolvedValue([]);
+    getAccountSigningStatus
+      .mockReset()
+      .mockResolvedValue({ known: true, recoveryOnly: false });
     mockGetTransactionValues.mockResolvedValue({
       receiverAddress: "",
       amount: 0,
@@ -63,26 +74,30 @@ describe("TokenTransfer", () => {
     mockClearTransactionValues.mockResolvedValue(undefined);
   });
 
-  const renderComponent = (mockedStoreValues = mockedStore()) =>
-    render(
+  const renderComponent = (mockedStoreValues = mockedStore()) => {
+    mockedStoreValues.lockStore.getAccountSigningStatus = getAccountSigningStatus;
+    return render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter>
           <TokenTransfer />
         </MemoryRouter>
       </StoreProvider>,
     );
+  };
 
   const renderComponentWithState = (
     state: Record<string, any>,
     mockedStoreValues = mockedStore(),
-  ) =>
-    render(
+  ) => {
+    mockedStoreValues.lockStore.getAccountSigningStatus = getAccountSigningStatus;
+    return render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter initialEntries={[{ pathname: "/token-transfer", state }]}>
           <TokenTransfer />
         </MemoryRouter>
       </StoreProvider>,
     );
+  };
 
   const fillForm = async (amount: string) => {
     const user = userEvent.setup();
@@ -117,7 +132,7 @@ describe("TokenTransfer", () => {
       accountType: "legacy recovery-only",
       address: `Q${"ab".repeat(20)}`,
       recoveryOnly: true,
-      message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
+      message: RECOVERY_ONLY_ACCOUNT_MESSAGE,
     },
     {
       accountType: "64-byte recovery-only",
@@ -129,14 +144,7 @@ describe("TokenTransfer", () => {
     it.each([false, true])(
       "shows the refusal before gas or balance validation (QRC20: %s)",
       async (isZrc20Token) => {
-        vi.mocked(browser.runtime.sendMessage).mockResolvedValue([
-          {
-            address: address.toUpperCase(),
-            recoveryOnly,
-            seed: "",
-            mnemonicPhrases: "",
-          },
-        ]);
+        getAccountSigningStatus.mockResolvedValue({ known: true, recoveryOnly });
         const getAccountSeed = vi.fn(async () => "");
         const getNativeTokenGas = vi.fn(async () => "0.001");
         const getZrc20TokenGas = vi.fn(async () => "0.001");
@@ -180,6 +188,7 @@ describe("TokenTransfer", () => {
         expect(screen.queryByText(/Insufficient/)).not.toBeInTheDocument();
         expect(getNativeTokenGas).not.toHaveBeenCalled();
         expect(getZrc20TokenGas).not.toHaveBeenCalled();
+        expect(getAccountSigningStatus).toHaveBeenCalledWith(address);
         expect(getAccountSeed).not.toHaveBeenCalled();
         expect(signNativeToken).not.toHaveBeenCalled();
         expect(signZrc20Token).not.toHaveBeenCalled();
@@ -188,12 +197,10 @@ describe("TokenTransfer", () => {
   });
 
   it("waits for the active account check before enabling Send or estimating gas", async () => {
-    let resolveKeys: (
-      keys: { address: string; recoveryOnly: boolean }[],
-    ) => void = () => {};
-    vi.mocked(browser.runtime.sendMessage).mockReturnValue(
+    let resolveStatus: (status: AccountSigningStatus) => void = () => {};
+    getAccountSigningStatus.mockReturnValue(
       new Promise((resolve) => {
-        resolveKeys = resolve;
+        resolveStatus = resolve;
       }),
     );
     const getNativeTokenGas = vi.fn(async () => "0.001");
@@ -209,13 +216,104 @@ describe("TokenTransfer", () => {
     expect(getNativeTokenGas).not.toHaveBeenCalled();
 
     await act(async () => {
-      resolveKeys([{ address: `Q${"ff".repeat(64)}`, recoveryOnly: true }]);
+      resolveStatus({ known: true, recoveryOnly: false });
     });
     await waitFor(() => expect(sendButton).toBeEnabled());
     expect(getNativeTokenGas).toHaveBeenCalled();
     expect(
       screen.queryByText(RECOVERY_ONLY_ACCOUNT_MESSAGE),
     ).not.toBeInTheDocument();
+  });
+
+  it("reports a failed legacy status lookup before giving recovery advice", async () => {
+    getAccountSigningStatus.mockRejectedValue(new Error("Wallet is locked"));
+    const getNativeTokenGas = vi.fn(async () => "0.001");
+    renderComponent(mockedStore({
+      qrlStore: {
+        activeAccount: { accountAddress: `Q${"ab".repeat(20)}` },
+        getNativeTokenGas,
+      },
+    }));
+    expect(await screen.findByText("An error occured. Wallet is locked")).toBeInTheDocument();
+    expect(screen.queryByText(LEGACY_ACCOUNT_RECOVERY_MESSAGE)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send QRL" })).toBeDisabled();
+    expect(getNativeTokenGas).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    "keeps Send disabled when the native balance is unavailable (QRC20: %s)",
+    async (isZrc20Token) => {
+      const getAccountSeed = vi.fn(async () => "");
+      const signNativeToken = vi.fn(async () => successSignResult);
+      const signZrc20Token = vi.fn(async () => successSignResult);
+      renderComponentWithState(
+        {
+          tokenDetails: {
+            isZrc20Token,
+            tokenContractAddress: QRL_EXAMPLE_ADDRESS,
+            tokenDecimals: 18,
+            tokenImage: "",
+            tokenBalance: "100 TST",
+            tokenName: "Test Token",
+            tokenSymbol: isZrc20Token ? "TST" : "QRL",
+          },
+        },
+        mockedStore({
+          lockStore: { getAccountSeed },
+          qrlStore: {
+            getAccountBalance: () => "Unavailable",
+            getNativeTokenGas: async () => "0.001",
+            getZrc20TokenGas: async () => "0.001",
+            signNativeToken,
+            signZrc20Token,
+          },
+        }),
+      );
+
+      expect(await screen.findByText(
+        "Balance unavailable. Check the network connection and try again.",
+      )).toBeInTheDocument();
+      await fillForm("2.5");
+      const sendButton = screen.getByRole("button", {
+        name: `Send ${isZrc20Token ? "TST" : "QRL"}`,
+      });
+      expect(sendButton).toBeDisabled();
+      await userEvent.click(sendButton);
+      expect(screen.queryByText(/Insufficient/)).not.toBeInTheDocument();
+      expect(getAccountSeed).not.toHaveBeenCalled();
+      expect(signNativeToken).not.toHaveBeenCalled();
+      expect(signZrc20Token).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["de", "Guthaben nicht verfügbar. Prüfe die Netzwerkverbindung und versuche es erneut."],
+    ["es", "Saldo no disponible. Comprueba la conexión de red e inténtalo de nuevo."],
+  ])("translates the unavailable balance error in %s", async (language, message) => {
+    await i18n.changeLanguage(language);
+    renderComponent(mockedStore({
+      qrlStore: { getAccountBalance: () => "Unavailable" },
+    }));
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  it("updates the balance error when a failed balance request recovers", async () => {
+    const balance = observable.box("Unavailable");
+    const store = mockedStore({
+      qrlStore: {
+        getAccountBalance: () => balance.get(),
+        getNativeTokenGas: async () => "0.001",
+      },
+    });
+    renderComponent(store);
+    await fillForm("2.5");
+    const sendButton = screen.getByRole("button", { name: "Send QRL" });
+    expect(sendButton).toBeDisabled();
+    act(() => balance.set("100 QRL"));
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    expect(screen.queryByText(
+      "Balance unavailable. Check the network connection and try again.",
+    )).not.toBeInTheDocument();
   });
 
   it("should render the account details component", () => {

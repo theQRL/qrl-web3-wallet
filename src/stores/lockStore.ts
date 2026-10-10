@@ -1,4 +1,5 @@
 import {
+  type AccountSigningStatus,
   DecryptedKeyType,
   EncryptAccountType,
   LOCK_MANAGER_MESSAGES,
@@ -40,6 +41,7 @@ class LockStore {
       getWalletPassword: action.bound,
       getMnemonicPhrases: action.bound,
       getAccountSeed: action.bound,
+      getAccountSigningStatus: action.bound,
       encryptAccount: action.bound,
       changePassword: action.bound,
       readLockState: action.bound,
@@ -179,6 +181,13 @@ class LockStore {
       throw new Error(LEGACY_ACCOUNT_RECOVERY_MESSAGE);
     }
     return accountKey?.seed ?? "";
+  }
+
+  async getAccountSigningStatus(accountAddress: string) {
+    return (await this.sendWithRetry({
+      name: LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS,
+      data: { address: accountAddress },
+    })) as AccountSigningStatus;
   }
 
   async encryptAccount(account: Web3BaseWalletAccount, password: string) {

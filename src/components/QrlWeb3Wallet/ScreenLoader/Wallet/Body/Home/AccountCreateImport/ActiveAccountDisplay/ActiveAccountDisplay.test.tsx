@@ -1,12 +1,16 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
 import { StoreProvider } from "@/stores/store";
+import i18n from "@/i18n";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import ActiveAccountDisplay from "./ActiveAccountDisplay";
 
 describe("ActiveAccountDisplay", () => {
-  afterEach(cleanup);
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage("en");
+  });
 
   const renderComponent = (mockedStoreValues = mockedStore()) =>
     render(
@@ -17,7 +21,12 @@ describe("ActiveAccountDisplay", () => {
       </StoreProvider>,
     );
 
-  it("shows an unavailable balance without a zero fiat value", () => {
+  it.each([
+    ["en", "Unavailable"],
+    ["de", "Nicht verfügbar"],
+    ["es", "No disponible"],
+  ])("shows an unavailable balance in %s without a zero fiat value", async (language, message) => {
+    await i18n.changeLanguage(language);
     renderComponent(
       mockedStore({
         qrlStore: { getAccountBalance: () => "Unavailable" },
@@ -26,7 +35,7 @@ describe("ActiveAccountDisplay", () => {
       }),
     );
 
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.getByText(message)).toBeInTheDocument();
     expect(screen.queryByText(/\$0\.00/)).not.toBeInTheDocument();
   });
 

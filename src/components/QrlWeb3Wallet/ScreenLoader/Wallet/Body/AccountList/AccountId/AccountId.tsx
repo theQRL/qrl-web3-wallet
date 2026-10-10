@@ -68,7 +68,9 @@ const AccountId = observer(({ account, hideLabel }: AccountIdType) => {
           )}
         </div>
         <div className="text-xs text-secondary">
-          {accountBalance}
+          {accountBalance === "Unavailable"
+            ? t("common.unavailable")
+            : accountBalance}
           {fiatDisplay && (
             <span className="ml-1 text-muted-foreground">{fiatDisplay}</span>
           )}

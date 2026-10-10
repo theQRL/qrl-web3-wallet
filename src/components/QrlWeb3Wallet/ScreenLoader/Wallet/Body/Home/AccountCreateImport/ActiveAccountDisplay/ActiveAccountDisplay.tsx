@@ -4,8 +4,10 @@ import { useStore } from "@/stores/store";
 import StringUtil from "@/utilities/stringUtil";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { observer } from "mobx-react-lite";
+import { useTranslation } from "react-i18next";
 
 const ActiveAccountDisplay = observer(() => {
+  const { t } = useTranslation();
   const { qrlStore, priceStore, settingsStore } = useStore();
   const { activeAccount, getAccountBalance } = qrlStore;
   const { accountAddress } = activeAccount;
@@ -27,7 +29,9 @@ const ActiveAccountDisplay = observer(() => {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <div className="flex animate-appear-in text-2xl font-bold text-secondary">
-          {accountBalance}
+          {accountBalance === "Unavailable"
+            ? t("common.unavailable")
+            : accountBalance}
         </div>
         {fiatDisplay && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
