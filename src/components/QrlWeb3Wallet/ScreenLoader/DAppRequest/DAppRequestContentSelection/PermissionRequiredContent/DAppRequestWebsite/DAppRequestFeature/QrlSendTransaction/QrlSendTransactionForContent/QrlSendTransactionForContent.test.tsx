@@ -20,6 +20,56 @@ vi.mock("@/scripts/utils/restrictedMethodsMiddlewareUtils", () => ({
   })),
 }));
 
+type MockPromiEvent = Promise<Record<string, unknown>> & {
+  on: (event: string, cb: (...args: unknown[]) => void) => MockPromiEvent;
+  once: (event: string, cb: (...args: unknown[]) => void) => MockPromiEvent;
+};
+
+function attachEmitter(
+  promise: Promise<Record<string, unknown>>,
+  hash?: unknown,
+): MockPromiEvent {
+  const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
+  const promiEvent = promise as MockPromiEvent;
+  promiEvent.on = (event, cb) => {
+    (listeners[event] ??= []).push(cb);
+    // Emit on registration, not eagerly at construction time: the mock is
+    // built once (at `vi.fn().mockReturnValue(...)` setup time), long
+    // before the component calls sendSignedTransaction() and registers its
+    // listener. Emitting on registration guarantees the listener is always
+    // in place before the event fires, exactly like the real PromiEvent
+    // (which only emits after its internal async work starts).
+    if (event === "transactionHash" && hash !== undefined) {
+      queueMicrotask(() => cb(hash));
+    }
+    return promiEvent;
+  };
+  promiEvent.once = promiEvent.on;
+  return promiEvent;
+}
+
+/**
+ * qrlInstance.sendSignedTransaction() returns a Web3PromiEvent: both a
+ * thenable that resolves with the receipt and an event emitter that fires
+ * "transactionHash" once the node has accepted the broadcast, well before
+ * the receipt is available. The component now answers the dApp on that
+ * event instead of on receipt, so the mocks below need to behave the same
+ * way a real PromiEvent does.
+ */
+function createMockPromiEvent(receipt: Record<string, unknown>) {
+  return attachEmitter(Promise.resolve(receipt), receipt.transactionHash);
+}
+
+/**
+ * A PromiEvent that rejects without ever emitting "transactionHash", the
+ * shape sendSignedTransaction() takes both when its own pre-broadcast
+ * revert check (checkRevertBeforeSending) rejects a reverting call before
+ * it is ever sent, and when the node rejects the raw transaction outright.
+ */
+function createMockRejectingPromiEvent(error: Error) {
+  return attachEmitter(Promise.reject(error));
+}
+
 describe("QrlSendTransactionForContent", () => {
   afterEach(cleanup);
 
@@ -80,9 +130,9 @@ describe("QrlSendTransactionForContent", () => {
               rawTransaction: "0xsignedraw",
             }),
           },
-          sendSignedTransaction: vi.fn<any>().mockResolvedValue({
+          sendSignedTransaction: vi.fn<any>().mockReturnValue(createMockPromiEvent({
             transactionHash: "0xtxhash",
-          }),
+          })),
         } as any,
         getGasFeeData: async () => ({
           baseFeePerGas: BigInt(100),
@@ -109,6 +159,9 @@ describe("QrlSendTransactionForContent", () => {
         isLedgerAccount: () => false,
         signAndSerializeTransaction: async () => "0xledgersigned",
         ...overrides.ledgerStore,
+      } as any,
+      transactionHistoryStore: {
+        ...overrides.transactionHistoryStore,
       } as any,
     });
   };
@@ -251,9 +304,9 @@ describe("QrlSendTransactionForContent", () => {
     const mockSignTransaction = vi.fn<any>().mockResolvedValue({
       rawTransaction: "0xsignedinteract",
     });
-    const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+    const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
       transactionHash: "0xinteracttxhash",
-    });
+    }));
     const interactionWithValue = {
       ...contractInteractionRequest,
       value: "0x30",
@@ -329,9 +382,9 @@ describe("QrlSendTransactionForContent", () => {
 
   describe("sendZndTransfer", () => {
     it("should send QRL transfer via regular account (mnemonic)", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
         transactionHash: "0xtxhash",
-      });
+      }));
       const mockAddToResponseData = vi.fn();
 
       renderComponent(
@@ -366,9 +419,9 @@ describe("QrlSendTransactionForContent", () => {
     });
 
     it("should send QRL transfer via Ledger account", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
         transactionHash: "0xledgertxhash",
-      });
+      }));
       const mockAddToResponseData = vi.fn();
       const mockSignAndSerialize = vi.fn<any>().mockResolvedValue("0xledgersigned");
 
@@ -403,9 +456,9 @@ describe("QrlSendTransactionForContent", () => {
     });
 
     it("should send QRL transfer with legacy gas pricing (non-0x2)", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
         transactionHash: "0xtxhash",
-      });
+      }));
       const legacyRequest = { ...zndTransferRequest, type: "0x0" };
 
       renderComponent(
@@ -492,11 +545,180 @@ describe("QrlSendTransactionForContent", () => {
     });
   });
 
+  describe("broadcastAndRespond (dApp answered on broadcast, not on mining)", () => {
+    it("should answer the dApp with the hash, and record a pending history entry, before the receipt resolves", async () => {
+      // A PromiEvent whose receipt never resolves during this test: it
+      // emits "transactionHash" but its own promise stays pending, standing
+      // in for the real library's wait for the block that mines the
+      // transaction.
+      const receiptPromise = new Promise<Record<string, unknown>>(() => {
+        /* never resolves within this test */
+      });
+      const mockSendSignedTransaction = vi
+        .fn<any>()
+        .mockImplementation(() =>
+          attachEmitter(receiptPromise, "0xpendingtxhash"),
+        );
+      const mockAddToResponseData = vi.fn();
+      const mockAddTransaction = vi.fn(async () => {});
+      const mockUpdateTransaction = vi.fn(async () => {});
+
+      renderComponent(
+        createStoreWithCallback({
+          qrlStore: {
+            qrlInstance: {
+              getGasPrice: async () => BigInt(1000),
+              getTransactionCount: async () => 0,
+              getChainId: async () => 1,
+              accounts: {
+                signTransaction: async () => ({
+                  rawTransaction: "0xsignedraw",
+                }),
+              },
+              sendSignedTransaction: mockSendSignedTransaction,
+            } as any,
+          },
+          addToResponseData: mockAddToResponseData,
+          transactionHistoryStore: {
+            addTransaction: mockAddTransaction,
+            updateTransaction: mockUpdateTransaction,
+          },
+        }),
+        { transactionType: SEND_TRANSACTION_TYPES.QRL_TRANSFER },
+      );
+
+      await act(async () => {
+        await capturedPermissionCallback!(true);
+      });
+
+      // The dApp already has its answer, and a pending entry is on record,
+      // even though the receipt promise above is still unsettled.
+      expect(mockAddToResponseData).toHaveBeenCalledWith({
+        transactionHash: "0xpendingtxhash",
+      });
+      expect(mockAddTransaction).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          transactionHash: "0xpendingtxhash",
+          pendingStatus: "pending",
+        }),
+      );
+      expect(mockUpdateTransaction).not.toHaveBeenCalled();
+    });
+
+    it("should never answer the dApp with a hash when the transaction fails before broadcast (reverts) or the node rejects it", async () => {
+      // qrlInstance.sendSignedTransaction() runs its own pre-broadcast
+      // revert check by default (checkRevertBeforeSending) and rejects
+      // without ever emitting "transactionHash" when it reverts; a node
+      // rejecting the raw transaction outright behaves the same way from
+      // this component's point of view. Either way, no hash exists to give
+      // the dApp.
+      const mockSendSignedTransaction = vi
+        .fn<any>()
+        .mockImplementation(() =>
+          createMockRejectingPromiEvent(new Error("execution reverted")),
+        );
+      const mockAddToResponseData = vi.fn();
+
+      renderComponent(
+        createStoreWithCallback({
+          qrlStore: {
+            qrlInstance: {
+              getGasPrice: async () => BigInt(1000),
+              getTransactionCount: async () => 0,
+              getChainId: async () => 1,
+              accounts: {
+                signTransaction: async () => ({
+                  rawTransaction: "0xsignedraw",
+                }),
+              },
+              sendSignedTransaction: mockSendSignedTransaction,
+            } as any,
+          },
+          addToResponseData: mockAddToResponseData,
+        }),
+        { transactionType: SEND_TRANSACTION_TYPES.QRL_TRANSFER },
+      );
+
+      await act(async () => {
+        await capturedPermissionCallback!(true);
+      });
+
+      expect(mockAddToResponseData).not.toHaveBeenCalledWith(
+        expect.objectContaining({ transactionHash: expect.anything() }),
+      );
+      expect(mockAddToResponseData).toHaveBeenCalledWith({
+        error: expect.objectContaining({ message: "execution reverted" }),
+      });
+    });
+
+    it("should update the pending history entry once the receipt resolves, while still open", async () => {
+      let resolveReceipt!: (receipt: Record<string, unknown>) => void;
+      const receiptPromise = new Promise<Record<string, unknown>>(
+        (resolve) => {
+          resolveReceipt = resolve;
+        },
+      );
+      const mockSendSignedTransaction = vi
+        .fn<any>()
+        .mockImplementation(() =>
+          attachEmitter(receiptPromise, "0xminedtxhash"),
+        );
+      const mockAddTransaction = vi.fn(async () => {});
+      const mockUpdateTransaction = vi.fn(async () => {});
+
+      renderComponent(
+        createStoreWithCallback({
+          qrlStore: {
+            qrlInstance: {
+              getGasPrice: async () => BigInt(1000),
+              getTransactionCount: async () => 0,
+              getChainId: async () => 1,
+              accounts: {
+                signTransaction: async () => ({
+                  rawTransaction: "0xsignedraw",
+                }),
+              },
+              sendSignedTransaction: mockSendSignedTransaction,
+            } as any,
+          },
+          transactionHistoryStore: {
+            addTransaction: mockAddTransaction,
+            updateTransaction: mockUpdateTransaction,
+          },
+        }),
+        { transactionType: SEND_TRANSACTION_TYPES.QRL_TRANSFER },
+      );
+
+      await act(async () => {
+        await capturedPermissionCallback!(true);
+      });
+      expect(mockUpdateTransaction).not.toHaveBeenCalled();
+
+      await act(async () => {
+        resolveReceipt({
+          transactionHash: "0xminedtxhash",
+          status: BigInt(1),
+          blockNumber: BigInt(1),
+          gasUsed: BigInt(21000),
+          effectiveGasPrice: BigInt(1),
+        });
+        await receiptPromise;
+      });
+
+      expect(mockUpdateTransaction).toHaveBeenCalledWith(
+        expect.any(String),
+        "0xminedtxhash",
+        expect.objectContaining({ pendingStatus: "confirmed", status: true }),
+      );
+    });
+  });
+
   describe("deployContractOrInteract", () => {
     it("should deploy contract via regular account (mnemonic)", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
         transactionHash: "0xdeploytxhash",
-      });
+      }));
       const mockAddToResponseData = vi.fn();
 
       renderComponent(
@@ -531,9 +753,9 @@ describe("QrlSendTransactionForContent", () => {
     });
 
     it("should deploy contract via Ledger account", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
         transactionHash: "0xledgerdeployhash",
-      });
+      }));
       const mockAddToResponseData = vi.fn();
       const mockSignAndSerialize = vi.fn<any>().mockResolvedValue("0xledgerdeploy");
 
@@ -569,9 +791,9 @@ describe("QrlSendTransactionForContent", () => {
     });
 
     it("should interact with contract via Ledger account (with to address)", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
         transactionHash: "0xledgerinteracthash",
-      });
+      }));
       const mockAddToResponseData = vi.fn();
       const mockSignAndSerialize = vi.fn<any>().mockResolvedValue("0xledgerinteract");
 
@@ -606,9 +828,9 @@ describe("QrlSendTransactionForContent", () => {
     });
 
     it("should use legacy gasPrice for non-0x2 contract deployment via Ledger", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockResolvedValue({
+      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
         transactionHash: "0xhash",
-      });
+      }));
       const mockSignAndSerialize = vi.fn<any>().mockResolvedValue("0xsigned");
       const legacyDeployRequest = { ...contractDeploymentRequest, type: "0x0" };
 

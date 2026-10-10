@@ -101,63 +101,173 @@ const QrlSendTransactionForContent = observer(
       navigator.clipboard.writeText(data);
     };
 
-    const recordTransactionHistory = async ({
+    const amountFor = (
+      value: string | bigint | number | undefined,
+      isQrlTransfer: boolean,
+    ) => {
+      const valueAsBigInt =
+        value !== undefined && value !== null
+          ? typeof value === "bigint"
+            ? value
+            : BigInt(value)
+          : 0n;
+      return isQrlTransfer
+        ? Number(utils.fromPlanck(valueAsBigInt, "quanta"))
+        : 0;
+    };
+
+    // Written as soon as the transaction is broadcast, so it shows up in
+    // history (and is picked up by transactionHistoryStore's own
+    // pending-transaction poller, see updatePendingTransactionHistory below)
+    // even if this approval surface closes before the receipt arrives.
+    const recordPendingTransactionHistory = async ({
       from,
       to,
       value,
       data,
-      receipt,
+      transactionHash,
       isQrlTransfer,
     }: {
       from: string;
       to?: string;
       value?: string | bigint | number;
       data?: string;
-      receipt: DAppTransactionReceipt;
+      transactionHash: string;
       isQrlTransfer: boolean;
     }) => {
-      const transactionHash = receipt?.transactionHash;
-      if (!transactionHash) return;
       try {
-        const isSuccess = receipt.status?.toString() === "1";
         const tokenSymbol = blockchain?.nativeCurrency?.symbol ?? "QRL";
         const tokenName = blockchain?.nativeCurrency?.name ?? tokenSymbol;
-        const valueAsBigInt =
-          value !== undefined && value !== null
-            ? typeof value === "bigint"
-              ? value
-              : BigInt(value)
-            : 0n;
-        const amount = isQrlTransfer
-          ? Number(utils.fromPlanck(valueAsBigInt, "quanta"))
-          : 0;
         const entry: TransactionHistoryEntry = {
           id: transactionHash,
           from,
           to: to ?? "",
-          amount,
+          amount: amountFor(value, isQrlTransfer),
           tokenSymbol,
           tokenName,
           isZrc20Token: false,
           tokenContractAddress: "",
           tokenDecimals: 18,
           transactionHash,
-          blockNumber: receipt.blockNumber?.toString() ?? "",
-          gasUsed: receipt.gasUsed?.toString() ?? "",
-          effectiveGasPrice: (receipt.effectiveGasPrice ?? 0).toString(),
-          status: isSuccess,
+          blockNumber: "",
+          gasUsed: "",
+          effectiveGasPrice: "",
+          status: false,
           timestamp: Date.now(),
           chainId: blockchain?.chainId ?? "",
-          pendingStatus: isSuccess ? "confirmed" : "failed",
+          pendingStatus: "pending",
           data: data ?? undefined,
         };
         await transactionHistoryStore.addTransaction(from, entry);
       } catch (error) {
         console.error(
-          "QrlWeb3Wallet: Failed to record dApp transaction in history",
+          "QrlWeb3Wallet: Failed to record pending dApp transaction in history",
           error,
         );
       }
+    };
+
+    // Fills in the outcome once the transaction is mined. If this surface
+    // is still open when that happens this runs directly; otherwise the
+    // "pending" entry above is left for transactionHistoryStore's own
+    // poller (startPolling, started whenever any screen next loads this
+    // account's history) to resolve the same way it already does for the
+    // wallet's own sends.
+    const updatePendingTransactionHistory = async (
+      from: string,
+      transactionHash: string,
+      receipt: DAppTransactionReceipt,
+    ) => {
+      try {
+        const isSuccess = receipt.status?.toString() === "1";
+        await transactionHistoryStore.updateTransaction(
+          from,
+          transactionHash,
+          {
+            pendingStatus: isSuccess ? "confirmed" : "failed",
+            status: isSuccess,
+            blockNumber: receipt.blockNumber?.toString() ?? "",
+            gasUsed: receipt.gasUsed?.toString() ?? "",
+            effectiveGasPrice: (receipt.effectiveGasPrice ?? 0).toString(),
+          },
+        );
+      } catch (error) {
+        console.error(
+          "QrlWeb3Wallet: Failed to record confirmed dApp transaction in history",
+          error,
+        );
+      }
+    };
+
+    // qrl_sendTransaction only owes the dApp the transaction hash. Awaiting
+    // qrlInstance.sendSignedTransaction() end to end would block that
+    // answer until the transaction is mined, which the 90s popup response
+    // budget cannot always cover. sendSignedTransaction is a PromiEvent: it
+    // still runs its default pre-broadcast revert check
+    // (checkRevertBeforeSending, so a reverting call is rejected here and
+    // never broadcast) and then emits "transactionHash" as soon as the node
+    // accepts the raw transaction, well before its own promise resolves
+    // with the receipt. Answer the dApp on that event and let mining
+    // continue in the background, the same way the wallet's own send
+    // screens (TokenTransfer, NFTTransfer) already treat a broadcast as
+    // fire-and-forget.
+    const broadcastAndRespond = async ({
+      from,
+      to,
+      value,
+      data,
+      rawTransactionToSend,
+      isQrlTransfer,
+    }: {
+      from: string;
+      to?: string;
+      value?: string | bigint | number;
+      data?: string;
+      rawTransactionToSend: string;
+      isQrlTransfer: boolean;
+    }) => {
+      const promiEvent = qrlInstance?.sendSignedTransaction(
+        rawTransactionToSend,
+      );
+      if (!promiEvent) {
+        throw new Error("Transaction could not be broadcast");
+      }
+
+      const transactionHash = await new Promise<string>((resolve, reject) => {
+        promiEvent.once("transactionHash", (hash) => resolve(String(hash)));
+        promiEvent.catch(reject);
+      });
+
+      addToResponseData({ transactionHash });
+
+      await recordPendingTransactionHistory({
+        from,
+        to,
+        value,
+        data,
+        transactionHash,
+        isQrlTransfer,
+      });
+
+      promiEvent.then(
+        async (receipt) => {
+          await updatePendingTransactionHistory(
+            from,
+            transactionHash,
+            receipt as DAppTransactionReceipt,
+          );
+        },
+        (error) => {
+          // A rejection here means broadcast succeeded but mining did not
+          // (e.g. reverted on-chain, or the receipt poll itself failed).
+          // The dApp already has the hash; it, or this wallet's own
+          // pending-transaction poller, can follow up from there.
+          console.error(
+            "QrlWeb3Wallet: dApp transaction failed after broadcast",
+            error,
+          );
+        },
+      );
     };
 
     const deployContractOrInteract = async () => {
@@ -220,22 +330,14 @@ const QrlSendTransactionForContent = observer(
         }
 
         if (rawTransactionToSend) {
-          const transactionReceipt = await qrlInstance?.sendSignedTransaction(
+          await broadcastAndRespond({
+            from: from ?? "",
+            to,
+            value,
+            data,
             rawTransactionToSend,
-          );
-          addToResponseData({
-            transactionHash: transactionReceipt?.transactionHash,
+            isQrlTransfer: false,
           });
-          if (from && transactionReceipt) {
-            await recordTransactionHistory({
-              from,
-              to,
-              value,
-              data,
-              receipt: transactionReceipt as DAppTransactionReceipt,
-              isQrlTransfer: false,
-            });
-          }
         } else {
           throw new Error("Transaction could not be signed");
         }
@@ -321,21 +423,13 @@ const QrlSendTransactionForContent = observer(
         }
 
         if (rawTransactionToSend) {
-          const transactionReceipt = await qrlInstance?.sendSignedTransaction(
+          await broadcastAndRespond({
+            from,
+            to,
+            value,
             rawTransactionToSend,
-          );
-          addToResponseData({
-            transactionHash: transactionReceipt?.transactionHash,
+            isQrlTransfer: true,
           });
-          if (from && transactionReceipt) {
-            await recordTransactionHistory({
-              from,
-              to,
-              value,
-              receipt: transactionReceipt as DAppTransactionReceipt,
-              isQrlTransfer: true,
-            });
-          }
         } else {
           throw new Error("QRL Transfer transaction could not be signed");
         }
