@@ -31,27 +31,22 @@ export default defineConfig({
       },
     },
   },
-  worker: {
-    plugins: () => [
-      commonjs({ requireReturnsDefault: "auto" }),
-      nodePolyfills() as Plugin,
-    ],
-  },
   build: {
     outDir: "Extension",
     emptyOutDir: true,
-    commonjsOptions: { requireReturnsDefault: "auto" },
     rollupOptions: {
-      plugins: [nodePolyfills() as Plugin],
+      plugins: [
+        commonjs({
+          requireReturnsDefault: "auto",
+        }),
+        nodePolyfills() as Plugin,
+      ],
     },
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
-      events: path.resolve(
-        __dirname,
-        "node_modules/rollup-plugin-node-polyfills/polyfills/events.js",
-      ),
+      events: path.resolve(__dirname, "node_modules/rollup-plugin-node-polyfills/polyfills/events.js"),
       buffer: "buffer",
     },
   },

@@ -1,0 +1,205 @@
+{
+  "C": {
+    "label": "C-synthetic-m4096",
+    "typedPassword": "shared weak-kdf test password",
+    "keystore": {
+      "version": 1,
+      "id": "bfa169f1-2ef5-4dbc-b36a-78874ec815bc",
+      "address": "Q4964a5d4c1a9be98c81740ad02e5e4a4321f2b94",
+      "crypto": {
+        "ciphertext": "69696d227e18b2f3c755c20f92509b94a96b21f4f21f75da1eae1727b51a00ab1cb82c74cfee57ccabeddec3eb5651e9c00fa14607656c004d90074de4bfaf5d77e7bb",
+        "cipherparams": {
+          "iv": "fb6f54a1a78ea8ecf8c9da1c"
+        },
+        "cipher": "aes-256-gcm",
+        "kdf": "argon2id",
+        "kdfparams": {
+          "m": 4096,
+          "t": 2,
+          "p": 1,
+          "dklen": 32,
+          "salt": "0510b77c431b98badd00723bfd5602fa3d8efaafcb77713fb838c8386ad72208"
+        }
+      }
+    },
+    "expected": {
+      "seed": "0x0100003a771790fcafe7fa42c0a56aeead4ec5d9df711a5ba1ab29692ebce660c7787d272f12a6e8aab41fe22822fcb8e83201",
+      "address020": "Q4964A5D4C1a9bE98C81740AD02E5e4A4321F2B94",
+      "mnemonic": "absorb aback dental into move slater tough pinch scorn foyer unwary stare sherry paid insult plate penny reckon hereby tundra tokyo asset koran spite concur civil trade propel bundle call camp slight tower burden"
+    }
+  },
+  "G": {
+    "label": "G-synthetic-m19456",
+    "typedPassword": "shared weak-kdf test password",
+    "keystore": {
+      "version": 1,
+      "id": "b9e499c8-dacf-480c-b005-a52eecfa524a",
+      "address": "Q2e992898b25301e244fcd76523707dedaee653b1",
+      "crypto": {
+        "ciphertext": "8fe6079a973775c2cb6d5554235a037e4a2c1402a8ff9c470aebb86e6a1f5c43d67a529cff1450a925d30eb8a777513eba14252e8e7a286ae3924439a5759ffcf56e20",
+        "cipherparams": {
+          "iv": "e218ca65f3c00caf6712c5b9"
+        },
+        "cipher": "aes-256-gcm",
+        "kdf": "argon2id",
+        "kdfparams": {
+          "m": 19456,
+          "t": 2,
+          "p": 1,
+          "dklen": 32,
+          "salt": "36cb556d78a85066dab01868cfcb5fa08b092139c8c410884835aba02aa826fa"
+        }
+      }
+    },
+    "expected": {
+      "seed": "0x010000ac549c3ea6fd3358b8cb0b1e3b8be516649b84819f7a39775ebfd68e7df5cc3c24dc818e02d503a8632aa6cc4352c455",
+      "address020": "Q2e992898B25301e244fCd76523707DEDAEe653B1",
+      "mnemonic": "absorb aback pulpit exact domino inform crew miami sleek real deter saloon bias evolve lymph bone late noun golden wreath moist taste slowly seek swell bluff admit filter pop creak plus shabby float either"
+    }
+  },
+  "D": {
+    "label": "D-metadata-010100-weak",
+    "typedPassword": "shared weak-kdf test password",
+    "keystore": {
+      "version": 1,
+      "id": "a07605c3-85f4-4e62-988b-964b48d06370",
+      "address": "Qf5822eb9e963b9502e648f33f190c9f9447415f9",
+      "crypto": {
+        "ciphertext": "398ac2c9891bea93e6fb284b6f4ee6a048512fd7283ae790247ffb7a87afe2da7966101516fe8e69b8c42abb6e485ec8b175f39c4c74d92f41b0f752733eb919e2cbad",
+        "cipherparams": {
+          "iv": "590b2549755fb1c5166c48ec"
+        },
+        "cipher": "aes-256-gcm",
+        "kdf": "argon2id",
+        "kdfparams": {
+          "m": 4096,
+          "t": 2,
+          "p": 1,
+          "dklen": 32,
+          "salt": "f5cc61376395ae253a8bf3a3b6e92da0dde5bcd8ddb15e99810e7f4144f153fd"
+        }
+      }
+    },
+    "expected": {
+      "seed": "0x010100262ac96e5a7cdff629e241516641f65a23a53c8a5ca5a41d9f4a8f7fab082884f0d1e1f8f81ac116319ee468d1a91759",
+      "address020": "QF5822eB9E963B9502e648f33f190C9F9447415f9",
+      "mnemonic": "absorb badge cellar punch ignore polite teak grunt their below have bulk gall denote differ play plasma duet parrot posh link ransom chick fever spider bull west public betty bond thud minus postal jump"
+    }
+  },
+  "D2": {
+    "label": "D2-metadata-010001-weak",
+    "typedPassword": "shared weak-kdf test password",
+    "keystore": {
+      "version": 1,
+      "id": "f8d57ae0-3cfb-46cc-aa8e-66cd11c89e76",
+      "address": "Qfe757334c30964d83a347d97994ec5f940aca4ce",
+      "crypto": {
+        "ciphertext": "9500f78ec4889ef724aca0e9a69dcdac3be044617e2c3a6a0b78384c8935a5806c46d74df7de604c9401bb8e6fdc2bd497b26b7e660a3492fea279c7d8c69edcaf1225",
+        "cipherparams": {
+          "iv": "6f224003f6c495f15ae1b7e1"
+        },
+        "cipher": "aes-256-gcm",
+        "kdf": "argon2id",
+        "kdfparams": {
+          "m": 4096,
+          "t": 2,
+          "p": 1,
+          "dklen": 32,
+          "salt": "7a87b92810d96bd319ce33d02627c57ed995481c22d450961bbda5387f2405ba"
+        }
+      }
+    },
+    "expected": {
+      "seed": "0x01000110a9cc005fa3894755043518694e6cd46daca144ef950b4c6c7b2ca50c3688f0b76550ac5dc6819fecdcd452cd60a823",
+      "address020": "Qfe757334c30964D83a347d97994ec5f940aCa4CE",
+      "mnemonic": "absorb abbey ball overt able wildly medal juicy agent flak hernia tonal stalin summit pelvis feudal never renal huge rector place sequel meal arson harry arm glide heil pastry soak stale clumsy grease lose"
+    }
+  },
+  "E": {
+    "label": "E-nul-trailing-weak",
+    "typedPassword": "nul test password\u0000",
+    "keystore": {
+      "version": 1,
+      "id": "3b373bb2-7a56-49b1-9e87-83772027d3bf",
+      "address": "Q612b38d1305dfb875b63c61fe3afafe2cd704852",
+      "crypto": {
+        "ciphertext": "907fd7746f19d7b246127b119a14e361a7298478f0d5450f8fbf512bed357b0282d8c2c3759676ae293a80a22182d13ce786c1e7f9036d53956ad34633f42be3f6d555",
+        "cipherparams": {
+          "iv": "dc9cf8ee5368128c570615ba"
+        },
+        "cipher": "aes-256-gcm",
+        "kdf": "argon2id",
+        "kdfparams": {
+          "m": 4096,
+          "t": 2,
+          "p": 1,
+          "dklen": 32,
+          "salt": "9ef8232d1ee60646abfd6c19241fcf4420592ab8b830c8611052efc7171a5d59"
+        }
+      }
+    },
+    "expected": {
+      "seed": "0x0100006fcecc046686c3bea9e360258e14beb02db67821f772763c874dde1845adfb7d28c69275539714fe0ae0e017ae56a92a",
+      "address020": "Q612B38d1305dFB875b63C61fe3afafe2cD704852",
+      "mnemonic": "absorb aback influx twice ago hello serum triple thirty adam model fail raise supply knit bulky islam had maria tact blip garlic witch splash shop charge fluid intake yacht quay tear lawful foyer myopic"
+    }
+  },
+  "E2": {
+    "label": "E2-nul-leading-weak",
+    "typedPassword": "\u0000nul test password",
+    "keystore": {
+      "version": 1,
+      "id": "c8b4b402-e37f-49b5-b3b7-bc834823cef4",
+      "address": "Q7c84c7cbeb0d48dfa64d09e9c2d96a555e6631dd",
+      "crypto": {
+        "ciphertext": "10c6ba4fd3c9086b02a74ffc0a54b934010842323f5b7a315eb4f410125659084b5f21519192794e947e4705ee4364b48899fd6016fc4291cf971c3505fb400d0109cb",
+        "cipherparams": {
+          "iv": "1f5a86fe47b1c59a8d97a3d2"
+        },
+        "cipher": "aes-256-gcm",
+        "kdf": "argon2id",
+        "kdfparams": {
+          "m": 4096,
+          "t": 2,
+          "p": 1,
+          "dklen": 32,
+          "salt": "1501f3a833c4ac9151db99f146bf7a907bc4d9866d1d430baf614e56c58f0ef3"
+        }
+      }
+    },
+    "expected": {
+      "seed": "0x010000aab885a867f4870532e7921a9d6433df33b8ba8c19def6d23fa7b4de1b273c20a79657a6c0e376f542f0f7582e95df08",
+      "address020": "Q7C84c7CBEB0D48dFa64d09E9C2d96a555E6631dd",
+      "mnemonic": "absorb aback prism matter pop limp marble flora torso cab ozone eagle task deter rosa search target hurl dozen layman tailor recess diary are noisy later scrap data wade comply wear lovely nine valley"
+    }
+  },
+  "F": {
+    "label": "F-cjk-emoji-ligature-p2",
+    "typedPassword": "ﬁ 密码 🔐 파스워드",
+    "keystore": {
+      "version": 1,
+      "id": "dc2c3c5c-fbcf-467d-8995-0bf614ecfba4",
+      "address": "Q32a4cc932828924991b495bcc7a5bcf108ca4ea8",
+      "crypto": {
+        "ciphertext": "82fcb33d13fcb29ee9332b2ad7c83dc575e5df8fd5b4b82a227db61a3c2281e428bd546dc6e2c829afc1b8d590c68f5aba902d45cf53d0706e94cacaffa41c753ab99c",
+        "cipherparams": {
+          "iv": "70ecf86233a474a7735fda6d"
+        },
+        "cipher": "aes-256-gcm",
+        "kdf": "argon2id",
+        "kdfparams": {
+          "m": 8192,
+          "t": 3,
+          "p": 2,
+          "dklen": 32,
+          "salt": "c5e4c4d1bb0651eff5d13daf996e559393031ebd26cd1ce9b72bfbcb8942fc69"
+        }
+      }
+    },
+    "expected": {
+      "seed": "0x010000a7190be8dcd07f2da9b34925d32519c09159fec02d4b6189c06ae583426b1fd1dc35a223eead39aaade219d9ed1d64dd",
+      "address020": "Q32A4cC932828924991B495Bcc7a5BcF108Ca4eA8",
+      "mnemonic": "absorb aback poet mount train smoke lime sultan reform mutiny spray flame score berry yogurt admit eyed blood scent queue lucid chalet bunch brink custom cain unwary square prior taiwan bombay parcel bridge feat"
+    }
+  }
+}

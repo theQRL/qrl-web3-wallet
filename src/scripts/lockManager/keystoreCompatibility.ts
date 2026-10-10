@@ -1,9 +1,19 @@
-import { decrypt as decryptAes } from "@theqrl/qrl-cryptography/aes.js";
+import {
+  decrypt as decryptAes,
+  encrypt as encryptAes,
+} from "@theqrl/qrl-cryptography/aes.js";
 import { argon2id } from "@theqrl/qrl-cryptography/argon2id.js";
 import type { KeyStore } from "@theqrl/web3";
-import { decrypt, encrypt, seedToAccount } from "@theqrl/web3-qrl-accounts";
-import { hexToBytes } from "@theqrl/web3-utils";
+import { encrypt, seedToAccount } from "@theqrl/web3-qrl-accounts";
+import { bytesToHex, hexToBytes, utf8ToHex } from "@theqrl/web3-utils";
 import AddressUtil from "@/utilities/addressUtil";
+import { RECOMMENDED_KEYSTORE_KDF_PARAMS } from "./keystoreParams";
+
+type DecryptedKeystore = {
+  address: string;
+  seed: string;
+  recoveryOnly?: boolean;
+};
 
 function checkStoredAddress(storedAddress: string, derivedAddress: string) {
   // wallet.js 2 used the first 20 bytes of the same SHAKE256 address hash.
@@ -15,14 +25,32 @@ function checkStoredAddress(storedAddress: string, derivedAddress: string) {
   }
 }
 
+function accountFromSeed(
+  seed: Uint8Array,
+  storedAddress: string,
+): DecryptedKeystore {
+  let account: ReturnType<typeof seedToAccount>;
+  try {
+    account = seedToAccount(seed);
+  } catch {
+    return {
+      address: storedAddress,
+      seed: bytesToHex(seed),
+      recoveryOnly: true,
+    };
+  }
+  checkStoredAddress(storedAddress, account.address);
+  return {
+    address: AddressUtil.isLegacyQrlAddress(storedAddress)
+      ? storedAddress
+      : account.address,
+    seed: account.seed,
+  };
+}
+
 /** Read version 1 vaults while preserving legacy account identities for recovery. */
 export async function decryptKeystore(keystore: KeyStore, password: string) {
   const params = keystore.crypto.kdfparams;
-  const legacyAddress = AddressUtil.isLegacyQrlAddress(keystore.address);
-  if (!legacyAddress && "m" in params && params.m >= 19456) {
-    return decrypt(keystore, password);
-  }
-
   if (
     keystore.version !== 1 ||
     keystore.crypto.cipher !== "aes-256-gcm" ||
@@ -47,7 +75,7 @@ export async function decryptKeystore(keystore: KeyStore, password: string) {
     throw new Error("Invalid keystore KDF parameters");
   }
   const key = await argon2id(
-    new TextEncoder().encode(password),
+    hexToBytes(utf8ToHex(password)),
     typeof params.salt === "string" ? hexToBytes(params.salt) : params.salt,
     params.t,
     params.m,
@@ -61,12 +89,7 @@ export async function decryptKeystore(keystore: KeyStore, password: string) {
       key,
       hexToBytes(keystore.crypto.cipherparams.iv),
     );
-    const account = seedToAccount(seedBytes);
-    checkStoredAddress(keystore.address, account.address);
-    return {
-      address: legacyAddress ? keystore.address : account.address,
-      seed: account.seed,
-    };
+    return accountFromSeed(seedBytes, keystore.address);
   } finally {
     key.fill(0);
     seedBytes?.fill(0);
@@ -77,8 +100,41 @@ export async function reencryptKeystore(
   keystore: KeyStore,
   seed: string,
   password: string,
-) {
-  const encrypted = await encrypt(seed, password);
-  checkStoredAddress(keystore.address, encrypted.address);
-  return { ...encrypted, address: keystore.address };
+): Promise<KeyStore> {
+  const seedBytes = hexToBytes(seed);
+  let key: Uint8Array | undefined;
+  try {
+    const account = accountFromSeed(seedBytes, keystore.address);
+    if (!account.recoveryOnly) {
+      const encrypted = await encrypt(seed, password);
+      return { ...encrypted, address: keystore.address };
+    }
+
+    // Preserve authenticated seeds that the current wallet library cannot parse.
+    const params = RECOMMENDED_KEYSTORE_KDF_PARAMS;
+    const salt = crypto.getRandomValues(new Uint8Array(32));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    key = await argon2id(
+      hexToBytes(utf8ToHex(password)),
+      salt,
+      params.t,
+      params.m,
+      params.p,
+      params.dklen,
+    );
+    const ciphertext = await encryptAes(seedBytes, key, iv);
+    return {
+      ...keystore,
+      crypto: {
+        cipher: "aes-256-gcm",
+        ciphertext: bytesToHex(ciphertext).slice(2),
+        cipherparams: { iv: bytesToHex(iv).slice(2) },
+        kdf: "argon2id",
+        kdfparams: { ...params, salt: bytesToHex(salt).slice(2) },
+      },
+    };
+  } finally {
+    key?.fill(0);
+    seedBytes.fill(0);
+  }
 }

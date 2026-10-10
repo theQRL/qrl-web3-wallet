@@ -30,7 +30,9 @@ const AccountId = observer(({ account, hideLabel }: AccountIdType) => {
   const numericBalance = parseBalanceValue(accountBalance).toNumber();
   const price = priceStore.getPrice(settingsStore.currency);
   const fiatDisplay =
-    settingsStore.showBalanceAndPrice && price > 0
+    settingsStore.showBalanceAndPrice &&
+    price > 0 &&
+    accountBalance !== "Unavailable"
       ? formatFiatCompact(numericBalance, price, settingsStore.currency)
       : "";
 

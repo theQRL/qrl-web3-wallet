@@ -86,20 +86,57 @@ describe("LockStore – readLockState timestamp check", () => {
     return store;
   }
 
-  it("keeps legacy recovery phrases readable and blocks signing with a migration message", async () => {
-    const store = await createLockStore();
-    const legacyAddress = `Q${"ab".repeat(20)}`;
-    mockSendMessage.mockResolvedValueOnce([
-      { ...MOCK_KEYS[0], address: legacyAddress },
-    ]);
+  it.each(["lowercase", "uppercase"])(
+    "keeps legacy recovery phrases readable and blocks %s signing requests",
+    async (casing) => {
+      const store = await createLockStore();
+      const legacyAddress = `Q${"ab".repeat(20)}`;
+      const requestedAddress =
+        casing === "lowercase"
+          ? legacyAddress.toLowerCase()
+          : legacyAddress.toUpperCase();
+      mockSendMessage.mockResolvedValue([
+        { ...MOCK_KEYS[0], address: legacyAddress },
+      ]);
 
-    expect(await store.getMnemonicPhrases(legacyAddress)).toBe("mocked mnemonic");
-    const callsBeforeSigning = mockSendMessage.mock.calls.length;
-    await expect(store.getAccountSeed(legacyAddress)).rejects.toThrow(
-      "This account uses a legacy 20-byte address",
-    );
-    expect(mockSendMessage).toHaveBeenCalledTimes(callsBeforeSigning);
-  });
+      expect(await store.getMnemonicPhrases(requestedAddress)).toBe(
+        "mocked mnemonic",
+      );
+      const callsBeforeSigning = mockSendMessage.mock.calls.length;
+      await expect(store.getAccountSeed(requestedAddress)).rejects.toThrow(
+        "This account uses a legacy 20-byte address",
+      );
+      expect(mockSendMessage).toHaveBeenCalledTimes(callsBeforeSigning + 1);
+      expect(mockSendMessage).toHaveBeenLastCalledWith({
+        name: "GET_DECRYPTED_KEYS",
+      });
+    },
+  );
+
+  it.each(["lowercase", "uppercase"])(
+    "blocks a recovery-only key with a 64-byte label using %s",
+    async (casing) => {
+      const store = await createLockStore();
+      const key = { ...MOCK_KEYS[0], recoveryOnly: true };
+      const requestedAddress =
+        casing === "lowercase"
+          ? key.address.toLowerCase()
+          : key.address.toUpperCase();
+      mockSendMessage.mockResolvedValue([key]);
+
+      expect(await store.getMnemonicPhrases(requestedAddress)).toBe(
+        key.mnemonicPhrases,
+      );
+      await expect(store.getAccountSeed(requestedAddress)).rejects.toThrow(
+        "available for recovery only",
+      );
+
+      mockSendMessage.mockResolvedValue(MOCK_KEYS);
+      expect(await store.getAccountSeed(requestedAddress)).toBe(
+        MOCK_KEYS[0].seed,
+      );
+    },
+  );
 
   describe("readLockState with cachedKeys", () => {
     it("should clear cachedKeys when LOCKED timestamp > UNLOCKED timestamp (intentional lock)", async () => {

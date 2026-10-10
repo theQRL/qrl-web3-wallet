@@ -164,9 +164,6 @@ class LockStore {
   }
 
   async getAccountSeed(accountAddress: string) {
-    if (AddressUtil.isLegacyQrlAddress(accountAddress)) {
-      throw new Error(LEGACY_ACCOUNT_RECOVERY_MESSAGE);
-    }
     const decryptedKeys: DecryptedKeyType[] =
       await browser.runtime.sendMessage({
         name: LOCK_MANAGER_MESSAGES.GET_DECRYPTED_KEYS,
@@ -174,6 +171,14 @@ class LockStore {
     const accountKey = decryptedKeys?.find(
       (key) => key?.address?.toLowerCase() === accountAddress?.toLowerCase(),
     );
+    if (accountKey?.recoveryOnly) {
+      throw new Error(
+        "This account is available for recovery only. Export its recovery phrases to recover it with a compatible wallet.",
+      );
+    }
+    if (accountKey && AddressUtil.isLegacyQrlAddress(accountKey.address)) {
+      throw new Error(LEGACY_ACCOUNT_RECOVERY_MESSAGE);
+    }
     return accountKey?.seed ?? "";
   }
 
@@ -340,7 +345,7 @@ class LockStore {
   }
 
   /**
-   * Unlock the wallet.  The CPU-heavy Argon2id decryption runs in a dedicated
+   * Unlock the wallet.  The CPU-heavy scrypt decryption runs in a dedicated
    * Web Worker thread so the popup UI stays fully responsive (spinner animates).
    * After decryption the keys are sent to the SW for in-memory storage.
    *

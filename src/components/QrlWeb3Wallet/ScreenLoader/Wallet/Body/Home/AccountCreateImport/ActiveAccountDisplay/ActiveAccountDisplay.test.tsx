@@ -17,6 +17,19 @@ describe("ActiveAccountDisplay", () => {
       </StoreProvider>,
     );
 
+  it("shows an unavailable balance without a zero fiat value", () => {
+    renderComponent(
+      mockedStore({
+        qrlStore: { getAccountBalance: () => "Unavailable" },
+        priceStore: { getPrice: () => 2 },
+        settingsStore: { showBalanceAndPrice: true, currency: "USD" },
+      }),
+    );
+
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.queryByText(/\$0\.00/)).not.toBeInTheDocument();
+  });
+
   it("should render the active account details", () => {
     renderComponent(
       mockedStore({

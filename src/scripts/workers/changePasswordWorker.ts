@@ -1,7 +1,7 @@
 /**
  * Web Worker that re-encrypts all keystores with a new password.
  *
- * 1. Decrypts each keystore with the old password (CPU-heavy Argon2id).
+ * 1. Decrypts each keystore with the old password (CPU-heavy scrypt).
  * 2. Re-encrypts each seed with the new password.
  * 3. Returns the new keystores and decrypted key metadata.
  *
@@ -25,13 +25,16 @@ export type DecryptedKey = {
   address: string;
   seed: string;
   mnemonicPhrases: string;
+  recoveryOnly?: boolean;
 };
 
 export type ChangePasswordWorkerResponse =
   | { success: true; newKeystores: KeyStore[]; newKeys: DecryptedKey[] }
   | { success: false };
 
-self.onmessage = async (event: MessageEvent<ChangePasswordWorkerRequest>) => {
+self.onmessage = async (
+  event: MessageEvent<ChangePasswordWorkerRequest>,
+) => {
   const { keystores, oldPassword, newPassword } = event.data;
   // Normalise both passwords to NFC so the same visual password yields the
   // same bytes regardless of the platform / IME the user typed it on.
@@ -42,17 +45,16 @@ self.onmessage = async (event: MessageEvent<ChangePasswordWorkerRequest>) => {
     const newKeys: DecryptedKey[] = [];
 
     for (const keyStore of keystores) {
-      const { address, seed } = await decryptKeystore(keyStore, normalisedOld);
+      const account = await decryptKeystore(keyStore, normalisedOld);
       const reEncrypted = await reencryptKeystore(
         keyStore,
-        seed,
+        account.seed,
         normalisedNew,
       );
       newKeystores.push(reEncrypted);
       newKeys.push({
-        address,
-        seed,
-        mnemonicPhrases: getMnemonicFromHexSeed(seed),
+        ...account,
+        mnemonicPhrases: getMnemonicFromHexSeed(account.seed),
       });
     }
 

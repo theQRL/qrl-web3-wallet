@@ -25,7 +25,10 @@ export default defineConfig({
       },
       {
         find: /^@\/i18n$/,
-        replacement: path.resolve(__dirname, "src/__mocks__/i18nTestSetup.ts"),
+        replacement: path.resolve(
+          __dirname,
+          "src/__mocks__/i18nTestSetup.ts",
+        ),
       },
       // Base aliases from vite.config
       { find: "@", replacement: path.resolve(__dirname, "src") },

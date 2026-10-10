@@ -1,5 +1,5 @@
 /**
- * Web Worker that performs the CPU-heavy keystore decryption (Argon2id).
+ * Web Worker that performs the CPU-heavy keystore decryption (scrypt / argon2id).
  *
  * Running in a dedicated worker thread keeps the popup UI fully responsive
  * while the decryption is in progress AND avoids Chrome's MV3 service-worker
@@ -26,6 +26,7 @@ export type DecryptedKey = {
   address: string;
   seed: string;
   mnemonicPhrases: string;
+  recoveryOnly?: boolean;
 };
 
 export type UnlockWorkerResponse =
@@ -48,14 +49,13 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
     const keys: DecryptedKey[] = [];
     let upgradedKeystores: KeyStore[] | undefined;
     for (const keyStore of keystores) {
-      const { address, seed } = await decryptKeystore(
+      const account = await decryptKeystore(
         keyStore,
         normalisedPassword,
       );
       keys.push({
-        address,
-        seed,
-        mnemonicPhrases: getMnemonicFromHexSeed(seed),
+        ...account,
+        mnemonicPhrases: getMnemonicFromHexSeed(account.seed),
       });
       if (shouldUpgradeKeystoreParams(keyStore)) {
         if (!upgradedKeystores) {
@@ -63,7 +63,7 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
         }
         const reEncrypted = await reencryptKeystore(
           keyStore,
-          seed,
+          account.seed,
           normalisedPassword,
         );
         const idx = upgradedKeystores.findIndex(

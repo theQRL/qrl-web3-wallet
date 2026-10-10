@@ -17,7 +17,7 @@ const ActiveAccountDisplay = observer(() => {
   const numericBalance = parseBalanceValue(accountBalance).toNumber();
   const price = priceStore.getPrice(currency);
   const fiatDisplay =
-    showBalanceAndPrice && price > 0
+    showBalanceAndPrice && price > 0 && accountBalance !== "Unavailable"
       ? formatFiatCompact(numericBalance, price, currency)
       : "";
   const change24h = priceStore.getChange24h(currency);
