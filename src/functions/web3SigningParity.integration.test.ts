@@ -1,0 +1,99 @@
+// @vitest-environment node
+import { describe, expect, it } from "vitest";
+import Web3 from "@theqrl/web3";
+import { ExtendedSeed, Seed, newMLDSA87Descriptor } from "@theqrl/wallet.js";
+import { FeeMarketEIP1559Transaction } from "@theqrl/web3-qrl-accounts";
+import signedWithV1 from "./fixtures/signedTransactionWeb3v1.json";
+
+// Constants below were produced by the @theqrl/web3 1.0.3 stack for exactly
+// this seed and transaction. ML-DSA signatures are randomised, so the full
+// raw transaction differs per call; every deterministic part is pinned here
+// and the 1.0.3 signed transaction itself is kept as a fixture.
+const web3 = new Web3();
+const seed = ExtendedSeed.newExtendedSeed(
+  newMLDSA87Descriptor(),
+  new Seed(Uint8Array.from({ length: 48 }, (_, index) => index + 1)),
+).toBytes();
+const account = web3.qrl.accounts.seedToAccount(seed);
+const recipient = web3.utils.toChecksumAddress(`Q${"ab".repeat(64)}`);
+const transaction = {
+  from: account.address,
+  to: recipient,
+  value: 1000,
+  nonce: 7,
+  chainId: 1,
+  networkId: 1,
+  type: 2,
+  gasLimit: 100000,
+  maxFeePerGas: 2000000000,
+  maxPriorityFeePerGas: 1000000000,
+  data: "0x1234",
+};
+
+const EXPECTED_ADDRESS =
+  "Q82F78B319474280F1a3C9937C6160d0842588f4707A32594cA396EF7000b5f24864a7D72e74054643F1447F6165e4d49C6a54b6BD7FDf3E907F4182E3b4447C3";
+const EXPECTED_SIGNING_HASH =
+  "0x429bee9876f99a06b2f0a27a1db3423b39ae858a8b2cbb5a905ed7eeb20da0af";
+const EXPECTED_RAW_LENGTH = 14648;
+// Everything in the raw transaction before the signature field.
+const EXPECTED_RAW_HEAD =
+  "0x02f91c970107843b9aca008477359400830186a0b840abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab8203e8821234c08301000080";
+const EXPECTED_PUBLIC_KEY_KECCAK =
+  "0x85ce675ff6ffa2086266a4aa6ebf764ed7d00758577b1bbf3cf81238112104ab";
+
+const parse = (raw: string) =>
+  FeeMarketEIP1559Transaction.fromSerializedTx(web3.utils.hexToBytes(raw));
+
+const signingHash = (parsed: FeeMarketEIP1559Transaction) => {
+  if (!parsed.descriptor) {
+    throw new Error("signed transaction lacks a descriptor");
+  }
+  return web3.utils.bytesToHex(
+    parsed.getMessageToSign(
+      parsed.descriptor,
+      parsed.extraParams ?? new Uint8Array(),
+    ),
+  );
+};
+
+describe("transaction signing parity with the 1.0.3 stack", () => {
+  it("derives the same address from the fixed seed", () => {
+    expect(account.address).toBe(EXPECTED_ADDRESS);
+  });
+
+  it("signs the fixed transaction with the same signing hash, layout and public key", async () => {
+    const signed = await web3.qrl.accounts.signTransaction(
+      transaction,
+      account.seed,
+    );
+    const parsed = parse(signed.rawTransaction);
+    expect(signingHash(parsed)).toBe(EXPECTED_SIGNING_HASH);
+    expect(signed.rawTransaction).toHaveLength(EXPECTED_RAW_LENGTH);
+    expect(signed.rawTransaction.startsWith(EXPECTED_RAW_HEAD)).toBe(true);
+    expect(web3.utils.sha3Raw(signed.rawTransaction)).toBe(
+      signed.transactionHash,
+    );
+    expect(parsed.publicKey).toBeDefined();
+    expect(
+      web3.utils.sha3Raw(
+        web3.utils.bytesToHex(parsed.publicKey ?? new Uint8Array()),
+      ),
+    ).toBe(EXPECTED_PUBLIC_KEY_KECCAK);
+    expect(parsed.verifySignature()).toBe(true);
+    expect(parsed.getSenderAddress().toString().toLowerCase()).toBe(
+      account.address.toLowerCase(),
+    );
+  });
+
+  it("accepts a transaction signed by 1.0.3 and recovers the same sender and hash", () => {
+    const { rawTransaction, transactionHash } = signedWithV1;
+    expect(rawTransaction).toHaveLength(EXPECTED_RAW_LENGTH);
+    expect(web3.utils.sha3Raw(rawTransaction)).toBe(transactionHash);
+    const parsed = parse(rawTransaction);
+    expect(signingHash(parsed)).toBe(EXPECTED_SIGNING_HASH);
+    expect(parsed.verifySignature()).toBe(true);
+    expect(parsed.getSenderAddress().toString().toLowerCase()).toBe(
+      account.address.toLowerCase(),
+    );
+  });
+});
