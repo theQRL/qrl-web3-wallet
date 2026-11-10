@@ -110,6 +110,7 @@ const TokenTransfer = observer(() => {
     GasFeeOverrides | undefined
   >();
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
   const [qrnsResolving, setQrnsResolving] = useState(false);
   const [qrnsError, setQrnsError] = useState<string | null>(null);
   const isBalanceUnavailable =
@@ -282,8 +283,14 @@ const TokenTransfer = observer(() => {
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
     if (!canSign || balanceError || isBalanceUnavailable) return;
     try {
-      // Use resolved QRNS address if available
-      if (isQrnsName(formData.receiverAddress) && resolvedAddress) {
+      // Send to the address that was resolved from the name now in the field.
+      if (isQrnsName(formData.receiverAddress)) {
+        if (
+          !resolvedAddress ||
+          resolvedName !== formData.receiverAddress.trim()
+        ) {
+          return;
+        }
         formData = { ...formData, receiverAddress: resolvedAddress };
       }
 
@@ -558,8 +565,12 @@ const TokenTransfer = observer(() => {
   useEffect(() => {
     clearTimeout(resolveTimerRef.current);
 
+    // A lookup that finishes after the field changed must not show or use its answer.
+    let isStale = false;
+
     if (!watchedReceiver || !isQrnsName(watchedReceiver)) {
       setResolvedAddress(null);
+      setResolvedName(null);
       setQrnsError(null);
       setQrnsResolving(false);
       return;
@@ -568,6 +579,7 @@ const TokenTransfer = observer(() => {
     setQrnsResolving(true);
     setQrnsError(null);
     setResolvedAddress(null);
+    setResolvedName(null);
 
     const rpcUrl = qrlStore.qrlConnection.blockchain.defaultRpcUrl;
     const registry = qrlStore.qrlConnection.blockchain.qrnsRegistryAddress;
@@ -576,17 +588,26 @@ const TokenTransfer = observer(() => {
     resolveTimerRef.current = setTimeout(() => {
       resolveQrnsName(nameToResolve, rpcUrl, registry)
         .then((addr) => {
+          if (isStale) return;
           setResolvedAddress(addr);
+          setResolvedName(nameToResolve);
           setQrnsError(null);
         })
         .catch(() => {
+          if (isStale) return;
           setResolvedAddress(null);
+          setResolvedName(null);
           setQrnsError(t("transfer.qrnsResolutionFailed"));
         })
-        .finally(() => setQrnsResolving(false));
+        .finally(() => {
+          if (!isStale) setQrnsResolving(false);
+        });
     }, 500);
 
-    return () => clearTimeout(resolveTimerRef.current);
+    return () => {
+      isStale = true;
+      clearTimeout(resolveTimerRef.current);
+    };
   }, [watchedReceiver]);
 
   return (

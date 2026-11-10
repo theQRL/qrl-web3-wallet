@@ -84,6 +84,7 @@ const NFTTransfer = observer(() => {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
   const [qrnsResolving, setQrnsResolving] = useState(false);
   const [qrnsError, setQrnsError] = useState<string | null>(null);
 
@@ -179,7 +180,10 @@ const NFTTransfer = observer(() => {
     if (!canSign) return;
     try {
       let receiver = formData.receiverAddress;
-      if (isQrnsName(receiver) && resolvedAddress) {
+      if (isQrnsName(receiver)) {
+        if (!resolvedAddress || resolvedName !== receiver.trim()) {
+          return;
+        }
         receiver = resolvedAddress;
       }
 
@@ -294,8 +298,12 @@ const NFTTransfer = observer(() => {
   useEffect(() => {
     clearTimeout(resolveTimerRef.current);
 
+    // A lookup that finishes after the field changed must not show or use its answer.
+    let isStale = false;
+
     if (!watchedReceiver || !isQrnsName(watchedReceiver)) {
       setResolvedAddress(null);
+      setResolvedName(null);
       setQrnsError(null);
       setQrnsResolving(false);
       return;
@@ -304,6 +312,7 @@ const NFTTransfer = observer(() => {
     setQrnsResolving(true);
     setQrnsError(null);
     setResolvedAddress(null);
+    setResolvedName(null);
 
     const rpcUrl = qrlStore.qrlConnection.blockchain.defaultRpcUrl;
     const registry = qrlStore.qrlConnection.blockchain.qrnsRegistryAddress;
@@ -312,17 +321,26 @@ const NFTTransfer = observer(() => {
     resolveTimerRef.current = setTimeout(() => {
       resolveQrnsName(nameToResolve, rpcUrl, registry)
         .then((addr) => {
+          if (isStale) return;
           setResolvedAddress(addr);
+          setResolvedName(nameToResolve);
           setQrnsError(null);
         })
         .catch(() => {
+          if (isStale) return;
           setResolvedAddress(null);
+          setResolvedName(null);
           setQrnsError(t("transfer.qrnsResolutionFailed"));
         })
-        .finally(() => setQrnsResolving(false));
+        .finally(() => {
+          if (!isStale) setQrnsResolving(false);
+        });
     }, 500);
 
-    return () => clearTimeout(resolveTimerRef.current);
+    return () => {
+      isStale = true;
+      clearTimeout(resolveTimerRef.current);
+    };
   }, [watchedReceiver]);
 
   const [imageError, setImageError] = useState(false);
