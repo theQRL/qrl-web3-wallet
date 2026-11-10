@@ -1,0 +1,258 @@
+{
+ "seed": "0x0100000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f30",
+ "vaults": [
+  {
+   "password": "pw",
+   "keystore": {
+    "version": 1,
+    "id": "1d939e04-d62a-4eeb-9293-406254db488f",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "d81008e0e761323a3e335ead9e8addf9d6dc92d825abf251916540565e6c351982dcbb36b2e17a44013a76405c8225d11fd67783af31e258279ef52bea2d46147d3235",
+     "cipherparams": {
+      "iv": "959256aa15041cd2a902d79e"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "37b78141e2b9f0500678e060be5757e7e483ff272ac40bce6d0c3b58c08c9061"
+     }
+    }
+   }
+  },
+  {
+   "password": "pw\u0000",
+   "keystore": {
+    "version": 1,
+    "id": "bca8ac82-2e2f-4dfb-b4be-af2f351a995e",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "43c04bfac37e0cfb850ab646680f21449c819a1ce2a08a7853fdca0611bd03472acfd7a19c007d1f7ebe3f199323cf8274312cbf05d8e74acdbe524b1991b57cb0ae67",
+     "cipherparams": {
+      "iv": "f26d9354b3e31d7aab2b73a3"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "8a464939be9afb15daf0ab2a22fba2815dfa7df7a396b3b3a9e3fd1c25a1edfb"
+     }
+    }
+   }
+  },
+  {
+   "password": "pw\u0000\u0000",
+   "keystore": {
+    "version": 1,
+    "id": "a825a813-807c-42bc-8304-7665edc5f9a6",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "9bdae5c3dc03e273ee0ff1470166308c36055a94d83a4d22268a2a678d54ee5a508e7fdf070da89bad99441844907664f61257046e147952ccf09ebc3e82b3d87ba7ee",
+     "cipherparams": {
+      "iv": "2f14af9d431e86d110ddd256"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "b28fd6bf95145e29cd2cd4330c6b89f205657d2208f90a371772122fd00cfb20"
+     }
+    }
+   }
+  },
+  {
+   "password": "\u0000pw",
+   "keystore": {
+    "version": 1,
+    "id": "c427cf40-b685-45c0-9bbe-1fa90f4bf647",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "aab1994f7ef667c70a7ae97b437803ddf11e6f7b76475a5271a8c3ef15e9a576cb3cfd527c60ebc4319ae498bca8960a2fa9218c09e3fc9e85c634cfec9bf0cd836cfe",
+     "cipherparams": {
+      "iv": "2156dfe268e8e359c2aa235d"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "31598f14c1bc257e201d01c52798a602b1eca890f5568eaacdbee62ce4011d65"
+     }
+    }
+   }
+  },
+  {
+   "password": "\u0000\u0000pw",
+   "keystore": {
+    "version": 1,
+    "id": "92687937-2ef2-47c5-ba32-6c1a2d6f72bf",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "7e6e29a0b915e6fc62cbde872a4a52539960f8f35b199cb65849dc45006d4050eb4c8982b15fb4c7de1ab2e669c7fb50ef1bdaa23fe8d583573c522fd3bb32fff7c796",
+     "cipherparams": {
+      "iv": "ba9c8ea36f1065b2eb0ce77e"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "e77549688ad20d4a62f51ad615b21add6621dfc511db715cf1b7d5e52a104e80"
+     }
+    }
+   }
+  },
+  {
+   "password": "\u0000\u0000\u0000",
+   "keystore": {
+    "version": 1,
+    "id": "3b9af852-7916-4c78-a96f-7fdb93845edb",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "5eabe75382f873f016c5d4b795d5d3043f5c742b5d33623ab1de3ca1f604461ba80cb8043e2811f2f2dc78f78bbdd0450b7456a0aa021b1e8ee76238bf9fc1a29684dc",
+     "cipherparams": {
+      "iv": "6ba3570b40adb02ff1276295"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "50bd162e4f4fd5715c18477b25f61c13ee2938fa626cf24958670c93776aae03"
+     }
+    }
+   }
+  },
+  {
+   "password": "",
+   "keystore": {
+    "version": 1,
+    "id": "f13cb8bc-6a37-42a0-9dc3-6976b7359fea",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "ae67c72e23945ec494d148706ca3a07bbf298dbb540eebf5fd8777745680d38743bef3505ee1753530616550e4e96c98e81de403a0ec80ca51dbb22f9e184fc38aa42d",
+     "cipherparams": {
+      "iv": "b53768057bdc513d18624d1b"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "be183e423703e6011fe4cad094bcb5fb5936555d5bde14e6ca772161919935b1"
+     }
+    }
+   }
+  },
+  {
+   "password": "café",
+   "keystore": {
+    "version": 1,
+    "id": "5935b818-0e62-489d-be5d-a7b15acb7c1a",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "0faebd83739fa7520cf9bd1ac88d2f5dcf841d3ac663fc76aa22f993904c35b20b4d046dd05d08a131fc3327e9fefd575d0811e860ceb391e18f7da0dd34eec1b1218a",
+     "cipherparams": {
+      "iv": "2240eb96495afcf1edb32e3c"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "2478518e3a9e6455dfc2e2d44aa40b43486f13fad54d2d36c39af0c44c77ce31"
+     }
+    }
+   }
+  },
+  {
+   "password": "café",
+   "keystore": {
+    "version": 1,
+    "id": "358222a2-7e00-4d2f-ad1a-ed4bdcf72378",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "c229bcc2fe54bcc331839f7ccc9f5b33adbddcce1fbe6b0c4be70ec9fd4cecaced1b10c4a41761e67a67345a31f5a149e57c769d77dfe15b03d2fa29e775e4a807e0b3",
+     "cipherparams": {
+      "iv": "ab58ed126cb84f7b895cdeaf"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "4a8540e525978668d347c01c76e57709111d8ce0b30f120c65757bbedf73c499"
+     }
+    }
+   }
+  },
+  {
+   "password": "lone\ud800sur",
+   "keystore": {
+    "version": 1,
+    "id": "043d53ef-2003-4499-8b1d-7f391e2ff8c2",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "d25b1d8bf9330f8adbc4d256ea56cf0de2ef5df2bedf4aa413948fdae92e42439d3e168d3c1658b218f1aca0deffc7a92a88c00a493e9bb05c9034aefc112f4e63bb35",
+     "cipherparams": {
+      "iv": "5c543514f0dc91826f0b6985"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "c23bb80ccae9d964c1788f5db10fa3c3b3f8b2ad9e31b02df5c80a30a0b3a57b"
+     }
+    }
+   }
+  },
+  {
+   "password": "päss🔐",
+   "keystore": {
+    "version": 1,
+    "id": "2a9f5f08-8993-487f-9fcf-04ddb27c5346",
+    "address": "Q82f78b319474280f1a3c9937c6160d0842588f4707a32594ca396ef7000b5f24864a7d72e74054643f1447f6165e4d49c6a54b6bd7fdf3e907f4182e3b4447c3",
+    "crypto": {
+     "ciphertext": "a4e42ee317e557c61a9245de3592f1db624a02e8fe57bf55d923e9d006aaec45d442cd8f83578d9800fcb9299322b1127b11803b30b64f2b51da46b15978eaee06af90",
+     "cipherparams": {
+      "iv": "c0cb01004e354a1a088a35d0"
+     },
+     "cipher": "aes-256-gcm",
+     "kdf": "argon2id",
+     "kdfparams": {
+      "m": 19456,
+      "t": 2,
+      "p": 1,
+      "dklen": 32,
+      "salt": "bc0102c2935466c5e558e5b37c4fc36f463c3985a5ea8dfe2403d4aab337f5c9"
+     }
+    }
+   }
+  }
+ ]
+}

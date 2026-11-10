@@ -1,7 +1,7 @@
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
 import { Bytes } from "@theqrl/web3";
 import { encrypt } from "@theqrl/web3-qrl-accounts";
-import { decryptKeystore, normalizePassword } from "./keystoreCompatibility";
+import { decryptKeystore, passwordBytes } from "./keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import browser from "webextension-polyfill";
 
@@ -186,7 +186,7 @@ class LockManager {
           mnemonicPhrases: getMnemonicFromHexSeed(account.seed),
         });
       }
-      this.walletPassword = normalizePassword(password);
+      this.walletPassword = normalisedPassword;
       this.setDecryptedKeys(
         Array.from(
           new Map(
@@ -237,7 +237,7 @@ class LockManager {
   ) {
     const keys = Array.isArray(payload) ? payload : payload.keys;
     if (!Array.isArray(payload) && payload.walletPassword) {
-      this.walletPassword = normalizePassword(payload.walletPassword);
+      this.walletPassword = payload.walletPassword;
     }
     this.setDecryptedKeys(
       Array.from(
@@ -250,7 +250,7 @@ class LockManager {
 
   static async encryptAccount(accountData: EncryptAccountType) {
     const { password: rawPassword, seed } = accountData;
-    const password = normalizePassword(rawPassword);
+    const password = rawPassword.normalize("NFC");
     // Never persist a keystore under an empty password: the KDF accepts ""
     // and the ciphertext is then trivially recomputable from the cleartext
     // salt stored beside it. Defence in depth behind getWalletPassword's own
@@ -259,7 +259,7 @@ class LockManager {
       throw new Error("Refusing to encrypt an account without a password");
     }
     const keystores = await StorageUtil.getKeystores();
-    const encryptedKeyStore = await encrypt(seed, password);
+    const encryptedKeyStore = await encrypt(seed, passwordBytes(password));
     const updatedKeyStores = [...keystores, encryptedKeyStore];
     await StorageUtil.setKeystores(
       Array.from(

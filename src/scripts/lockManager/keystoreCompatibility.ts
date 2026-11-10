@@ -9,7 +9,6 @@ import type { KeyStore } from "@theqrl/web3";
 import { encrypt, seedToAccount } from "@theqrl/web3-qrl-accounts";
 import { bytesToHex, hexToBytes, utf8ToHex } from "@theqrl/web3-utils";
 import AddressUtil from "@/utilities/addressUtil";
-import { stripNulEdges } from "@/utilities/stripNulEdges";
 import { RECOMMENDED_KEYSTORE_KDF_PARAMS } from "./keystoreParams";
 
 type DecryptedKeystore = {
@@ -19,12 +18,12 @@ type DecryptedKeystore = {
 };
 
 /**
- * The form of a password every writer and the session use: NFC, without
- * leading or trailing NUL characters (what utf8ToHex has always produced).
- * Readers also try the raw bytes, for vaults written without this form.
+ * The key bytes of a password, exactly as the 1.x wallet derived them. Every
+ * keystore writer and reader goes through this function so that one password
+ * always yields one key.
  */
-export function normalizePassword(password: string) {
-  return stripNulEdges(password.normalize("NFC"));
+export function passwordBytes(password: string) {
+  return hexToBytes(utf8ToHex(password));
 }
 
 function checkStoredAddress(storedAddress: string, derivedAddress: string) {
@@ -108,46 +107,26 @@ export async function decryptKeystore(keystore: KeyStore, password: string) {
   ) {
     throw new Error("Invalid keystore KDF parameters");
   }
-  const salt =
-    typeof params.salt === "string" ? hexToBytes(params.salt) : params.salt;
-  // utf8ToHex drops leading and trailing NUL characters, which is what the
-  // web3 1.x encrypt did. @theqrl/web3 2.0.0 encrypt keeps every byte, so a
-  // password with NUL edges needs the raw UTF-8 bytes as a second candidate.
-  const passwordCandidates = [hexToBytes(utf8ToHex(password))];
-  const rawPassword = new TextEncoder().encode(password);
-  if (bytesToHex(rawPassword) !== bytesToHex(passwordCandidates[0])) {
-    passwordCandidates.push(rawPassword);
-  }
-  let lastError: unknown;
-  for (const passwordBytes of passwordCandidates) {
-    const key = await argon2id(
-      passwordBytes,
-      salt,
-      params.t,
-      params.m,
-      params.p,
-      params.dklen,
+  const key = await argon2id(
+    passwordBytes(password),
+    typeof params.salt === "string" ? hexToBytes(params.salt) : params.salt,
+    params.t,
+    params.m,
+    params.p,
+    params.dklen,
+  );
+  let seedBytes: Uint8Array | undefined;
+  try {
+    seedBytes = await decryptAes(
+      hexToBytes(keystore.crypto.ciphertext),
+      key,
+      hexToBytes(keystore.crypto.cipherparams.iv),
     );
-    let seedBytes: Uint8Array | undefined;
-    try {
-      seedBytes = await decryptAes(
-        hexToBytes(keystore.crypto.ciphertext),
-        key,
-        hexToBytes(keystore.crypto.cipherparams.iv),
-      );
-    } catch (error) {
-      lastError = error;
-      continue;
-    } finally {
-      key.fill(0);
-    }
-    try {
-      return accountFromSeed(seedBytes, keystore.address);
-    } finally {
-      seedBytes.fill(0);
-    }
+    return accountFromSeed(seedBytes, keystore.address);
+  } finally {
+    key.fill(0);
+    seedBytes?.fill(0);
   }
-  throw lastError;
 }
 
 export async function reencryptKeystore(
@@ -160,7 +139,7 @@ export async function reencryptKeystore(
   try {
     const account = accountFromSeed(seedBytes, keystore.address);
     if (!account.recoveryOnly) {
-      const encrypted = await encrypt(seed, password);
+      const encrypted = await encrypt(seed, passwordBytes(password));
       return { ...encrypted, address: keystore.address };
     }
 
@@ -169,7 +148,7 @@ export async function reencryptKeystore(
     const salt = crypto.getRandomValues(new Uint8Array(32));
     const iv = crypto.getRandomValues(new Uint8Array(12));
     key = await argon2id(
-      hexToBytes(utf8ToHex(password)),
+      passwordBytes(password),
       salt,
       params.t,
       params.m,
