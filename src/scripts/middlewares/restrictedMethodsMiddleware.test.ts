@@ -30,7 +30,6 @@ const ORIGIN = "https://dapp.example";
 const SIGNING_METHODS = [
   RESTRICTED_METHODS.QRL_SEND_TRANSACTION,
   RESTRICTED_METHODS.PERSONAL_SIGN,
-  RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4,
 ];
 const rpc = vi.fn();
 
@@ -110,11 +109,7 @@ describe("restrictedMethodsMiddleware signing", () => {
   });
 
   describe.each(SIGNING_METHODS)("%s", (method) => {
-    // Typed data v4 is refused for every connected origin; see the dedicated
-    // tests below.
-    const itSigner =
-      method === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4 ? it.skip : it;
-    itSigner.each([
+    it.each([
       { accountType: "legacy", account: LEGACY_ACCOUNT, recoveryOnly: false },
       {
         accountType: "legacy recovery-only",
@@ -195,47 +190,44 @@ describe("restrictedMethodsMiddleware signing", () => {
       },
     );
 
-    it.skipIf(method === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4)(
-      "keeps approval and success for a 64-byte signer with another recovery-only key",
-      async () => {
-        vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
-          {
-            address: LEGACY_ACCOUNT,
-            seed: "",
-            mnemonicPhrases: "",
-            recoveryOnly: true,
-          },
-          { address: ACCOUNT.toUpperCase(), seed: "", mnemonicPhrases: "" },
-        ]);
-        const signedData = {
-          signature: "0xsignature",
-          publicKey: "0xpublickey",
-        };
-        const response =
-          method === RESTRICTED_METHODS.QRL_SEND_TRANSACTION
-            ? { transactionHash: "0xtransaction" }
-            : signedData;
-        const pending = handle(method);
-        await respond(response);
-        const result = await pending;
+    it("keeps approval and success for a 64-byte signer with another recovery-only key", async () => {
+      vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
+        {
+          address: LEGACY_ACCOUNT,
+          seed: "",
+          mnemonicPhrases: "",
+          recoveryOnly: true,
+        },
+        { address: ACCOUNT.toUpperCase(), seed: "", mnemonicPhrases: "" },
+      ]);
+      const signedData = {
+        signature: "0xsignature",
+        publicKey: "0xpublickey",
+      };
+      const response =
+        method === RESTRICTED_METHODS.QRL_SEND_TRANSACTION
+          ? { transactionHash: "0xtransaction" }
+          : signedData;
+      const pending = handle(method);
+      await respond(response);
+      const result = await pending;
 
-        expect(result).toEqual({
-          id: 1,
-          jsonrpc: "2.0",
-          result:
-            method === RESTRICTED_METHODS.QRL_SEND_TRANSACTION
-              ? "0xtransaction"
-              : signedData,
-        });
-        expect(browser.action.openPopup).toHaveBeenCalledTimes(1);
-        expect(StorageUtil.setDAppsRequestData).toHaveBeenCalledWith(
-          expect.objectContaining({
-            method,
-            authorizedChainId: DEFAULT_BLOCKCHAIN.chainId,
-          }),
-        );
-      },
-    );
+      expect(result).toEqual({
+        id: 1,
+        jsonrpc: "2.0",
+        result:
+          method === RESTRICTED_METHODS.QRL_SEND_TRANSACTION
+            ? "0xtransaction"
+            : signedData,
+      });
+      expect(browser.action.openPopup).toHaveBeenCalledTimes(1);
+      expect(StorageUtil.setDAppsRequestData).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method,
+          authorizedChainId: DEFAULT_BLOCKCHAIN.chainId,
+        }),
+      );
+    });
   });
 
   describe("typed data v4", () => {
@@ -271,6 +263,39 @@ describe("restrictedMethodsMiddleware signing", () => {
         expect(result).toMatchObject(refusal);
         expect(result).not.toHaveProperty("result");
         expectNoApproval();
+      },
+    );
+
+    it.each([
+      ["a 64-byte", ACCOUNT],
+      ["a legacy", LEGACY_ACCOUNT],
+      ["a lowercase legacy", LEGACY_ACCOUNT.toLowerCase()],
+    ])(
+      "refuses %s signer in every lock state without consulting the lock manager",
+      async (_label, account) => {
+        for (const isLocked of [false, true]) {
+          for (const recoveryOnly of [false, true]) {
+            vi.mocked(LockManager.isLocked).mockClear();
+            vi.mocked(LockManager.getDecryptedKeys).mockClear();
+            vi.mocked(LockManager.isLocked).mockResolvedValue({
+              isLocked,
+              hasPasswordSet: true,
+            });
+            vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
+              { address: account, seed: "", mnemonicPhrases: "", recoveryOnly },
+            ]);
+
+            const result = await handle(
+              RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4,
+              account,
+            );
+
+            expect(result).toMatchObject(refusal);
+            expect(LockManager.isLocked).not.toHaveBeenCalled();
+            expect(LockManager.getDecryptedKeys).not.toHaveBeenCalled();
+            expectNoApproval();
+          }
+        }
       },
     );
 
