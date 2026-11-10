@@ -8,6 +8,7 @@
 
 import {
   decryptKeystore,
+  normalizePassword,
   reencryptKeystore,
 } from "@/scripts/lockManager/keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
@@ -64,7 +65,7 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
         const reEncrypted = await reencryptKeystore(
           keyStore,
           account.seed,
-          normalisedPassword,
+          normalizePassword(password),
         );
         const idx = upgradedKeystores.findIndex(
           (k) => k.address?.toLowerCase() === keyStore.address?.toLowerCase(),

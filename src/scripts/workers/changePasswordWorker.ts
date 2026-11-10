@@ -10,6 +10,7 @@
 
 import {
   decryptKeystore,
+  normalizePassword,
   reencryptKeystore,
 } from "@/scripts/lockManager/keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
@@ -39,7 +40,7 @@ self.onmessage = async (
   // Normalise both passwords to NFC so the same visual password yields the
   // same bytes regardless of the platform / IME the user typed it on.
   const normalisedOld = oldPassword.normalize("NFC");
-  const normalisedNew = newPassword.normalize("NFC");
+  const normalisedNew = normalizePassword(newPassword);
   try {
     const newKeystores: KeyStore[] = [];
     const newKeys: DecryptedKey[] = [];

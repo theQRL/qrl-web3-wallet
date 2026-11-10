@@ -17,6 +17,15 @@ type DecryptedKeystore = {
   recoveryOnly?: boolean;
 };
 
+/**
+ * The form of a password every writer and the session use: NFC, without
+ * leading or trailing NUL characters (what utf8ToHex has always produced).
+ * Readers also try the raw bytes, for vaults written without this form.
+ */
+export function normalizePassword(password: string) {
+  return password.normalize("NFC").replace(/^\u0000+|\u0000+$/g, "");
+}
+
 function checkStoredAddress(storedAddress: string, derivedAddress: string) {
   // wallet.js 2 used the first 20 bytes of the same SHAKE256 address hash.
   const expected = AddressUtil.isLegacyQrlAddress(storedAddress)
