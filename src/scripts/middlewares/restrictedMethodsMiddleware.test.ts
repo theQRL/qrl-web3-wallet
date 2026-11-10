@@ -11,6 +11,7 @@ import browser from "webextension-polyfill";
 import { RESTRICTED_METHODS } from "../constants/requestConstants";
 import { EXTENSION_MESSAGES } from "../constants/streamConstants";
 import LockManager from "../lockManager/lockManager";
+import { TYPED_DATA_V4_UNSUPPORTED_MESSAGE } from "../utils/restrictedMethodsMiddlewareUtils";
 import { restrictedMethodsMiddleware } from "./restrictedMethodsMiddleware";
 
 vi.mock("webextension-polyfill", async (importOriginal) => {
@@ -183,7 +184,7 @@ describe("restrictedMethodsMiddleware signing", () => {
       },
     );
 
-    it("keeps approval and success for a 64-byte signer with another recovery-only key", async () => {
+    it.skipIf(method === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4)("keeps approval and success for a 64-byte signer with another recovery-only key", async () => {
       vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
         {
           address: LEGACY_ACCOUNT,
@@ -220,10 +221,21 @@ describe("restrictedMethodsMiddleware signing", () => {
     });
   });
 
-  it.each([
-    RESTRICTED_METHODS.PERSONAL_SIGN,
-    RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4,
-  ])("%s returns popup signing errors as RPC errors", async (method) => {
+  it("refuses typed data v4 for an authorized signer without opening a popup", async () => {
+    const result = await handle(RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4);
+
+    expect(result).toMatchObject({
+      error: { code: 4200, message: TYPED_DATA_V4_UNSUPPORTED_MESSAGE },
+    });
+    expect(result).not.toHaveProperty("result");
+    expect(StorageUtil.setDAppsRequestData).not.toHaveBeenCalled();
+    expect(browser.action.openPopup).not.toHaveBeenCalled();
+    expect(browser.runtime.onMessage.addListener).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([RESTRICTED_METHODS.PERSONAL_SIGN])("%s returns popup signing errors as RPC errors", async (method) => {
     const pending = handle(method);
     const error = { message: "Signing failed" };
     await respond({ error });

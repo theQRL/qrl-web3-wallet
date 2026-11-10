@@ -13,15 +13,14 @@ import {
 } from "@/components/UI/Tooltip";
 import { useStore } from "@/stores/store";
 import StringUtil, { sanitizeForDisplay } from "@/utilities/stringUtil";
-import { MLDSA87, ExtendedSeed } from "@theqrl/wallet.js";
-import { bytesToHex } from "@theqrl/web3-utils";
-import { getEncodedEip712Data } from "@theqrl/web3-qrl-abi";
-import { parseAndValidateSeed, sign } from "@theqrl/web3-qrl-accounts";
 import { Copy } from "lucide-react";
 import { observer } from "mobx-react-lite";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
-import { revalidateAuthorizedDAppRequest } from "@/scripts/utils/restrictedMethodsMiddlewareUtils";
+import {
+  revalidateAuthorizedDAppRequest,
+  TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
+} from "@/scripts/utils/restrictedMethodsMiddlewareUtils";
 
 const MAX_INLINE_STRING_LEN = 200;
 
@@ -119,9 +118,8 @@ const TypedDataValue = ({
 
 const QrlSignTypedDataV4Content = observer(() => {
   const { t } = useTranslation();
-  const { lockStore, qrlStore, dAppRequestStore } = useStore();
-  const { getAccountSeed } = lockStore;
-  const { qrlInstance, qrlConnection } = qrlStore;
+  const { qrlStore, dAppRequestStore } = useStore();
+  const { qrlConnection } = qrlStore;
   const { isConnected } = qrlConnection;
   const activeChainId = qrlConnection?.blockchain?.chainId;
   const {
@@ -221,33 +219,11 @@ const QrlSignTypedDataV4Content = observer(() => {
     navigator.clipboard.writeText(JSON.stringify(typedData));
   };
 
+  // @theqrl/web3 2.0.0 hashes typed data with a different domain struct, so
+  // the 1.x digest can no longer be produced. The middleware refuses the
+  // request before this screen opens; this guard covers any other entry.
   const signTypedDataV4 = async () => {
-    try {
-      const seed = await getAccountSeed(fromAddress ?? "");
-      const addressFromSeed =
-        qrlInstance?.accounts.seedToAccount(seed)?.address;
-      if (fromAddress.toLowerCase() !== addressFromSeed?.toLowerCase()) {
-        throw new Error("Account seed did not match with the address");
-      }
-      const messageHash = getEncodedEip712Data(typedData, true);
-      const signature = sign(messageHash, seed)?.signature;
-
-      const seedUint8Array = parseAndValidateSeed(seed);
-      const extSeed = new ExtendedSeed(seedUint8Array);
-      const acc = MLDSA87.newWalletFromExtendedSeed(extSeed);
-      const publicKey = bytesToHex(acc.getPK());
-
-      if (signature) {
-        addToResponseData({
-          signature,
-          publicKey,
-        });
-      } else {
-        throw new Error("Message data could not be signed");
-      }
-    } catch (error) {
-      addToResponseData({ error });
-    }
+    addToResponseData({ error: new Error(TYPED_DATA_V4_UNSUPPORTED_MESSAGE) });
   };
 
   useEffect(() => {

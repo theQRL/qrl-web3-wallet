@@ -27,6 +27,7 @@ import {
   checkWalletSwitchQrlChainParams,
   checkWalletWatchAssetParams,
   getFromAddress,
+  TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
   updateAccountsAndBlockchainsForUrlOrigin,
 } from "../utils/restrictedMethodsMiddlewareUtils";
 import { DAppRequestType, DAppResponseType } from "./middlewareTypes";
@@ -317,6 +318,12 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
           return end();
         }
       }
+    }
+    if (requestedMethod === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4) {
+      res.error = providerErrors.unsupportedMethod({
+        message: TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
+      });
+      return end();
     }
     if (isRequestPending) {
       try {

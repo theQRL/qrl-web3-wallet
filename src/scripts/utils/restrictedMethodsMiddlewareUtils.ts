@@ -15,6 +15,9 @@ import {
   Permission,
 } from "../middlewares/middlewareTypes";
 
+export const TYPED_DATA_V4_UNSUPPORTED_MESSAGE =
+  "qrl_signTypedData_v4 is not supported by this wallet version.";
+
 export const getFromAddress = (req: JsonRpcRequest<JsonRpcRequest>) => {
   switch (req.method) {
     case RESTRICTED_METHODS.QRL_SEND_TRANSACTION:
