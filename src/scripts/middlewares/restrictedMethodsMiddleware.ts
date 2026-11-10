@@ -299,10 +299,18 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       return end();
     }
 
+    // A connected origin gets the same answer whatever the wallet state, so
+    // the refusal comes before any lock, signer or pending-request check.
+    if (requestedMethod === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4) {
+      res.error = providerErrors.unsupportedMethod({
+        message: TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
+      });
+      return end();
+    }
+
     if (
       requestedMethod === RESTRICTED_METHODS.QRL_SEND_TRANSACTION ||
-      requestedMethod === RESTRICTED_METHODS.PERSONAL_SIGN ||
-      requestedMethod === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4
+      requestedMethod === RESTRICTED_METHODS.PERSONAL_SIGN
     ) {
       const fromAddress = getFromAddress(req);
       if (typeof fromAddress === "string") {
@@ -318,12 +326,6 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
           return end();
         }
       }
-    }
-    if (requestedMethod === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4) {
-      res.error = providerErrors.unsupportedMethod({
-        message: TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
-      });
-      return end();
     }
     if (isRequestPending) {
       try {
@@ -412,7 +414,6 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
               }
               break;
             }
-            case RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4:
             case RESTRICTED_METHODS.PERSONAL_SIGN: {
               const signedData = restrictedMethodResult?.response;
               if (signedData && !signedData.error) {
