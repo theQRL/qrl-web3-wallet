@@ -26,7 +26,6 @@ describe("TransactionSuccessful", () => {
         effectiveGasPrice: BigInt(21000),
         logs: [],
         logsBloom: "",
-        root: "",
         status: "",
       },
     },

@@ -8,7 +8,7 @@ import {
   newMLDSA87Descriptor,
 } from "@theqrl/wallet.js";
 import { FeeMarketEIP1559Transaction } from "@theqrl/web3-qrl-accounts";
-import { getEncodedEip712Data } from "@theqrl/web3-qrl-abi";
+import { getEncodedQRLTypedData } from "@theqrl/web3-qrl-abi";
 import { validator } from "@theqrl/web3-validator";
 import { ZRC_20_CONTRACT_ABI } from "@/constants/zrc20Token";
 import { ZRC_721_CONTRACT_ABI } from "@/constants/nftToken";
@@ -86,7 +86,7 @@ describe("64-byte wallet stack", () => {
       transferAbi.inputs,
       `0x${data.slice(10)}`,
     );
-    expect(decoded.to).toBe(`Q${recipient.slice(1).toLowerCase()}`);
+    expect(String(decoded.to).toLowerCase()).toBe(recipient.toLowerCase());
     expect(decoded.value).toBe(42n);
   });
 
@@ -147,7 +147,7 @@ describe("64-byte wallet stack", () => {
       transferAbi.inputs,
       `0x${decodedData.slice(10)}`,
     );
-    expect(args.to).toBe(`Q${recipient.slice(1).toLowerCase()}`);
+    expect(String(args.to).toLowerCase()).toBe(recipient.toLowerCase());
     expect(args.value).toBe(42n);
   });
 
@@ -163,8 +163,8 @@ describe("64-byte wallet stack", () => {
       ["address", "address", "uint256"],
       `0x${data.slice(10)}`,
     );
-    expect(decoded[0]).toBe(`Q${sender.address.slice(1).toLowerCase()}`);
-    expect(decoded[1]).toBe(`Q${recipient.slice(1).toLowerCase()}`);
+    expect(String(decoded[0]).toLowerCase()).toBe(sender.address.toLowerCase());
+    expect(String(decoded[1]).toLowerCase()).toBe(recipient.toLowerCase());
     expect(decoded[2]).toBe(9n);
   });
 
@@ -172,14 +172,14 @@ describe("64-byte wallet stack", () => {
     const wallet = MLDSA87.newWalletFromExtendedSeed(new ExtendedSeed(seed));
     const typedData = {
       types: {
-        EIP712Domain: [{ name: "verifyingContract", type: "address" }],
+        QRLTypedDataDomain: [{ name: "verifyingContract", type: "address" }],
         Transfer: [{ name: "to", type: "address" }],
       },
       primaryType: "Transfer",
       domain: { verifyingContract: contractAddress },
       message: { to: recipient },
     };
-    const typedHash = getEncodedEip712Data(typedData, true);
+    const typedHash = getEncodedQRLTypedData(typedData, true);
     for (const data of ["Test-only personal message", typedHash]) {
       const signed = web3.qrl.accounts.sign(data, sender.seed);
       expect(
