@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import Web3 from "@theqrl/web3";
 import { ExtendedSeed, Seed, newMLDSA87Descriptor } from "@theqrl/wallet.js";
 import { FeeMarketEIP1559Transaction } from "@theqrl/web3-qrl-accounts";
+import { toPersonalSignInput } from "@/utilities/personalSignMessage";
 import signedWithV1 from "./fixtures/signedTransactionWeb3v1.json";
 
 // Constants below were produced by the @theqrl/web3 1.0.3 stack for exactly
@@ -95,5 +96,46 @@ describe("transaction signing parity with the 1.0.3 stack", () => {
     expect(parsed.getSenderAddress().toString().toLowerCase()).toBe(
       account.address.toLowerCase(),
     );
+  });
+});
+
+// hashMessage values recorded from the 1.0.3 stack.
+const V1_TEXT_HASH_ABC =
+  "0x01193153c23e49664699e8206e0dc62bb265e1ea2235e7947b1c333b99bc6a75";
+const V1_HELLO_HASH =
+  "0x6e447913dabc7532313e90889756c93e9e13c9ef22855267945c87189e820d31";
+const V1_HEX_1234_HASH =
+  "0x2a0eeed79c5f517afc69e4c075f26b37b8a470e4bba020b76ecfd3fd1fea7364";
+
+describe("personal_sign message hashing parity with the 1.0.3 stack", () => {
+  it("hashes plain text and hex messages as 1.0.3 did", () => {
+    expect(web3.qrl.accounts.hashMessage(toPersonalSignInput("hello"))).toBe(
+      V1_HELLO_HASH,
+    );
+    expect(web3.qrl.accounts.hashMessage(toPersonalSignInput("0x1234"))).toBe(
+      V1_HEX_1234_HASH,
+    );
+    expect(web3.qrl.accounts.hashMessage(toPersonalSignInput("0X1234"))).toBe(
+      V1_HEX_1234_HASH,
+    );
+  });
+
+  it.each(["\u0000abc", "abc\u0000", "\u0000\u0000abc\u0000"])(
+    "hashes %j without its NUL edge characters, as 1.0.3 did",
+    (message) => {
+      // 2.0.0 alone keeps the NUL bytes and signs another digest.
+      expect(web3.qrl.accounts.hashMessage(message)).not.toBe(V1_TEXT_HASH_ABC);
+      const input = toPersonalSignInput(message);
+      expect(web3.qrl.accounts.hashMessage(input)).toBe(V1_TEXT_HASH_ABC);
+      expect(web3.qrl.accounts.sign(input, account.seed).messageHash).toBe(
+        V1_TEXT_HASH_ABC,
+      );
+    },
+  );
+
+  it("rejects an odd-length hex message, as 1.0.3 did", () => {
+    expect(() =>
+      web3.qrl.accounts.sign(toPersonalSignInput("0x123"), account.seed),
+    ).toThrow();
   });
 });

@@ -15,6 +15,7 @@ import { Copy } from "lucide-react";
 import { observer } from "mobx-react-lite";
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
+import { toPersonalSignInput } from "@/utilities/personalSignMessage";
 import { revalidateAuthorizedDAppRequest } from "@/scripts/utils/restrictedMethodsMiddlewareUtils";
 
 const PersonalSign = observer(() => {
@@ -79,7 +80,7 @@ const PersonalSign = observer(() => {
         throw new Error("Account seed did not match with the address");
       }
       const signature = qrlInstance?.accounts.sign(
-        params?.[0],
+        toPersonalSignInput(rawMessage),
         seed,
       )?.signature;
 
