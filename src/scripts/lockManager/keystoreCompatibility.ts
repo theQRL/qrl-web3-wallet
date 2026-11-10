@@ -98,26 +98,46 @@ export async function decryptKeystore(keystore: KeyStore, password: string) {
   ) {
     throw new Error("Invalid keystore KDF parameters");
   }
-  const key = await argon2id(
-    hexToBytes(utf8ToHex(password)),
-    typeof params.salt === "string" ? hexToBytes(params.salt) : params.salt,
-    params.t,
-    params.m,
-    params.p,
-    params.dklen,
-  );
-  let seedBytes: Uint8Array | undefined;
-  try {
-    seedBytes = await decryptAes(
-      hexToBytes(keystore.crypto.ciphertext),
-      key,
-      hexToBytes(keystore.crypto.cipherparams.iv),
-    );
-    return accountFromSeed(seedBytes, keystore.address);
-  } finally {
-    key.fill(0);
-    seedBytes?.fill(0);
+  const salt =
+    typeof params.salt === "string" ? hexToBytes(params.salt) : params.salt;
+  // utf8ToHex drops leading and trailing NUL characters, which is what the
+  // web3 1.x encrypt did. @theqrl/web3 2.0.0 encrypt keeps every byte, so a
+  // password with NUL edges needs the raw UTF-8 bytes as a second candidate.
+  const passwordCandidates = [hexToBytes(utf8ToHex(password))];
+  const rawPassword = new TextEncoder().encode(password);
+  if (bytesToHex(rawPassword) !== bytesToHex(passwordCandidates[0])) {
+    passwordCandidates.push(rawPassword);
   }
+  let lastError: unknown;
+  for (const passwordBytes of passwordCandidates) {
+    const key = await argon2id(
+      passwordBytes,
+      salt,
+      params.t,
+      params.m,
+      params.p,
+      params.dklen,
+    );
+    let seedBytes: Uint8Array | undefined;
+    try {
+      seedBytes = await decryptAes(
+        hexToBytes(keystore.crypto.ciphertext),
+        key,
+        hexToBytes(keystore.crypto.cipherparams.iv),
+      );
+    } catch (error) {
+      lastError = error;
+      continue;
+    } finally {
+      key.fill(0);
+    }
+    try {
+      return accountFromSeed(seedBytes, keystore.address);
+    } finally {
+      seedBytes.fill(0);
+    }
+  }
+  throw lastError;
 }
 
 export async function reencryptKeystore(
