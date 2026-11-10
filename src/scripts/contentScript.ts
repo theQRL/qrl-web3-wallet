@@ -22,8 +22,8 @@ import {
 import { chainIdToHex } from "./utils/chainIdUtils";
 import { checkForLastError, getSerializableObject } from "./utils/scriptUtils";
 import {
-  forwardCall,
-  forwardEstimateGas,
+  callForDapp,
+  estimateGasForDapp,
   getSyncingResult,
 } from "./utils/unrestrictedMethodUtils";
 import { asDuplexStream, asStreamLifecycle } from "./utils/streamTypeUtils";
@@ -293,7 +293,7 @@ const prepareListeners = () => {
         return "0x".concat(balance.toString(16));
       } else if (method === UNRESTRICTED_METHODS.QRL_ESTIMATE_GAS) {
         const [estimateGasParam] = message.data.params;
-        return await forwardEstimateGas(provider, estimateGasParam);
+        return await estimateGasForDapp(qrl, estimateGasParam);
       } else if (method === UNRESTRICTED_METHODS.QRL_FEE_HISTORY) {
         const [blockCount, newestBlock, rewardPercentiles] =
           message.data.params;
@@ -353,7 +353,7 @@ const prepareListeners = () => {
         return getSerializableObject(transactionDetails);
       } else if (method === UNRESTRICTED_METHODS.QRL_CALL) {
         const [transactionObj, blockParam] = message.data.params;
-        return await forwardCall(provider, transactionObj, blockParam);
+        return await callForDapp(qrl, transactionObj, blockParam);
       } else if (method === UNRESTRICTED_METHODS.QRL_GET_CODE) {
         const [address, blockNumber] = message.data.params;
         const byteCode = await qrl.getCode(address, blockNumber);

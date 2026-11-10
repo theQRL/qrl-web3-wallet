@@ -2,8 +2,8 @@
 import { describe, expect, it } from "vitest";
 import Web3 from "@theqrl/web3";
 import {
-  forwardCall,
-  forwardEstimateGas,
+  callForDapp,
+  estimateGasForDapp,
   getSyncingResult,
 } from "./unrestrictedMethodUtils";
 
@@ -24,41 +24,74 @@ const mockNode = (results: Record<string, unknown>) => {
 const from = `Q${"ab".repeat(64)}`;
 const to = `Q${"cd".repeat(64)}`;
 
-describe("dApp qrl_estimateGas and qrl_call", () => {
-  it.each([
-    ["gasPrice", { from, to, data: "0x1234", gasPrice: "0x3b9aca00" }],
+// What the node received from the 1.0.3 wallet for each dApp request,
+// recorded by running @theqrl/web3 1.0.3 against a mock node.
+const wireCases: [string, Record<string, unknown>, Record<string, unknown>][] =
+  [
+    [
+      "gasPrice",
+      { from, to, data: "0x1234", gasPrice: "0x3b9aca00" },
+      { from, to, data: "0x1234" },
+    ],
+    [
+      "gas with gasPrice",
+      { from, to, gas: "0x5208", gasPrice: "0x1", value: "0x1" },
+      { from, to, gas: "0x5208", value: "0x1" },
+    ],
     [
       "gas that differs from gasLimit",
       { from, to, gas: "0x5208", gasLimit: "0x5209" },
+      { from, to, gas: "0x5209" },
     ],
-    ["gas with gasPrice", { from, to, gas: "0x5208", gasPrice: "0x1" }],
-  ])("forwards a request with %s to the node", async (_label, tx) => {
-    const estimate = mockNode({ qrl_estimateGas: "0x5208" });
-    expect(await forwardEstimateGas(estimate.provider, tx)).toBe("0x5208");
-    expect(estimate.calls).toEqual([
-      { method: "qrl_estimateGas", params: [tx] },
-    ]);
+    ["a numeric value", { to, value: 1000 }, { to, value: "0x3e8" }],
+    ["a decimal string value", { to, value: "1000" }, { to, value: "0x3e8" }],
+    ["a numeric gas", { to, gas: 21000 }, { to, gas: "0x5208" }],
+    ["gasLimit only", { to, gasLimit: "0x5208" }, { to, gas: "0x5208" }],
+  ];
 
-    const call = mockNode({ qrl_call: "0x1234" });
-    expect(await forwardCall(call.provider, tx, "latest")).toBe("0x1234");
-    expect(call.calls).toEqual([
-      { method: "qrl_call", params: [tx, "latest"] },
-    ]);
-  });
-
-  it("defaults the block of a call to latest", async () => {
-    const node = mockNode({ qrl_call: "0x" });
-    await forwardCall(node.provider, { to, data: "0x" });
-    expect(node.calls[0].params).toEqual([{ to, data: "0x" }, "latest"]);
-  });
-
-  it("shows why the web3 wrapper cannot be used: 2.0.0 rejects gasPrice locally", async () => {
-    const node = mockNode({ qrl_chainId: "0x1", qrl_estimateGas: "0x5208" });
+describe.each(wireCases)("dApp request with %s", (_label, request, wire) => {
+  it("reaches the node for qrl_estimateGas as it did on 1.0.3", async () => {
+    const node = mockNode({ qrl_estimateGas: "0x5208" });
     const { qrl } = new Web3(node.provider);
-    await expect(
-      qrl.estimateGas({ from, to, gasPrice: "0x3b9aca00" } as never),
-    ).rejects.toThrow();
-    expect(node.calls.map((c) => c.method)).not.toContain("qrl_estimateGas");
+    expect(
+      await estimateGasForDapp(qrl, JSON.parse(JSON.stringify(request))),
+    ).toBe("0x5208");
+    expect(node.calls).toEqual([
+      { method: "qrl_estimateGas", params: [wire, "latest"] },
+    ]);
+  });
+
+  it.each([
+    ["latest", "latest"],
+    [16, "0x10"],
+    ["0x10", "0x10"],
+    [undefined, "latest"],
+  ])(
+    "reaches the node for qrl_call at block %j as it did on 1.0.3",
+    async (block, wireBlock) => {
+      const node = mockNode({ qrl_call: "0x1234" });
+      const { qrl } = new Web3(node.provider);
+      expect(
+        await callForDapp(qrl, JSON.parse(JSON.stringify(request)), block),
+      ).toBe("0x1234");
+      expect(node.calls).toEqual([
+        { method: "qrl_call", params: [wire, wireBlock] },
+      ]);
+    },
+  );
+});
+
+it("does not mutate the request object", async () => {
+  const node = mockNode({ qrl_estimateGas: "0x5208" });
+  const { qrl } = new Web3(node.provider);
+  const request = { from, to, gas: "0x1", gasLimit: "0x2", gasPrice: "0x3" };
+  await estimateGasForDapp(qrl, request);
+  expect(request).toEqual({
+    from,
+    to,
+    gas: "0x1",
+    gasLimit: "0x2",
+    gasPrice: "0x3",
   });
 });
 
