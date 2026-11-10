@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import Web3 from "@theqrl/web3";
 import { ExtendedSeed, Seed, newMLDSA87Descriptor } from "@theqrl/wallet.js";
 import { FeeMarketEIP1559Transaction } from "@theqrl/web3-qrl-accounts";
-import { toPersonalSignInput } from "@/utilities/personalSignMessage";
 import signedWithV1 from "./fixtures/signedTransactionWeb3v1.json";
 
 // Constants below were produced by the @theqrl/web3 1.0.3 stack for exactly
@@ -99,43 +98,47 @@ describe("transaction signing parity with the 1.0.3 stack", () => {
   });
 });
 
-// hashMessage values recorded from the 1.0.3 stack.
-const V1_TEXT_HASH_ABC =
-  "0x01193153c23e49664699e8206e0dc62bb265e1ea2235e7947b1c333b99bc6a75";
+// hashMessage values recorded on @theqrl/web3 1.0.3.
 const V1_HELLO_HASH =
   "0x6e447913dabc7532313e90889756c93e9e13c9ef22855267945c87189e820d31";
 const V1_HEX_1234_HASH =
   "0x2a0eeed79c5f517afc69e4c075f26b37b8a470e4bba020b76ecfd3fd1fea7364";
+const V1_ABC_HASH =
+  "0x01193153c23e49664699e8206e0dc62bb265e1ea2235e7947b1c333b99bc6a75";
 
-describe("personal_sign message hashing parity with the 1.0.3 stack", () => {
+// Values recorded on 2.0.0 for messages whose digest differs from 1.0.3.
+const V2_NUL_LEADING_ABC_HASH =
+  "0x5e44eceb106ca39acbb8d10e8ed6bcdbd5dec594b9f2b764c047f7a9b43f8c87";
+const V2_NUL_TRAILING_ABC_HASH =
+  "0x5698d4cc68485f2c41385fdb65eec027e218993fdb3c82bdbb71add45b28f64c";
+const READABLE_HEX = `0x${Buffer.from("Sign in to evil.example as owner").toString("hex")}`;
+const V2_NUL_LEADING_HEX_HASH =
+  "0x5a0b9f0364a3404f3ab220b30c92ac64787947d935600bf3875390ea46ce7838";
+
+describe("personal_sign message hashing against the 1.0.3 stack", () => {
   it("hashes plain text and hex messages as 1.0.3 did", () => {
-    expect(web3.qrl.accounts.hashMessage(toPersonalSignInput("hello"))).toBe(
-      V1_HELLO_HASH,
-    );
-    expect(web3.qrl.accounts.hashMessage(toPersonalSignInput("0x1234"))).toBe(
-      V1_HEX_1234_HASH,
-    );
-    expect(web3.qrl.accounts.hashMessage(toPersonalSignInput("0X1234"))).toBe(
-      V1_HEX_1234_HASH,
+    const { hashMessage } = web3.qrl.accounts;
+    expect(hashMessage("hello")).toBe(V1_HELLO_HASH);
+    expect(hashMessage("0x1234")).toBe(V1_HEX_1234_HASH);
+    expect(hashMessage("0X1234")).toBe(V1_HEX_1234_HASH);
+    expect(hashMessage("abc")).toBe(V1_ABC_HASH);
+  });
+
+  // Documented difference: 1.0.3 dropped NUL edge characters before hashing,
+  // 2.0.0 hashes every byte. The wallet signs exactly what 2.0.0 hashes.
+  it("hashes the NUL edge characters of a message, which 1.0.3 dropped", () => {
+    const { hashMessage } = web3.qrl.accounts;
+    expect(hashMessage("\u0000abc")).toBe(V2_NUL_LEADING_ABC_HASH);
+    expect(hashMessage("abc\u0000")).toBe(V2_NUL_TRAILING_ABC_HASH);
+    expect(hashMessage("\u0000abc")).not.toBe(V1_ABC_HASH);
+    expect(hashMessage(`\u0000${READABLE_HEX}`)).toBe(V2_NUL_LEADING_HEX_HASH);
+    // A NUL in front keeps hex-looking text a text message.
+    expect(hashMessage(`\u0000${READABLE_HEX}`)).not.toBe(
+      hashMessage(READABLE_HEX),
     );
   });
 
-  it.each(["\u0000abc", "abc\u0000", "\u0000\u0000abc\u0000"])(
-    "hashes %j without its NUL edge characters, as 1.0.3 did",
-    (message) => {
-      // 2.0.0 alone keeps the NUL bytes and signs another digest.
-      expect(web3.qrl.accounts.hashMessage(message)).not.toBe(V1_TEXT_HASH_ABC);
-      const input = toPersonalSignInput(message);
-      expect(web3.qrl.accounts.hashMessage(input)).toBe(V1_TEXT_HASH_ABC);
-      expect(web3.qrl.accounts.sign(input, account.seed).messageHash).toBe(
-        V1_TEXT_HASH_ABC,
-      );
-    },
-  );
-
   it("rejects an odd-length hex message, as 1.0.3 did", () => {
-    expect(() =>
-      web3.qrl.accounts.sign(toPersonalSignInput("0x123"), account.seed),
-    ).toThrow();
+    expect(() => web3.qrl.accounts.sign("0x123", account.seed)).toThrow();
   });
 });
