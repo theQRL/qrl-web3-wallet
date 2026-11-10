@@ -9,6 +9,7 @@ import type { KeyStore } from "@theqrl/web3";
 import { encrypt, seedToAccount } from "@theqrl/web3-qrl-accounts";
 import { bytesToHex, hexToBytes, utf8ToHex } from "@theqrl/web3-utils";
 import AddressUtil from "@/utilities/addressUtil";
+import { stripNulEdges } from "@/utilities/stripNulEdges";
 import { RECOMMENDED_KEYSTORE_KDF_PARAMS } from "./keystoreParams";
 
 type DecryptedKeystore = {
@@ -23,7 +24,7 @@ type DecryptedKeystore = {
  * Readers also try the raw bytes, for vaults written without this form.
  */
 export function normalizePassword(password: string) {
-  return password.normalize("NFC").replace(/^\u0000+|\u0000+$/g, "");
+  return stripNulEdges(password.normalize("NFC"));
 }
 
 function checkStoredAddress(storedAddress: string, derivedAddress: string) {

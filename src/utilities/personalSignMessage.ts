@@ -1,3 +1,5 @@
+import { stripNulEdges } from "./stripNulEdges";
+
 const HEX_MESSAGE = /^0[xX][0-9a-fA-F]*$/;
 
 /**
@@ -6,7 +8,5 @@ const HEX_MESSAGE = /^0[xX][0-9a-fA-F]*$/;
  * signed digest of such a message. Hex messages are passed through as given.
  */
 export function toPersonalSignInput(message: string) {
-  return HEX_MESSAGE.test(message)
-    ? message
-    : message.replace(/^\u0000+|\u0000+$/g, "");
+  return HEX_MESSAGE.test(message) ? message : stripNulEdges(message);
 }
