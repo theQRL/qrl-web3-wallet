@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from "@/components/UI/Alert";
 import { Button } from "@/components/UI/Button";
 import {
   Card,
@@ -54,21 +55,41 @@ const ImportAccount = observer(() => {
   const { t } = useTranslation();
   const [account, setAccount] = useState<Web3BaseWalletAccount>();
   const [hasAccountImported, setHasAccountImported] = useState(false);
+  const [finalizeError, setFinalizeError] = useState("");
   const { lockStore, qrlStore } = useStore();
   const { encryptAccount, getWalletPassword } = lockStore;
   const { qrlInstance, setActiveAccount } = qrlStore;
 
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
+    setFinalizeError("");
     try {
       const account = qrlInstance?.accounts.seedToAccount(
         getHexSeedFromMnemonic(formData.mnemonicPhrases.trim()),
       );
       if (account) {
         window.scrollTo(0, 0);
+        // Fail closed before touching storage: the wallet can read as
+        // unlocked (its decrypted keys self-healed from session storage
+        // after a service-worker restart) while the memory-only wallet
+        // password is gone. Checking it, and persisting the keystore,
+        // before setActiveAccount means a spent session never leaves the
+        // imported address in the accounts list pointing at a keystore
+        // that was never written.
+        let password: string;
+        try {
+          password = await getWalletPassword();
+        } catch {
+          setFinalizeError(t("account.passwordUnavailable"));
+          return;
+        }
         setAccount(account);
+        try {
+          await encryptAccount(account, password);
+        } catch {
+          setFinalizeError(t("account.passwordUnavailable"));
+          return;
+        }
         await setActiveAccount(account.address);
-        const password = await getWalletPassword();
-        encryptAccount(account, password);
         setHasAccountImported(true);
       } else {
         control.setError("mnemonicPhrases", {
@@ -106,6 +127,11 @@ const ImportAccount = observer(() => {
         ) : (
           <Form {...form}>
             <BackButton />
+            {finalizeError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{finalizeError}</AlertDescription>
+              </Alert>
+            )}
             <form
               name="importAccount"
               aria-label="importAccount"

@@ -206,4 +206,98 @@ describe("LockStore – readLockState timestamp check", () => {
       expect(store.isLocked).toBe(true);
     });
   });
+
+  describe("getWalletPassword (empty-password guard)", () => {
+    it("should return the password on a normal call", async () => {
+      const store = await createLockStore();
+
+      mockSendMessage.mockResolvedValueOnce("correct horse battery staple");
+
+      await expect(store.getWalletPassword()).resolves.toBe(
+        "correct horse battery staple",
+      );
+    });
+
+    it("should re-arm the service worker from a cached password and retry once", async () => {
+      const store = await createLockStore();
+
+      (store as any).cachedKeys = MOCK_KEYS;
+      (store as any).cachedPassword = "correct horse battery staple";
+
+      // First GET_WALLET_PASSWORD: the SW lost its memory-only password.
+      // SET_DECRYPTED_KEYS: re-arm succeeds.
+      // Second GET_WALLET_PASSWORD: now succeeds.
+      mockSendMessage
+        .mockRejectedValueOnce(
+          new Error("QRL Web3 Wallet password is unavailable"),
+        )
+        .mockResolvedValueOnce({ success: true })
+        .mockResolvedValueOnce("correct horse battery staple");
+
+      await expect(store.getWalletPassword()).resolves.toBe(
+        "correct horse battery staple",
+      );
+
+      const setKeysCalls = mockSendMessage.mock.calls.filter(
+        (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
+      );
+      expect(setKeysCalls).toHaveLength(1);
+      expect((setKeysCalls[0] as any)[0].data).toEqual({
+        keys: MOCK_KEYS,
+        walletPassword: "correct horse battery staple",
+      });
+    });
+
+    it("should rethrow when there is no cached password or keys to re-arm with", async () => {
+      const store = await createLockStore();
+
+      mockSendMessage.mockRejectedValueOnce(
+        new Error("QRL Web3 Wallet password is unavailable"),
+      );
+
+      await expect(store.getWalletPassword()).rejects.toThrow(
+        "QRL Web3 Wallet password is unavailable",
+      );
+    });
+
+    it("should rethrow the original error when the re-arm attempt itself fails", async () => {
+      const store = await createLockStore();
+
+      (store as any).cachedKeys = MOCK_KEYS;
+      (store as any).cachedPassword = "correct horse battery staple";
+
+      // GET_WALLET_PASSWORD fails, then all of sendWithRetry's SET_DECRYPTED_KEYS
+      // attempts (maxRetries = 3) fail too.
+      mockSendMessage
+        .mockRejectedValueOnce(
+          new Error("QRL Web3 Wallet password is unavailable"),
+        )
+        .mockRejectedValueOnce(new Error("SW not reachable"))
+        .mockRejectedValueOnce(new Error("SW not reachable"))
+        .mockRejectedValueOnce(new Error("SW not reachable"));
+
+      await expect(store.getWalletPassword()).rejects.toThrow(
+        "QRL Web3 Wallet password is unavailable",
+      );
+    }, 10000);
+  });
+
+  describe("encryptAccount (empty-password guard)", () => {
+    it("should refuse an empty password without sending a message", async () => {
+      const store = await createLockStore();
+      mockSendMessage.mockClear();
+
+      await expect(
+        store.encryptAccount(
+          { seed: "" } as any,
+          "",
+        ),
+      ).rejects.toThrow("Refusing to encrypt an account without a password");
+
+      const encryptCalls = mockSendMessage.mock.calls.filter(
+        (call: any) => call[0]?.name === "ENCRYPT_ACCOUNT",
+      );
+      expect(encryptCalls).toHaveLength(0);
+    });
+  });
 });

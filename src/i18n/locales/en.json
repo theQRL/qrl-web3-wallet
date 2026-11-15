@@ -85,6 +85,7 @@
   "account.copied": "Copied",
   "account.copy": "Copy",
   "account.done": "Done",
+  "account.passwordUnavailable": "Your unlocked session expired. Nothing was saved. Unlock the wallet again and retry.",
 
   "transfer.activeAccount": "Active account",
   "transfer.makeTransaction": "Make a transaction",

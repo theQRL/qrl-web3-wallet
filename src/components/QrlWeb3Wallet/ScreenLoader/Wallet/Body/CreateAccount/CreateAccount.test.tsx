@@ -74,6 +74,55 @@ describe("CreateAccount", () => {
     });
   });
 
+  it("should show an error and not reveal the mnemonic when the password is unavailable", async () => {
+    renderComponent(
+      mockedStore({
+        lockStore: {
+          getWalletPassword: async () => {
+            throw new Error("QRL Web3 Wallet password is unavailable");
+          },
+        },
+        qrlStore: {
+          setActiveAccount: async () => {
+            throw new Error("setActiveAccount must not run before the password check");
+          },
+          qrlInstance: {
+            accounts: {
+              create: () => ({
+                address: "Q205046e6A6E159eD6ACedE46A36CAD6D449C80A1",
+                seed: "",
+                sign: () => ({ messageHash: "", signature: "", message: "" }),
+                signTransaction: async () => ({
+                  messageHash: "",
+                  rawTransaction: "",
+                  signature: "",
+                  transactionHash: "",
+                }),
+                encrypt: async () => {
+                  throw new Error("Not implemented");
+                },
+              }),
+            },
+          },
+        },
+      }),
+    );
+
+    await act(async () => {
+      await userEvent.click(
+        screen.getByRole("button", { name: "Create account" }),
+      );
+    });
+
+    expect(
+      await screen.findByText(
+        "Your unlocked session expired. Nothing was saved. Unlock the wallet again and retry.",
+      ),
+    ).toBeInTheDocument();
+    // The seed must not be persisted or revealed on the failure path.
+    expect(screen.queryByText("Keep this safe")).not.toBeInTheDocument();
+  });
+
   it("should render the mnemonic display component once the account is created", async () => {
     renderComponent(
       mockedStore({

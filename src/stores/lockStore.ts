@@ -115,11 +115,37 @@ class LockStore {
     });
   }
 
-  async getWalletPassword() {
-    const password = await browser.runtime.sendMessage({
-      name: LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD,
-    });
-    return password;
+  /**
+   * The service worker rejects this message when its memory-only password
+   * was lost to a restart, even though the decrypted keys themselves
+   * self-healed from session storage (so the wallet still reads as
+   * unlocked). If this popup still holds both the password and the keys
+   * from its own last unlock, re-arm the service worker with them and
+   * retry once, so adding an account stays no-friction across a restart.
+   * Otherwise rethrow, so the caller can ask the user to unlock again
+   * instead of ever treating a missing password as "".
+   */
+  async getWalletPassword(): Promise<string> {
+    try {
+      return await browser.runtime.sendMessage({
+        name: LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD,
+      });
+    } catch (error) {
+      if (!this.cachedPassword || !this.cachedKeys) {
+        throw error;
+      }
+      try {
+        await this.sendWithRetry({
+          name: LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS,
+          data: { keys: this.cachedKeys, walletPassword: this.cachedPassword },
+        });
+      } catch {
+        throw error;
+      }
+      return await browser.runtime.sendMessage({
+        name: LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD,
+      });
+    }
   }
 
   async getMnemonicPhrases(accountAddress: string) {
@@ -146,9 +172,16 @@ class LockStore {
   }
 
   async encryptAccount(account: Web3BaseWalletAccount, password: string) {
+    // Never persist a keystore under an empty password. The service worker
+    // refuses this too; failing here as well keeps the guarantee visible at
+    // the call site and avoids a round trip for a request that can never
+    // succeed.
+    if (!password) {
+      throw new Error("Refusing to encrypt an account without a password");
+    }
     const accountData: EncryptAccountType = {
       seed: account?.seed ?? "",
-      password: password ?? "",
+      password,
     };
     await browser.runtime.sendMessage({
       name: LOCK_MANAGER_MESSAGES.ENCRYPT_ACCOUNT,
