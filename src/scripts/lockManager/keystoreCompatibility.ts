@@ -26,6 +26,15 @@ export function passwordBytes(password: string) {
   return hexToBytes(utf8ToHex(password));
 }
 
+/**
+ * True when a password yields no key bytes: the empty string, and one or two
+ * NUL characters, which the 1.x conversion strips to nothing. No writer may
+ * persist a keystore under such a password; readers still open old vaults.
+ */
+export function hasEmptyPasswordKey(password: string) {
+  return passwordBytes(password).length === 0;
+}
+
 function checkStoredAddress(storedAddress: string, derivedAddress: string) {
   // wallet.js 2 used the first 20 bytes of the same SHAKE256 address hash.
   const expected = AddressUtil.isLegacyQrlAddress(storedAddress)
@@ -84,10 +93,17 @@ function accountFromSeed(
 /** Read version 1 vaults while preserving legacy account identities for recovery. */
 export async function decryptKeystore(keystore: KeyStore, password: string) {
   const params = keystore.crypto.kdfparams;
+  // The KeyStore type promises these values, but a keystore comes back from
+  // storage unchecked, so they are compared as unknown values.
+  const format: { version: unknown; cipher: unknown; kdf: unknown } = {
+    version: keystore.version,
+    cipher: keystore.crypto.cipher,
+    kdf: keystore.crypto.kdf,
+  };
   if (
-    keystore.version !== 1 ||
-    keystore.crypto.cipher !== "aes-256-gcm" ||
-    keystore.crypto.kdf !== "argon2id" ||
+    format.version !== 1 ||
+    format.cipher !== "aes-256-gcm" ||
+    format.kdf !== "argon2id" ||
     !("m" in params)
   ) {
     throw new Error("Unsupported keystore format");

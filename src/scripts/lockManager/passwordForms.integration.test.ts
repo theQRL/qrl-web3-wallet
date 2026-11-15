@@ -61,12 +61,15 @@ const PASSWORDS = [
   "\u0000pw",
   "\u0000\u0000pw",
   "\u0000\u0000\u0000",
-  "",
   "café",
   "café",
   "lone\ud800sur",
   "päss🔐",
 ];
+
+// The 1.x conversion strips these to no key bytes at all. Upstream refuses to
+// write a keystore under an empty password, and that now covers all three.
+const EMPTY_KEY_PASSWORDS = ["", "\u0000", "\u0000\u0000"];
 
 let stored: KeyStore[] = [];
 
@@ -209,6 +212,58 @@ describe.each(
     expect(await seedsAfterUnlock(password)).toEqual({
       ok: true,
       seeds: [SEED_A, SEED_B].sort(),
+    });
+  }, 120000);
+});
+
+describe.each(
+  EMPTY_KEY_PASSWORDS.map((password) => [JSON.stringify(password), password]),
+)("password %s, which derives no key bytes", (_label, password) => {
+  it("is refused for a new vault and persists no keystore", async () => {
+    useMemoryKeystores();
+    await reset();
+    await expect(
+      LockManager.encryptAccount({ password, seed: SEED_A }),
+    ).rejects.toThrow("Refusing to encrypt an account without a password");
+    expect(stored).toEqual([]);
+  }, 120000);
+
+  it("is refused as the new password, and the old password stays", async () => {
+    useMemoryKeystores();
+    await reset();
+    await LockManager.encryptAccount({ password: "base-pw", seed: SEED_A });
+    await LockManager.lock();
+    expect(await popupUnlock("base-pw")).toBe(true);
+    expect(await popupChangePassword("base-pw", password)).toBe(false);
+    await LockManager.lock();
+    expect(await seedsAfterUnlock("base-pw")).toEqual({
+      ok: true,
+      seeds: [SEED_A],
+    });
+  }, 120000);
+
+  it("still opens an old vault, which is not rewritten and takes no new account", async () => {
+    useMemoryKeystores();
+    await reset();
+    const oldVault = [
+      await encrypt(SEED_A, passwordBytes(password), { m: 19456, t: 2 }),
+    ];
+    stored = oldVault;
+    expect(await popupUnlock(password)).toBe(true);
+    // No KDF upgrade: the vault is never written again under this password.
+    expect(stored).toBe(oldVault);
+    // The session has no password for "", so the request stops there; the
+    // NUL forms reach the service worker's guard.
+    await expect(Promise.resolve().then(addAccount)).rejects.toThrow(
+      password === ""
+        ? "QRL Web3 Wallet password is unavailable"
+        : "Refusing to encrypt an account without a password",
+    );
+    expect(stored).toBe(oldVault);
+    await LockManager.lock();
+    expect(await seedsAfterUnlock(password)).toEqual({
+      ok: true,
+      seeds: [SEED_A],
     });
   }, 120000);
 });

@@ -1,7 +1,11 @@
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
 import { Bytes } from "@theqrl/web3";
 import { encrypt } from "@theqrl/web3-qrl-accounts";
-import { decryptKeystore, passwordBytes } from "./keystoreCompatibility";
+import {
+  decryptKeystore,
+  hasEmptyPasswordKey,
+  passwordBytes,
+} from "./keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import browser from "webextension-polyfill";
 
@@ -254,8 +258,10 @@ class LockManager {
     // Never persist a keystore under an empty password: the KDF accepts ""
     // and the ciphertext is then trivially recomputable from the cleartext
     // salt stored beside it. Defence in depth behind getWalletPassword's own
-    // guard below, which is the path every caller is expected to use.
-    if (!password) {
+    // guard below, which is the path every caller is expected to use. The
+    // check is on the key bytes, so a password of one or two NUL characters,
+    // which derives no bytes either, is refused as well.
+    if (hasEmptyPasswordKey(password)) {
       throw new Error("Refusing to encrypt an account without a password");
     }
     const keystores = await StorageUtil.getKeystores();
@@ -366,7 +372,15 @@ class LockManager {
       result = LockManager.getDecryptedKeys();
     } else if (message.name === LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS) {
       await LockManager.isLocked();
-      result = LockManager.getAccountSigningStatus(message.data?.address);
+      const data: unknown = message.data;
+      const address =
+        typeof data === "object" &&
+        data !== null &&
+        "address" in data &&
+        typeof data.address === "string"
+          ? data.address
+          : "";
+      result = LockManager.getAccountSigningStatus(address);
     } else if (message.name === LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD) {
       result = LockManager.getWalletPassword();
     } else if (message.name === LOCK_MANAGER_MESSAGES.ENCRYPT_ACCOUNT) {

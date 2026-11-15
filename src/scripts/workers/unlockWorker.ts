@@ -8,6 +8,7 @@
 
 import {
   decryptKeystore,
+  hasEmptyPasswordKey,
   reencryptKeystore,
 } from "@/scripts/lockManager/keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
@@ -48,6 +49,9 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
   try {
     const keys: DecryptedKey[] = [];
     let upgradedKeystores: KeyStore[] | undefined;
+    // An old vault under a password without key bytes still opens, but it is
+    // never written again, so it gets no KDF upgrade either.
+    const canRewrite = !hasEmptyPasswordKey(normalisedPassword);
     for (const keyStore of keystores) {
       const account = await decryptKeystore(
         keyStore,
@@ -57,7 +61,7 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
         ...account,
         mnemonicPhrases: getMnemonicFromHexSeed(account.seed),
       });
-      if (shouldUpgradeKeystoreParams(keyStore)) {
+      if (canRewrite && shouldUpgradeKeystoreParams(keyStore)) {
         if (!upgradedKeystores) {
           upgradedKeystores = [...keystores];
         }

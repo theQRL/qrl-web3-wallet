@@ -64,7 +64,7 @@ const respond = async (response: Json) => {
     .calls[0][0];
   const listener = vi.mocked(browser.runtime.onMessage.addListener).mock
     .calls[0][0];
-  listener(
+  void listener(
     {
       action: EXTENSION_MESSAGES.DAPP_RESPONSE,
       method: requestData.method,
@@ -317,9 +317,9 @@ describe("restrictedMethodsMiddleware signing", () => {
 
     it("refuses while another approval is pending without disturbing it", async () => {
       const pending = handle(RESTRICTED_METHODS.PERSONAL_SIGN);
-      await vi.waitFor(() =>
-        expect(browser.runtime.onMessage.addListener).toHaveBeenCalledTimes(1),
-      );
+      await vi.waitFor(() => {
+        expect(browser.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
+      });
 
       const result = await handle(RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4);
 
@@ -368,9 +368,9 @@ describe("restrictedMethodsMiddleware signing", () => {
 
   it("rejects a legacy signer while another approval is pending", async () => {
     const pending = handle(RESTRICTED_METHODS.PERSONAL_SIGN);
-    await vi.waitFor(() =>
-      expect(browser.runtime.onMessage.addListener).toHaveBeenCalledTimes(1),
-    );
+    await vi.waitFor(() => {
+      expect(browser.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
+    });
 
     const result = await handle(
       RESTRICTED_METHODS.QRL_SEND_TRANSACTION,

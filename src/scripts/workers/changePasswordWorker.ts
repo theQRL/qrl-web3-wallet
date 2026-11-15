@@ -10,6 +10,7 @@
 
 import {
   decryptKeystore,
+  hasEmptyPasswordKey,
   reencryptKeystore,
 } from "@/scripts/lockManager/keystoreCompatibility";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
@@ -41,6 +42,10 @@ self.onmessage = async (
   const normalisedOld = oldPassword.normalize("NFC");
   const normalisedNew = newPassword.normalize("NFC");
   try {
+    // Never re-encrypt the vault under a password that derives no key bytes.
+    if (hasEmptyPasswordKey(normalisedNew)) {
+      throw new Error("Refusing to encrypt an account without a password");
+    }
     const newKeystores: KeyStore[] = [];
     const newKeys: DecryptedKey[] = [];
 
@@ -64,7 +69,8 @@ self.onmessage = async (
       newKeys,
     } satisfies ChangePasswordWorkerResponse);
   } catch {
-    // decrypt() throws when the old password is wrong
+    // decrypt() throws when the old password is wrong; an empty new password
+    // is refused above
     self.postMessage({ success: false } satisfies ChangePasswordWorkerResponse);
   }
 };

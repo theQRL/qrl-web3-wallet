@@ -234,7 +234,9 @@ const QrlSendTransactionForContent = observer(
       }
 
       const transactionHash = await new Promise<string>((resolve, reject) => {
-        promiEvent.once("transactionHash", (hash) => resolve(String(hash)));
+        promiEvent.once("transactionHash", (hash) => {
+          resolve(hash);
+        });
         promiEvent.catch(reject);
       });
 

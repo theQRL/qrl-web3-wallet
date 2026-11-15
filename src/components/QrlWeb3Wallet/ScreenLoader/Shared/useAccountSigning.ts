@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 export const useAccountSigning = (accountAddress: string) => {
   const { t } = useTranslation();
   const { lockStore } = useStore();
-  const { getAccountSigningStatus } = lockStore;
   const [checkedAccount, setCheckedAccount] = useState<{
     address: string;
     recoveryOnly?: boolean;
@@ -16,7 +15,7 @@ export const useAccountSigning = (accountAddress: string) => {
 
   useEffect(() => {
     let cancelled = false;
-    getAccountSigningStatus(accountAddress).then(
+    lockStore.getAccountSigningStatus(accountAddress).then(
       (status) => {
         if (!cancelled) {
           setCheckedAccount({
@@ -37,7 +36,7 @@ export const useAccountSigning = (accountAddress: string) => {
     return () => {
       cancelled = true;
     };
-  }, [accountAddress, getAccountSigningStatus]);
+  }, [accountAddress, lockStore]);
 
   const account =
     checkedAccount?.address === accountAddress ? checkedAccount : undefined;

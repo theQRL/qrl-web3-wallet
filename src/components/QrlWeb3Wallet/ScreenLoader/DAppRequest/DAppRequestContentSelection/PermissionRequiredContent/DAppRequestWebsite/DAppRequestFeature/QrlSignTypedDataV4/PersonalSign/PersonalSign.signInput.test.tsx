@@ -59,8 +59,10 @@ const approve = async (message: string) => {
       </MemoryRouter>
     </StoreProvider>,
   );
-  await waitFor(() => expect(setOnPermissionCallBack).toHaveBeenCalled());
-  const shown = view.container.textContent ?? "";
+  await waitFor(() => {
+    expect(setOnPermissionCallBack).toHaveBeenCalled();
+  });
+  const shown = view.container.textContent;
   await setOnPermissionCallBack.mock.calls.at(-1)?.[0](true);
   return { shown, signedHash: signedHashes[0] };
 };

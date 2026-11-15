@@ -87,10 +87,11 @@ const cases = [
   { label: "D, D2 and C", vaults: mixedVaults },
 ];
 
+type WorkerRequest = UnlockWorkerRequest | ChangePasswordWorkerRequest;
+
 async function runWorker<
-  Request extends UnlockWorkerRequest | ChangePasswordWorkerRequest,
   Response extends UnlockWorkerResponse | ChangePasswordWorkerResponse,
->(load: () => Promise<unknown>, request: Request): Promise<Response> {
+>(load: () => Promise<unknown>, request: WorkerRequest): Promise<Response> {
   const getRandomValues = crypto.getRandomValues.bind(crypto);
   vi.spyOn(crypto, "getRandomValues").mockImplementation((array) => {
     if (array instanceof Uint8Array && array.length === 32) {
@@ -102,7 +103,7 @@ async function runWorker<
   });
   const scope = {
     onmessage: undefined as
-      | ((event: MessageEvent<Request>) => Promise<void>)
+      | ((event: MessageEvent<WorkerRequest>) => Promise<void>)
       | undefined,
     postMessage: vi.fn<(response: Response) => void>(),
   };
@@ -110,7 +111,7 @@ async function runWorker<
   vi.resetModules();
   await load();
   if (!scope.onmessage) throw new Error("Worker handler was not installed");
-  await scope.onmessage({ data: request } as MessageEvent<Request>);
+  await scope.onmessage({ data: request } as MessageEvent<WorkerRequest>);
   expect(scope.postMessage).toHaveBeenCalledTimes(1);
   return scope.postMessage.mock.calls[0][0];
 }
@@ -189,7 +190,7 @@ describe("legacy unlock and recovery", () => {
     "unlocks and upgrades $label through the popup worker",
     async ({ vaults }) => {
       const keystores = vaults.map(({ keystore }) => keystore as KeyStore);
-      const result = await runWorker<UnlockWorkerRequest, UnlockWorkerResponse>(
+      const result = await runWorker<UnlockWorkerResponse>(
         () => import("../workers/unlockWorker"),
         { keystores, password },
       );
@@ -229,7 +230,7 @@ describe("legacy unlock and recovery", () => {
   );
 
   it("rejects an incorrect worker password without returning partial keys", async () => {
-    const result = await runWorker<UnlockWorkerRequest, UnlockWorkerResponse>(
+    const result = await runWorker<UnlockWorkerResponse>(
       () => import("../workers/unlockWorker"),
       {
         keystores: mixedVaults.map(({ keystore }) => keystore as KeyStore),
@@ -245,14 +246,14 @@ describe("legacy password changes", () => {
   let result: ChangePasswordWorkerResponse;
 
   beforeAll(async () => {
-    result = await runWorker<
-      ChangePasswordWorkerRequest,
-      ChangePasswordWorkerResponse
-    >(() => import("../workers/changePasswordWorker"), {
-      keystores: mixedVaults.map(({ keystore }) => keystore as KeyStore),
-      oldPassword: password,
-      newPassword,
-    });
+    result = await runWorker<ChangePasswordWorkerResponse>(
+      () => import("../workers/changePasswordWorker"),
+      {
+        keystores: mixedVaults.map(({ keystore }) => keystore as KeyStore),
+        oldPassword: password,
+        newPassword,
+      },
+    );
   }, 180000);
 
   it("keeps every account and its recovery metadata", () => {
@@ -297,14 +298,14 @@ describe("legacy password changes", () => {
   }, 180000);
 
   it("rejects a wrong old password without returning new keystores", async () => {
-    const failed = await runWorker<
-      ChangePasswordWorkerRequest,
-      ChangePasswordWorkerResponse
-    >(() => import("../workers/changePasswordWorker"), {
-      keystores: mixedVaults.map(({ keystore }) => keystore as KeyStore),
-      oldPassword: "wrong password",
-      newPassword,
-    });
+    const failed = await runWorker<ChangePasswordWorkerResponse>(
+      () => import("../workers/changePasswordWorker"),
+      {
+        keystores: mixedVaults.map(({ keystore }) => keystore as KeyStore),
+        oldPassword: "wrong password",
+        newPassword,
+      },
+    );
     expect(failed).toEqual({ success: false });
   }, 30000);
 });

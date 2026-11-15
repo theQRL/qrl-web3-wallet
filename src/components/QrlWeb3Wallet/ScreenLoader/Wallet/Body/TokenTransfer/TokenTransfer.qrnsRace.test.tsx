@@ -72,9 +72,12 @@ describe("TokenTransfer QRNS resolution", () => {
     await user.click(receiver);
     await user.paste("alice.qrl");
     await user.type(screen.getByRole("spinbutton", { name: "amount" }), "2.5");
-    await waitFor(() => expect(lookups.has("alice.qrl")).toBe(true), {
-      timeout: 3000,
-    });
+    await waitFor(
+      () => {
+        expect(lookups.has("alice.qrl")).toBe(true);
+      },
+      { timeout: 3000 },
+    );
 
     await user.clear(receiver);
     await user.paste("bob.qrl");
@@ -86,9 +89,12 @@ describe("TokenTransfer QRNS resolution", () => {
     const send = screen.getByRole("button", { name: "Send QRL" });
     expect(send).toBeDisabled();
 
-    await waitFor(() => expect(lookups.has("bob.qrl")).toBe(true), {
-      timeout: 3000,
-    });
+    await waitFor(
+      () => {
+        expect(lookups.has("bob.qrl")).toBe(true);
+      },
+      { timeout: 3000 },
+    );
     await act(async () => {
       lookups.get("bob.qrl")?.(BOB);
     });
@@ -96,7 +102,9 @@ describe("TokenTransfer QRNS resolution", () => {
     await act(async () => {
       await user.click(send);
     });
-    await waitFor(() => expect(signNativeToken).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(signNativeToken).toHaveBeenCalledTimes(1);
+    });
     const args = signNativeToken.mock.calls[0] as unknown as unknown[];
     expect(args[1]).toBe(BOB);
   }, 20000);

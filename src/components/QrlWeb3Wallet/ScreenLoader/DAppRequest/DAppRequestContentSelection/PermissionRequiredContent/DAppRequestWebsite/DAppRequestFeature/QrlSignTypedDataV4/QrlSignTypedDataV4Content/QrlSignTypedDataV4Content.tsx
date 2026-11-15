@@ -208,7 +208,7 @@ const QrlSignTypedDataV4Content = observer(() => {
             addToResponseData({ error: authorization.proceedError });
             return;
           }
-          await signTypedDataV4();
+          signTypedDataV4();
         }
       };
       setOnPermissionCallBack(onPermissionCallBack);
@@ -222,7 +222,7 @@ const QrlSignTypedDataV4Content = observer(() => {
   // @theqrl/web3 2.0.0 hashes typed data with a different domain struct, so
   // the 1.x digest can no longer be produced. The middleware refuses the
   // request before this screen opens; this guard covers any other entry.
-  const signTypedDataV4 = async () => {
+  const signTypedDataV4 = () => {
     addToResponseData({ error: new Error(TYPED_DATA_V4_UNSUPPORTED_MESSAGE) });
   };
 

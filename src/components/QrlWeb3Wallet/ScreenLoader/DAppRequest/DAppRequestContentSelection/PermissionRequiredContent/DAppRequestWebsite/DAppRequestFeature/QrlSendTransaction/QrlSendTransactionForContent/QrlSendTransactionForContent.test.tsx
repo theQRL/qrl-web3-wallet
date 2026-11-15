@@ -40,7 +40,9 @@ function attachEmitter(
     // in place before the event fires, exactly like the real PromiEvent
     // (which only emits after its internal async work starts).
     if (event === "transactionHash" && hash !== undefined) {
-      queueMicrotask(() => cb(hash));
+      queueMicrotask(() => {
+        cb(hash);
+      });
     }
     return promiEvent;
   };

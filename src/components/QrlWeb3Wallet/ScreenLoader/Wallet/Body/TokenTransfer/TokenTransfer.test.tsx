@@ -309,7 +309,9 @@ describe("TokenTransfer", () => {
     await fillForm("2.5");
     const sendButton = screen.getByRole("button", { name: "Send QRL" });
     expect(sendButton).toBeDisabled();
-    act(() => balance.set("100 QRL"));
+    act(() => {
+      balance.set("100 QRL");
+    });
     await waitFor(() => expect(sendButton).toBeEnabled());
     expect(screen.queryByText(
       "Balance unavailable. Check the network connection and try again.",

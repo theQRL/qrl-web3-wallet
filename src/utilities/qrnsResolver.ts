@@ -17,8 +17,7 @@ export async function resolveQrnsName(
   registryAddress?: string,
 ): Promise<string> {
   const qrns = new qrl.qrns.QRNS(registryAddress, rpcUrl);
-  const address = await qrns.getAddress(name);
-  const addr = String(address);
+  const addr = await qrns.getAddress(name);
   // Convert 0x-prefixed address to Q-prefixed
   if (addr.startsWith("0x")) {
     return "Q" + addr.slice(2);

@@ -64,9 +64,12 @@ describe("NFTTransfer QRNS resolution", () => {
     const receiver = screen.getByRole("textbox", { name: "receiverAddress" });
     await user.click(receiver);
     await user.paste("alice.qrl");
-    await waitFor(() => expect(lookups.has("alice.qrl")).toBe(true), {
-      timeout: 3000,
-    });
+    await waitFor(
+      () => {
+        expect(lookups.has("alice.qrl")).toBe(true);
+      },
+      { timeout: 3000 },
+    );
 
     await user.clear(receiver);
     await user.paste("bob.qrl");
@@ -78,9 +81,12 @@ describe("NFTTransfer QRNS resolution", () => {
     const send = screen.getByRole("button", { name: "Send NFT" });
     expect(send).toBeDisabled();
 
-    await waitFor(() => expect(lookups.has("bob.qrl")).toBe(true), {
-      timeout: 3000,
-    });
+    await waitFor(
+      () => {
+        expect(lookups.has("bob.qrl")).toBe(true);
+      },
+      { timeout: 3000 },
+    );
     await act(async () => {
       lookups.get("bob.qrl")?.(BOB);
     });
@@ -88,7 +94,9 @@ describe("NFTTransfer QRNS resolution", () => {
     await act(async () => {
       await user.click(send);
     });
-    await waitFor(() => expect(signNftTransfer).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(signNftTransfer).toHaveBeenCalledTimes(1);
+    });
     const args = signNftTransfer.mock.calls[0] as unknown as unknown[];
     expect(args[1]).toBe(BOB);
   }, 20000);

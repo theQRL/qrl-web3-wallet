@@ -192,9 +192,10 @@ class LockStore {
 
   async encryptAccount(account: Web3BaseWalletAccount, password: string) {
     // Never persist a keystore under an empty password. The service worker
-    // refuses this too; failing here as well keeps the guarantee visible at
-    // the call site and avoids a round trip for a request that can never
-    // succeed.
+    // refuses this too, and it also refuses the NUL-only forms that derive
+    // no key bytes; failing here for the empty string keeps the guarantee
+    // visible at the call site and avoids a round trip for a request that
+    // can never succeed.
     if (!password) {
       throw new Error("Refusing to encrypt an account without a password");
     }
