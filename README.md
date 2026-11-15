@@ -65,7 +65,7 @@ Rebuilds `Extension/` on every source change. Reload the extension in Chrome (`c
 
 ```sh
 npm test       # vitest run
-npm run lint   # eslint
+npm run lint   # eslint (see CONTRIBUTING.md)
 ```
 
 ## :dna: Features list
