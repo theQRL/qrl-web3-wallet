@@ -21,7 +21,14 @@ type KdfParamsLike = {
 
 export const shouldUpgradeKeystoreParams = (keystore: unknown): boolean => {
   if (!keystore || typeof keystore !== "object") return false;
-  const k = keystore as KdfParamsLike;
+  // Real keystores (the KeyStore type returned by encrypt()) nest
+  // kdf/kdfparams under `crypto`. A flat shape is still accepted so
+  // foreign inputs get evaluated too.
+  const outer = keystore as { crypto?: unknown };
+  const k: KdfParamsLike =
+    outer.crypto && typeof outer.crypto === "object"
+      ? (outer.crypto as KdfParamsLike)
+      : (keystore as KdfParamsLike);
   if (k.kdf && k.kdf !== "argon2id") {
     // Anything that is not argon2id (e.g. legacy scrypt) should be upgraded.
     return true;
