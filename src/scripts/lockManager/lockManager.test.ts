@@ -71,6 +71,7 @@ vi.mock("@/functions/getMnemonicFromHexSeed", () => ({
 
 import browser from "webextension-polyfill";
 import { encrypt } from "@theqrl/web3-qrl-accounts";
+import StorageUtil from "@/utilities/storageUtil";
 import LockManager, { LOCK_MANAGER_MESSAGES } from "./lockManager";
 import type { DecryptedKeyType } from "./lockManager";
 
@@ -379,6 +380,61 @@ describe("LockManager – keep-alive & auto-lock", () => {
     });
   });
 
+  describe("isLocked while the first keystore is being stored", () => {
+    it("keeps the session of an account stored during its storage read", async () => {
+      // First start: no keystore yet, the account list is already written.
+      localStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["Q20B714091cF2a62DADda2847803e3f1B9D2D3779"] };
+      mockEncrypt.mockResolvedValueOnce({
+        address: "Q20B714091cF2a62DADda2847803e3f1B9D2D3779",
+      });
+
+      // A lock-state read that has seen "no keystores" and now waits for the
+      // account list.
+      let releaseAccounts: () => void = () => undefined;
+      const accountsRead = new Promise<void>((resolve) => {
+        releaseAccounts = resolve;
+      });
+      const original = StorageUtil.getAllAccounts.bind(StorageUtil);
+      const spy = vi
+        .spyOn(StorageUtil, "getAllAccounts")
+        .mockImplementationOnce(async () => {
+          await accountsRead;
+          return original();
+        });
+      const staleRead = LockManager.isLocked();
+
+      // Meanwhile the first account is stored and the session gets its
+      // password.
+      await LockManager.encryptAccount({
+        seed: "" as any,
+        password: "correct horse battery staple",
+      });
+      expect(LockManager.getWalletPassword()).toBe(
+        "correct horse battery staple",
+      );
+
+      releaseAccounts();
+      expect(await staleRead).toEqual({ isLocked: false, hasPasswordSet: true });
+      expect(LockManager.getWalletPassword()).toBe(
+        "correct horse battery staple",
+      );
+      spy.mockRestore();
+      await LockManager.lock();
+    });
+
+    it("still drops the session when storage really holds no wallet", async () => {
+      LockManager.setDecryptedKeysFromPopup({
+        keys: MOCK_KEYS,
+        walletPassword: "correct horse battery staple",
+      });
+      expect(await LockManager.isLocked()).toEqual({
+        isLocked: true,
+        hasPasswordSet: false,
+      });
+      expect(() => LockManager.getWalletPassword()).toThrow();
+    });
+  });
+
   describe("encryptAccount", () => {
     it("should refuse an empty password and persist no keystore", async () => {
       await expect(
@@ -389,6 +445,37 @@ describe("LockManager – keep-alive & auto-lock", () => {
 
       expect(mockEncrypt).not.toHaveBeenCalled();
       expect(localStore["KEYSTORES"]).toBeUndefined();
+    });
+
+    it("keeps a keystore that was stored while another account was being encrypted", async () => {
+      let finishFirst: (keystore: { address: string }) => void = () =>
+        undefined;
+      mockEncrypt
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finishFirst = resolve;
+            }),
+        )
+        .mockResolvedValueOnce({ address: "Qbbb" });
+
+      const first = LockManager.encryptAccount({
+        seed: "" as any,
+        password: "correct horse battery staple",
+      });
+      await LockManager.encryptAccount({
+        seed: "" as any,
+        password: "correct horse battery staple",
+      });
+      finishFirst({ address: "Qaaa" });
+      await first;
+
+      const stored: { address: string }[] = JSON.parse(localStore["KEYSTORES"]);
+      expect(stored.map((keystore) => keystore.address)).toEqual([
+        "Qbbb",
+        "Qaaa",
+      ]);
+      await LockManager.lock();
     });
 
     it("should encrypt and persist the keystore with a non-empty password", async () => {
