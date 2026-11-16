@@ -1,7 +1,6 @@
 import { vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as Record<string, any>).IS_REACT_ACT_ENVIRONMENT = true;
 
 Object.defineProperty(window, "matchMedia", {
