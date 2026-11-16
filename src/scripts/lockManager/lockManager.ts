@@ -62,6 +62,9 @@ class LockManager {
   // Held in memory only — never written to session storage. Separating the
   // password from `decryptedKeys` reduces blast radius if either store leaks.
   private static walletPassword?: string;
+  // Counts the keystores this worker has stored since the last lock; see
+  // isLocked.
+  private static keystoreWrites = 0;
   static readonly AUTO_LOCK_ALARM = "QRL_AUTO_LOCK";
   static readonly KEEP_ALIVE_ALARM = "QRL_KEEP_ALIVE";
   private static readonly SESSION_KEYS_KEY = "_LM_CACHED_KEYS";
@@ -69,6 +72,7 @@ class LockManager {
   static async lock() {
     this.clearDecryptedKeys();
     this.walletPassword = undefined;
+    this.keystoreWrites = 0;
     await this.clearSessionKeys();
     await this.stopKeepAlive();
     await this.clearAutoLockAlarm();
@@ -214,11 +218,26 @@ class LockManager {
     }
   }
 
-  static async isLocked() {
+  static async isLocked(): Promise<{
+    isLocked: boolean;
+    hasPasswordSet: boolean;
+  }> {
+    const keystoreWrites = this.keystoreWrites;
     const keyStores = await StorageUtil.getKeystores();
     const accounts = await StorageUtil.getAllAccounts();
+    if (keystoreWrites !== this.keystoreWrites) {
+      // encryptAccount stored a keystore while this read was under way. The
+      // lists above can predate it, and judging by them would take the first
+      // account of a new wallet for "no wallet" and drop the session that
+      // was set a moment ago. Read again.
+      return this.isLocked();
+    }
     const hasPasswordSet = keyStores.length > 0 && accounts.length > 0;
-    if (!hasPasswordSet) {
+    // The popup writes the account list on its own, and at first start it
+    // can arrive after the keystore this worker has just stored. That is a
+    // wallet being set up, and its session stays.
+    const accountListPending = keyStores.length > 0 && this.keystoreWrites > 0;
+    if (!hasPasswordSet && !accountListPending) {
       // Storage looks like a first-run / partial-reset state. Drop any
       // in-memory keys but do NOT wipe persistent storage from a query
       // path — the popup's onboarding flow will guide the user. An
@@ -270,8 +289,10 @@ class LockManager {
     if (!password) {
       throw new Error("Refusing to encrypt an account without a password");
     }
-    const keystores = await StorageUtil.getKeystores();
     const encryptedKeyStore = await encrypt(seed, password);
+    // Read the stored list after the derivation, right before writing it
+    // back, so an account stored meanwhile from another window is kept.
+    const keystores = await StorageUtil.getKeystores();
     const updatedKeyStores = [...keystores, encryptedKeyStore];
     await StorageUtil.setKeystores(
       Array.from(
@@ -280,6 +301,7 @@ class LockManager {
         ).values(),
       ),
     );
+    this.keystoreWrites += 1;
     // Add the new account key directly to in-memory keys
     // instead of re-decrypting everything (which would block the SW).
     const newKey: DecryptedKeyType = {
