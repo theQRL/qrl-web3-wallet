@@ -91,8 +91,8 @@ const TransactionHistory = observer(() => {
                 <TabsTrigger value="native" className="flex-1">
                   {t('txHistory.filterNative')}
                 </TabsTrigger>
-                <TabsTrigger value="zrc20" className="flex-1">
-                  {t('txHistory.filterZrc20')}
+                <TabsTrigger value="qrc20" className="flex-1">
+                  {t('txHistory.filterQrc20')}
                 </TabsTrigger>
                 <TabsTrigger value="nft" className="flex-1">
                   {t('txHistory.filterNft')}

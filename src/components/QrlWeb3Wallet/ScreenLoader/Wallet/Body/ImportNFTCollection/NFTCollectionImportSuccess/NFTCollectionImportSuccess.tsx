@@ -46,7 +46,7 @@ const NFTCollectionImportSuccess = observer(
         address: contractAddress,
         name: name ?? "",
         symbol: symbol ?? "",
-        standard: "ZRC721",
+        standard: "QRC721",
         image: "",
       });
       navigate(ROUTES.HOME);
@@ -81,7 +81,7 @@ const NFTCollectionImportSuccess = observer(
             </div>
             <div className="flex flex-col gap-1">
               <div>{t('nft.standard')}</div>
-              <div className="font-bold text-secondary">ZRC-721</div>
+              <div className="font-bold text-secondary">QRC-721</div>
             </div>
             <div className="flex flex-col gap-1">
               <div>{t('nft.ownedCount')}</div>

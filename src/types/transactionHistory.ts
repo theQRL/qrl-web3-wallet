@@ -13,7 +13,7 @@ export type TransactionHistoryEntry = {
   amount: number;
   tokenSymbol: string;
   tokenName: string;
-  isZrc20Token: boolean;
+  isQrc20Token: boolean;
   tokenContractAddress: string;
   tokenDecimals: number;
   transactionHash: string;
@@ -35,4 +35,4 @@ export type TransactionHistoryEntry = {
   replacedByAction?: "speed-up" | "cancel";
 };
 
-export type TokenFilter = "all" | "native" | "zrc20" | "nft";
+export type TokenFilter = "all" | "native" | "qrc20" | "nft";

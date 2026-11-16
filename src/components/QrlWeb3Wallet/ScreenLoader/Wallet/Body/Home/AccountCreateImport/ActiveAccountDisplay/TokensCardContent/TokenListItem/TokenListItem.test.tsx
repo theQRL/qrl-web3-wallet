@@ -40,7 +40,7 @@ describe("TokenListItem", () => {
       symbol: "QRL",
       contractAddress: "Q000000000000000000000000000000000000000000000000000000000db3981cb93db985e4e3a62ff695f7a1b242dd7c00000000000000000000000000000000",
       decimals: 18,
-      isZrc20Token: false,
+      isQrc20Token: false,
       image: "",
     },
   ) =>
@@ -76,9 +76,9 @@ describe("TokenListItem", () => {
     expect(moreButton).toBeEnabled();
   });
 
-  it("should disable the hide token button if the token is not ZRC 20", async () => {
+  it("should disable the hide token button if the token is not QRC-20", async () => {
     renderComponent(mockedStore(), {
-      isZrc20Token: false,
+      isQrc20Token: false,
       image: "",
       balance: "",
       name: "",
@@ -97,7 +97,7 @@ describe("TokenListItem", () => {
   it("should hide the token on clicking the hide token button", async () => {
     const mockedTriggerReRender = vi.fn(() => {});
     renderComponent(mockedStore(), {
-      isZrc20Token: true,
+      isQrc20Token: true,
       image: "",
       balance: "",
       name: "",

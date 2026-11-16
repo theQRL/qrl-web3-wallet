@@ -5,25 +5,25 @@ import { useEffect, useState } from "react";
 import TokenListItem from "../../TokenListItem/TokenListItem";
 import TokenListItemLoading from "../../TokenListItemLoading/TokenListItemLoading";
 
-type ZRC20TokenProps = {
+type QRC20TokenProps = {
   contractAddress: string;
   tokenImage: string;
   triggerReRender?: () => void;
 };
 
-const ZRC20Token = observer(
-  ({ contractAddress, tokenImage, triggerReRender }: ZRC20TokenProps) => {
+const QRC20Token = observer(
+  ({ contractAddress, tokenImage, triggerReRender }: QRC20TokenProps) => {
     const { qrlStore } = useStore();
-    const { qrlConnection, activeAccount, getZrc20TokenDetails } = qrlStore;
+    const { qrlConnection, activeAccount, getQrc20TokenDetails } = qrlStore;
     const { blockchain } = qrlConnection;
     const { accountAddress } = activeAccount;
 
     const [token, setToken] =
-      useState<Awaited<ReturnType<typeof getZrc20TokenDetails>>["token"]>();
+      useState<Awaited<ReturnType<typeof getQrc20TokenDetails>>["token"]>();
 
     useEffect(() => {
       (async () => {
-        const tokenDetails = await getZrc20TokenDetails(contractAddress);
+        const tokenDetails = await getQrc20TokenDetails(contractAddress);
         if (!tokenDetails.error) {
           setToken(tokenDetails.token);
         }
@@ -34,7 +34,7 @@ const ZRC20Token = observer(
       <TokenListItemLoading />
     ) : (
       <TokenListItem
-        isZrc20Token={true}
+        isQrc20Token={true}
         contractAddress={contractAddress}
         decimals={Number(token.decimals)}
         balance={getOptimalTokenBalance(token.balance.toString(), token.symbol)}
@@ -47,4 +47,4 @@ const ZRC20Token = observer(
   },
 );
 
-export default ZRC20Token;
+export default QRC20Token;

@@ -1,4 +1,4 @@
-export type NFTStandard = "ZRC721" | "ZRC1155";
+export type NFTStandard = "QRC721" | "QRC1155";
 
 export type NFTCollectionType = {
   address: string;

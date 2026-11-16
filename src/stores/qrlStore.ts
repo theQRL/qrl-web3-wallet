@@ -4,15 +4,15 @@ import {
 } from "@/configuration/qrlBlockchainConfig";
 import { NATIVE_TOKEN_UNITS_OF_GAS } from "@/constants/nativeToken";
 import {
-  ZRC_721_CONTRACT_ABI,
+  QRC_721_CONTRACT_ABI,
   ERC_721_INTERFACE_ID,
   ERC_721_ENUMERABLE_INTERFACE_ID,
   NFT_UNITS_OF_GAS,
 } from "@/constants/nftToken";
 import {
-  ZRC_20_CONTRACT_ABI,
-  ZRC_20_TOKEN_UNITS_OF_GAS,
-} from "@/constants/zrc20Token";
+  QRC_20_CONTRACT_ABI,
+  QRC_20_TOKEN_UNITS_OF_GAS,
+} from "@/constants/qrc20Token";
 import { getOptimalTokenBalance } from "@/functions/getOptimalTokenBalance";
 import type { GasFeeOverrides } from "@/types/gasFee";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
@@ -66,9 +66,9 @@ class QrlStore {
       getAccountBalance: action.bound,
       getNativeTokenGas: action.bound,
       signNativeToken: action.bound,
-      getZrc20TokenDetails: action.bound,
-      getZrc20TokenGas: action.bound,
-      signZrc20Token: action.bound,
+      getQrc20TokenDetails: action.bound,
+      getQrc20TokenGas: action.bound,
+      signQrc20Token: action.bound,
       signAndSendReplacementTransaction: action.bound,
       getTransactionReceipt: action.bound,
       sendRawTransaction: action.bound,
@@ -376,7 +376,7 @@ class QrlStore {
     return result;
   }
 
-  async getZrc20TokenDetails(contractAddress: string) {
+  async getQrc20TokenDetails(contractAddress: string) {
     if (AddressUtil.isLegacyQrlAddress(this.activeAccount.accountAddress)) {
       return { token: undefined, error: LEGACY_ACCOUNT_RECOVERY_MESSAGE };
     }
@@ -385,7 +385,7 @@ class QrlStore {
       error: "",
     };
 
-    const contractAbi = ZRC_20_CONTRACT_ABI;
+    const contractAbi = QRC_20_CONTRACT_ABI;
 
     if (this.qrlInstance && this.qrlInstance.Contract) {
       try {
@@ -434,7 +434,7 @@ class QrlStore {
     if (this.qrlInstance && this.qrlInstance.Contract) {
       try {
         const contract = new this.qrlInstance.Contract(
-          ZRC_721_CONTRACT_ABI,
+          QRC_721_CONTRACT_ABI,
           contractAddress,
         );
 
@@ -444,7 +444,7 @@ class QrlStore {
           .call()) as boolean;
 
         if (!isErc721) {
-          return { ...result, error: "Contract does not support ZRC-721" };
+          return { ...result, error: "Contract does not support QRC-721" };
         }
 
         const name = (await contract.methods.name().call()) as string;
@@ -477,7 +477,7 @@ class QrlStore {
     if (this.qrlInstance && this.qrlInstance.Contract) {
       try {
         const contract = new this.qrlInstance.Contract(
-          ZRC_721_CONTRACT_ABI,
+          QRC_721_CONTRACT_ABI,
           contractAddress,
         );
 
@@ -505,7 +505,7 @@ class QrlStore {
             tokenIds.push(tokenId.toString());
           }
         } else if (balance > 0) {
-          // TODO: contract does not implement the optional ZRC-721 Enumerable
+          // TODO: contract does not implement the optional QRC-721 Enumerable
           // extension (supportsInterface(0x780e9d63) == false), so we cannot
           // call tokenOfOwnerByIndex to enumerate the user's holdings.
           //
@@ -536,7 +536,7 @@ class QrlStore {
     if (this.qrlInstance && this.qrlInstance.Contract) {
       try {
         const contract = new this.qrlInstance.Contract(
-          ZRC_721_CONTRACT_ABI,
+          QRC_721_CONTRACT_ABI,
           contractAddress,
         );
         const uri = (await contract.methods
@@ -560,7 +560,7 @@ class QrlStore {
     if (this.qrlInstance && this.qrlInstance.Contract) {
       try {
         const contract = new this.qrlInstance.Contract(
-          ZRC_721_CONTRACT_ABI,
+          QRC_721_CONTRACT_ABI,
           contractAddress,
         );
         const transferCall = contract.methods.safeTransferFrom(
@@ -610,7 +610,7 @@ class QrlStore {
     if (this.qrlInstance && this.qrlInstance.Contract) {
       try {
         const contract = new this.qrlInstance.Contract(
-          ZRC_721_CONTRACT_ABI,
+          QRC_721_CONTRACT_ABI,
           contractAddress,
         );
         const transferCall = contract.methods.safeTransferFrom(
@@ -687,7 +687,7 @@ class QrlStore {
     return result;
   }
 
-  async getZrc20TokenGas(
+  async getQrc20TokenGas(
     from: string,
     to: string,
     value: number,
@@ -697,7 +697,7 @@ class QrlStore {
   ) {
     if (this.qrlInstance && this.qrlInstance.Contract) {
       const contract = new this.qrlInstance.Contract(
-        ZRC_20_CONTRACT_ABI,
+        QRC_20_CONTRACT_ABI,
         contractAddress,
       );
       const contractTransfer = contract.methods.transfer(
@@ -721,7 +721,7 @@ class QrlStore {
     return "";
   }
 
-  async signZrc20Token(
+  async signQrc20Token(
     from: string,
     to: string,
     value: number,
@@ -741,7 +741,7 @@ class QrlStore {
       data?: string;
     } = { error: "" };
 
-    const contractAbi = ZRC_20_CONTRACT_ABI;
+    const contractAbi = QRC_20_CONTRACT_ABI;
 
     if (this.qrlInstance && this.qrlInstance.Contract) {
       try {
@@ -758,7 +758,7 @@ class QrlStore {
         const gasLimit =
           overrides?.tier === "advanced" && overrides.gasLimit
             ? overrides.gasLimit
-            : ZRC_20_TOKEN_UNITS_OF_GAS;
+            : QRC_20_TOKEN_UNITS_OF_GAS;
         const nonce = await this.qrlInstance?.getTransactionCount(from);
         const encodedData = contractTransfer.encodeABI();
         const transactionObject = {
@@ -854,17 +854,17 @@ class QrlStore {
       } else {
         transactionObject = {
           from: originalTx.from,
-          to: originalTx.isZrc20Token
+          to: originalTx.isQrc20Token
             ? originalTx.tokenContractAddress
             : originalTx.to,
-          value: originalTx.isZrc20Token
+          value: originalTx.isQrc20Token
             ? "0"
             : utils.toPlanck(originalTx.amount, "quanta"),
           nonce,
           gasLimit:
             originalTx.gasLimit ??
-            (originalTx.isZrc20Token
-              ? ZRC_20_TOKEN_UNITS_OF_GAS
+            (originalTx.isQrc20Token
+              ? QRC_20_TOKEN_UNITS_OF_GAS
               : NATIVE_TOKEN_UNITS_OF_GAS),
           maxFeePerGas: `0x${finalMaxFee.toString(16)}`,
           maxPriorityFeePerGas: `0x${finalPriorityFee.toString(16)}`,

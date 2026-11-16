@@ -16,7 +16,7 @@ import {
 } from "@/components/UI/Form";
 import { Input } from "@/components/UI/Input";
 import { Label } from "@/components/UI/Label";
-import { NFT_UNITS_OF_GAS, ZRC_721_CONTRACT_ABI } from "@/constants/nftToken";
+import { NFT_UNITS_OF_GAS, QRC_721_CONTRACT_ABI } from "@/constants/nftToken";
 import { ROUTES } from "@/router/router";
 import { useStore } from "@/stores/store";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
@@ -127,7 +127,7 @@ const NFTTransfer = observer(() => {
       }
 
       const contract = new qrlInstance.Contract(
-        ZRC_721_CONTRACT_ABI,
+        QRC_721_CONTRACT_ABI,
         contractAddress,
       );
       const transferCall = contract.methods.safeTransferFrom(
@@ -231,7 +231,7 @@ const NFTTransfer = observer(() => {
         amount: 0,
         tokenSymbol: collectionName,
         tokenName: `${nftName || collectionName} #${tokenId}`,
-        isZrc20Token: false,
+        isQrc20Token: false,
         tokenContractAddress: contractAddress,
         tokenDecimals: 0,
         transactionHash,

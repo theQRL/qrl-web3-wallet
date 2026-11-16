@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/components/UI/Tooltip";
-import ZRC20Token from "./ZRC20Token";
+import QRC20Token from "./QRC20Token";
 
 vi.mock("@/utilities/storageUtil", async () => {
   const originalModule = await vi.importActual<
@@ -37,7 +37,7 @@ vi.mock(
   () => ({ default: () => <div>Mocked Token List Item</div> }),
 );
 
-describe("ZRC20Token", () => {
+describe("QRC20Token", () => {
   afterEach(cleanup);
 
   const renderComponent = (mockedStoreValues = mockedStore()) =>
@@ -45,7 +45,7 @@ describe("ZRC20Token", () => {
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter>
           <TooltipProvider>
-            <ZRC20Token
+            <QRC20Token
               contractAddress="Q000000000000000000000000000000000000000000000000000000000db3981cb93db985e4e3a62ff695f7a1b242dd7c00000000000000000000000000000000"
               tokenImage=""
             />
@@ -54,11 +54,11 @@ describe("ZRC20Token", () => {
       </StoreProvider>,
     );
 
-  it("should render the zrc 20 token component", async () => {
+  it("should render the QRC-20 token component", async () => {
     renderComponent(
       mockedStore({
         qrlStore: {
-          getZrc20TokenDetails: async (_contractAddress: string) => {
+          getQrc20TokenDetails: async (_contractAddress: string) => {
             return {
               token: {
                 balance: 65,

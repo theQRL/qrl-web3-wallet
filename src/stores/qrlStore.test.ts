@@ -83,7 +83,7 @@ describe("QrlStore account balances", () => {
       store.activeAccount = { accountAddress: fixtures.D.keystore.address };
     });
 
-    expect(await store.getZrc20TokenDetails(modernAddress)).toEqual({
+    expect(await store.getQrc20TokenDetails(modernAddress)).toEqual({
       token: undefined,
       error: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
     });

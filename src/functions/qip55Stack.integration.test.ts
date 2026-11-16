@@ -10,8 +10,8 @@ import {
 import { FeeMarketEIP1559Transaction } from "@theqrl/web3-qrl-accounts";
 import { getEncodedQRLTypedData } from "@theqrl/web3-qrl-abi";
 import { validator } from "@theqrl/web3-validator";
-import { ZRC_20_CONTRACT_ABI } from "@/constants/zrc20Token";
-import { ZRC_721_CONTRACT_ABI } from "@/constants/nftToken";
+import { QRC_20_CONTRACT_ABI } from "@/constants/qrc20Token";
+import { QRC_721_CONTRACT_ABI } from "@/constants/nftToken";
 import { getHexSeedFromMnemonic } from "./getHexSeedFromMnemonic";
 import { getMnemonicFromHexSeed } from "./getMnemonicFromHexSeed";
 
@@ -75,7 +75,7 @@ describe("64-byte wallet stack", () => {
       "42",
     ]);
     const contract = new web3.qrl.Contract(
-      ZRC_20_CONTRACT_ABI,
+      QRC_20_CONTRACT_ABI,
       contractAddress,
     );
     expect(contract.methods.transfer(recipient, 42n).encodeABI()).toBe(data);
@@ -117,7 +117,7 @@ describe("64-byte wallet stack", () => {
 
   it("signs and decodes a QRC20 transfer offline", async () => {
     const contract = new web3.qrl.Contract(
-      ZRC_20_CONTRACT_ABI,
+      QRC_20_CONTRACT_ABI,
       contractAddress,
     );
     const data = contract.methods.transfer(recipient, 42n).encodeABI();
@@ -153,7 +153,7 @@ describe("64-byte wallet stack", () => {
 
   it("encodes an NFT transfer with full sender and recipient addresses", () => {
     const contract = new web3.qrl.Contract(
-      ZRC_721_CONTRACT_ABI,
+      QRC_721_CONTRACT_ABI,
       contractAddress,
     );
     const data = contract.methods

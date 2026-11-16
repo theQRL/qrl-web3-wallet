@@ -75,7 +75,7 @@ const mockedStoreValues: StoreType = {
         maxPriorityFeePerGas: BigInt(0),
       };
     },
-    getZrc20TokenDetails: async () => ({
+    getQrc20TokenDetails: async () => ({
       token: undefined,
       error: "",
     }),
@@ -91,7 +91,7 @@ const mockedStoreValues: StoreType = {
       rawTransaction: undefined,
       error: "",
     }),
-    getZrc20TokenGas: async (
+    getQrc20TokenGas: async (
       _from: string,
       _to: string,
       _value: number,
@@ -100,7 +100,7 @@ const mockedStoreValues: StoreType = {
     ) => {
       return "";
     },
-    signZrc20Token: async (
+    signQrc20Token: async (
       _from: string,
       _to: string,
       _value: number,

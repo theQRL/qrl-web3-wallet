@@ -17,9 +17,9 @@ import { Input } from "@/components/UI/Input";
 import { Label } from "@/components/UI/Label";
 import { NATIVE_TOKEN } from "@/constants/nativeToken";
 import {
-  ZRC_20_CONTRACT_ABI,
-  ZRC_20_TOKEN_UNITS_OF_GAS,
-} from "@/constants/zrc20Token";
+  QRC_20_CONTRACT_ABI,
+  QRC_20_TOKEN_UNITS_OF_GAS,
+} from "@/constants/qrc20Token";
 import { formatFiatCompact } from "@/functions/formatFiat";
 import { parseBalanceValue } from "@/functions/parseBalanceValue";
 import { ROUTES } from "@/router/router";
@@ -86,7 +86,7 @@ const TokenTransfer = observer(() => {
     activeAccount,
     signNativeToken,
     fetchAccounts,
-    signZrc20Token,
+    signQrc20Token,
     sendRawTransaction,
     qrlInstance,
     getGasFeeData,
@@ -96,7 +96,7 @@ const TokenTransfer = observer(() => {
   const { signingError, canSign } = useAccountSigning(accountAddress);
   const accountBalance = getAccountBalance(accountAddress);
 
-  const [isZrc20Token, setIsZrc20Token] = useState(false);
+  const [isQrc20Token, setIsQrc20Token] = useState(false);
   const [tokenContractAddress, setTokenContractAddress] = useState("");
   const [tokenDecimals, setTokenDecimals] = useState(0);
   const [tokenImage, setTokenImage] = useState(NATIVE_TOKEN.image);
@@ -115,7 +115,7 @@ const TokenTransfer = observer(() => {
   const [qrnsError, setQrnsError] = useState<string | null>(null);
   const isBalanceUnavailable =
     accountBalance === "Unavailable" ||
-    (isZrc20Token && tokenBalance === "Unavailable");
+    (isQrc20Token && tokenBalance === "Unavailable");
 
   type SignResult = {
     transactionHash?: string;
@@ -196,15 +196,15 @@ const TokenTransfer = observer(() => {
     return result;
   };
 
-  const signZrc20TokenLocal = async (
+  const signQrc20TokenLocal = async (
     formData: z.infer<typeof FormSchema>,
   ): Promise<SignResult> => {
     const isLedgerAccount = ledgerStore.isLedgerAccount(accountAddress);
     if (isLedgerAccount) {
-      return await signZrc20TokenWithLedger(formData);
+      return await signQrc20TokenWithLedger(formData);
     } else {
       const seed = await getAccountSeed(accountAddress);
-      return await signZrc20Token(
+      return await signQrc20Token(
         accountAddress,
         formData.receiverAddress,
         formData.amount,
@@ -216,7 +216,7 @@ const TokenTransfer = observer(() => {
     }
   };
 
-  const signZrc20TokenWithLedger = async (
+  const signQrc20TokenWithLedger = async (
     formData: z.infer<typeof FormSchema>,
   ): Promise<SignResult> => {
     let result: SignResult = { error: "" };
@@ -227,7 +227,7 @@ const TokenTransfer = observer(() => {
       }
 
       const contract = new qrlInstance.Contract(
-        ZRC_20_CONTRACT_ABI,
+        QRC_20_CONTRACT_ABI,
         tokenContractAddress,
       );
       const contractTransfer = contract.methods.transfer(
@@ -240,7 +240,7 @@ const TokenTransfer = observer(() => {
       const gasLimit =
         gasFeeOverrides?.tier === "advanced" && gasFeeOverrides.gasLimit
           ? gasFeeOverrides.gasLimit
-          : ZRC_20_TOKEN_UNITS_OF_GAS;
+          : QRC_20_TOKEN_UNITS_OF_GAS;
       const nonce = await qrlInstance.getTransactionCount(accountAddress);
       const chainId = await qrlInstance.getChainId();
 
@@ -273,7 +273,7 @@ const TokenTransfer = observer(() => {
         data: encodedData,
       };
     } catch (error) {
-      console.error("[TokenTransfer] Ledger ZRC-20 signing failed:", error);
+      console.error("[TokenTransfer] Ledger QRC-20 signing failed:", error);
       result.error = error instanceof Error ? error.message : String(error);
     }
 
@@ -296,8 +296,8 @@ const TokenTransfer = observer(() => {
 
       // Step 1: Sign the transaction (fast — no blockchain wait)
       let signResult: SignResult;
-      if (isZrc20Token) {
-        signResult = await signZrc20TokenLocal(formData);
+      if (isQrc20Token) {
+        signResult = await signQrc20TokenLocal(formData);
       } else {
         signResult = await signNativeTokenLocal(formData);
       }
@@ -336,7 +336,7 @@ const TokenTransfer = observer(() => {
         amount: formData.amount,
         tokenSymbol,
         tokenName,
-        isZrc20Token,
+        isQrc20Token,
         tokenContractAddress,
         tokenDecimals,
         transactionHash,
@@ -442,7 +442,7 @@ const TokenTransfer = observer(() => {
         const tokenDetailsFromStorage = storedTransactionValues?.tokenDetails;
         const tokenDetailsFromState = state?.tokenDetails;
         let tokenDetails = {
-          isZrc20Token,
+          isQrc20Token,
           tokenContractAddress,
           tokenDecimals,
           tokenImage,
@@ -453,7 +453,7 @@ const TokenTransfer = observer(() => {
 
         if (tokenDetailsFromState) {
           await resetForm();
-          setIsZrc20Token(tokenDetailsFromState?.isZrc20Token);
+          setIsQrc20Token(tokenDetailsFromState?.isQrc20Token);
           setTokenContractAddress(tokenDetailsFromState?.tokenContractAddress);
           setTokenDecimals(tokenDetailsFromState?.tokenDecimals);
           setTokenImage(tokenDetailsFromState?.tokenImage);
@@ -462,7 +462,7 @@ const TokenTransfer = observer(() => {
           setTokenSymbol(tokenDetailsFromState?.tokenSymbol);
           tokenDetails = { ...tokenDetailsFromState };
         } else if (tokenDetailsFromStorage) {
-          setIsZrc20Token(tokenDetailsFromStorage?.isZrc20Token ?? false);
+          setIsQrc20Token(tokenDetailsFromStorage?.isQrc20Token ?? false);
           setTokenContractAddress(
             tokenDetailsFromStorage?.tokenContractAddress,
           );
@@ -488,7 +488,7 @@ const TokenTransfer = observer(() => {
       await StorageUtil.setTransactionValues({
         ...value,
         tokenDetails: {
-          isZrc20Token,
+          isQrc20Token,
           tokenContractAddress,
           tokenDecimals,
           tokenImage,
@@ -501,7 +501,7 @@ const TokenTransfer = observer(() => {
     return () => formWatchSubscription.unsubscribe();
   }, [
     watch,
-    isZrc20Token,
+    isQrc20Token,
     tokenContractAddress,
     tokenDecimals,
     tokenImage,
@@ -529,7 +529,7 @@ const TokenTransfer = observer(() => {
     const sendAmount = new BigNumber(watchedAmount);
     const nativeBalance = parseBalanceValue(accountBalance);
 
-    if (isZrc20Token) {
+    if (isQrc20Token) {
       const tokenBal = parseBalanceValue(tokenBalance);
       if (sendAmount.greaterThan(tokenBal)) {
         setBalanceError(t("transfer.errorInsufficientToken", { tokenSymbol }));
@@ -552,7 +552,7 @@ const TokenTransfer = observer(() => {
     watchedAmount,
     estimatedGasFee,
     tokenBalance,
-    isZrc20Token,
+    isQrc20Token,
     accountAddress,
     accountBalance,
     isBalanceUnavailable,
@@ -711,7 +711,7 @@ const TokenTransfer = observer(() => {
                           </FormControl>
                           <FormDescription>
                             {t("transfer.amountDescription")}
-                            {!isZrc20Token &&
+                            {!isQrc20Token &&
                               settingsStore.showBalanceAndPrice &&
                               priceStore.getPrice(settingsStore.currency) > 0 &&
                               field.value > 0 && (
@@ -737,7 +737,7 @@ const TokenTransfer = observer(() => {
                   </div>
                   {canSign && (
                     <GasFeeSelector
-                      isZrc20Token={isZrc20Token}
+                      isQrc20Token={isQrc20Token}
                       tokenContractAddress={tokenContractAddress}
                       tokenDecimals={tokenDecimals}
                       from={accountAddress}

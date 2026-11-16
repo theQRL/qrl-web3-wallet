@@ -35,11 +35,11 @@ const ImportToken = withSuspense(
       ),
   ),
 );
-const AllZRC20Tokens = withSuspense(
+const AllQRC20Tokens = withSuspense(
   lazy(
     () =>
       import(
-        "@/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/AllZRC20Tokens/AllZRC20Tokens"
+        "@/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/AllQRC20Tokens/AllQRC20Tokens"
       ),
   ),
 );
@@ -230,7 +230,7 @@ export const ROUTES = {
   NFT_GALLERY: "/nft-gallery",
   NFT_DETAIL: "/nft-detail",
   NFT_TRANSFER: "/nft-transfer",
-  ALL_ZRC_20_TOKENS: "/all-zrc-20-tokens",
+  ALL_QRC_20_TOKENS: "/all-qrc-20-tokens",
   TOKEN_TRANSFER: "/token-transfer",
   ACCOUNT_LIST: "/account-list",
   DAPP_CONNECTIVITY: "/dapp-connectivity",
@@ -293,8 +293,8 @@ const router = createMemoryRouter([
         element: <NFTTransfer />,
       },
       {
-        path: ROUTES.ALL_ZRC_20_TOKENS,
-        element: <AllZRC20Tokens />,
+        path: ROUTES.ALL_QRC_20_TOKENS,
+        element: <AllQRC20Tokens />,
       },
       {
         path: ROUTES.TOKEN_TRANSFER,

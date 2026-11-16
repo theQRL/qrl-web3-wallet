@@ -2,16 +2,16 @@ import { useStore } from "@/stores/store";
 import StorageUtil from "@/utilities/storageUtil";
 import { observer } from "mobx-react-lite";
 import { useEffect, useState } from "react";
-import ZRC20Token from "./ZRC20Token/ZRC20Token";
-import { ZRC_20_ITEMS_DISPLAY_LIMIT } from "@/constants/zrc20Token";
+import QRC20Token from "./QRC20Token/QRC20Token";
+import { QRC_20_ITEMS_DISPLAY_LIMIT } from "@/constants/qrc20Token";
 import { TokenContractType } from "@/scripts/middlewares/middlewareTypes";
 
-type ZRC20TokensProps = {
+type QRC20TokensProps = {
   shouldDisplayAllTokens?: boolean;
 };
 
-const ZRC20Tokens = observer(
-  ({ shouldDisplayAllTokens = false }: ZRC20TokensProps) => {
+const QRC20Tokens = observer(
+  ({ shouldDisplayAllTokens = false }: QRC20TokensProps) => {
     const { qrlStore } = useStore();
     const { activeAccount, qrlConnection } = qrlStore;
     const { accountAddress } = activeAccount;
@@ -25,7 +25,7 @@ const ZRC20Tokens = observer(
     const numberOfTokens = tokenContractsList.length;
     const displayLimit = shouldDisplayAllTokens
       ? numberOfTokens + 1
-      : ZRC_20_ITEMS_DISPLAY_LIMIT;
+      : QRC_20_ITEMS_DISPLAY_LIMIT;
 
     useEffect(() => {
       (async () => {
@@ -46,7 +46,7 @@ const ZRC20Tokens = observer(
     return (
       <>
         {tokenContractsList.slice(0, displayLimit).map(({ address, image }) => (
-          <ZRC20Token
+          <QRC20Token
             key={address}
             contractAddress={address}
             tokenImage={image}
@@ -58,4 +58,4 @@ const ZRC20Tokens = observer(
   },
 );
 
-export default ZRC20Tokens;
+export default QRC20Tokens;

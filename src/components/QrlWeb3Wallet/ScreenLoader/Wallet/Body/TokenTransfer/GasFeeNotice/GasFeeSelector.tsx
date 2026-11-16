@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type GasFeeSelectorProps = {
-  isZrc20Token: boolean;
+  isQrc20Token: boolean;
   tokenContractAddress: string;
   tokenDecimals: number;
   from: string;
@@ -37,7 +37,7 @@ type TierConfig = {
 
 export const GasFeeSelector = observer(
   ({
-    isZrc20Token,
+    isQrc20Token,
     tokenContractAddress,
     tokenDecimals,
     from,
@@ -69,7 +69,7 @@ export const GasFeeSelector = observer(
     ], [t]);
     const { defaultGasTier, showBalanceAndPrice, currency } = settingsStore;
     const qrlPrice = priceStore.getPrice(currency);
-    const { getNativeTokenGas, getZrc20TokenGas } = qrlStore;
+    const { getNativeTokenGas, getQrc20TokenGas } = qrlStore;
 
     const initialTier =
       defaultGasTier === "advanced" ? "market" : defaultGasTier;
@@ -90,8 +90,8 @@ export const GasFeeSelector = observer(
     const calculateGasForTier = useCallback(
       async (tier: GasTier): Promise<string> => {
         const overrides: GasFeeOverrides = { tier };
-        if (isZrc20Token) {
-          return await getZrc20TokenGas(
+        if (isQrc20Token) {
+          return await getQrc20TokenGas(
             from,
             to,
             value,
@@ -106,11 +106,11 @@ export const GasFeeSelector = observer(
         from,
         to,
         value,
-        isZrc20Token,
+        isQrc20Token,
         tokenContractAddress,
         tokenDecimals,
         getNativeTokenGas,
-        getZrc20TokenGas,
+        getQrc20TokenGas,
       ],
     );
 

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 const WatchAssetVerification = observer(() => {
   const { dAppRequestStore, qrlStore } = useStore();
-  const { getZrc20TokenDetails } = qrlStore;
+  const { getQrc20TokenDetails } = qrlStore;
   const { dAppRequestData } = dAppRequestStore;
   const paramsObject = dAppRequestData?.params[0];
   const contractAddress = paramsObject?.options?.address ?? "";
@@ -18,7 +18,7 @@ const WatchAssetVerification = observer(() => {
 
   useEffect(() => {
     (async () => {
-      const tokenDetails = await getZrc20TokenDetails(contractAddress);
+      const tokenDetails = await getQrc20TokenDetails(contractAddress);
       if (tokenDetails.error) {
         setVerificationResult(`Failed to fetch details for ${contractAddress}`);
       } else {

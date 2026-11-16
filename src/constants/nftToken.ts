@@ -2,7 +2,7 @@
 // ERC-721 Enumerable interface ID: 0x780e9d63
 // ERC-165 (supportsInterface) interface ID: 0x01ffc9a7
 
-export const ZRC_721_CONTRACT_ABI = [
+export const QRC_721_CONTRACT_ABI = [
   // ERC-165
   {
     inputs: [{ internalType: "bytes4", name: "interfaceId", type: "bytes4" }],

@@ -31,7 +31,7 @@ const sampleTransaction: TransactionHistoryEntry = {
   amount: 2.5,
   tokenSymbol: "QRL",
   tokenName: "QRL",
-  isZrc20Token: false,
+  isQrc20Token: false,
   tokenContractAddress: "",
   tokenDecimals: 18,
   transactionHash: "0xabc123def456",

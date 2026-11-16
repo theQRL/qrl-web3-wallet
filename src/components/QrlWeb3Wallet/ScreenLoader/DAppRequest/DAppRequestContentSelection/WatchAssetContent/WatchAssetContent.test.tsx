@@ -45,7 +45,7 @@ describe("WatchAssetContent", () => {
     expect(screen.getByText("Mocked Chain Badge")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Here is a request to add an ZRC20 token to the wallet.",
+        "Here is a request to add a QRC-20 token to the wallet.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Mocked Watch Asset Info")).toBeInTheDocument();

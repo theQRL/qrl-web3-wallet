@@ -12,7 +12,7 @@ describe("GasFeeNotice", () => {
   const renderComponent = (
     mockedStoreValues = mockedStore(),
     mockedProps: ComponentProps<typeof GasFeeNotice> = {
-      isZrc20Token: false,
+      isQrc20Token: false,
       tokenContractAddress: "",
       tokenDecimals: 18,
       isSubmitting: false,
@@ -31,7 +31,7 @@ describe("GasFeeNotice", () => {
 
   it("should render the gas fee notice component", async () => {
     renderComponent(undefined, {
-      isZrc20Token: false,
+      isQrc20Token: false,
       tokenContractAddress: "",
       tokenDecimals: 18,
       isSubmitting: false,
@@ -67,7 +67,7 @@ describe("GasFeeNotice", () => {
         },
       }),
       {
-        isZrc20Token: false,
+        isQrc20Token: false,
         tokenContractAddress: "",
         tokenDecimals: 18,
         isSubmitting: false,
@@ -96,7 +96,7 @@ describe("GasFeeNotice", () => {
         },
       }),
       {
-        isZrc20Token: false,
+        isQrc20Token: false,
         tokenContractAddress: "",
         tokenDecimals: 18,
         isSubmitting: false,
@@ -113,11 +113,11 @@ describe("GasFeeNotice", () => {
     expect(onGasFeeCalculated).toHaveBeenCalledWith("2.64");
   });
 
-  it("should display the estimated gas fee for ZRC 20 token", async () => {
+  it("should display the estimated gas fee for QRC-20 token", async () => {
     renderComponent(
       mockedStore({
         qrlStore: {
-          getZrc20TokenGas: vi.fn(
+          getQrc20TokenGas: vi.fn(
             async (
               _from: string,
               _to: string,
@@ -131,7 +131,7 @@ describe("GasFeeNotice", () => {
         },
       }),
       {
-        isZrc20Token: true,
+        isQrc20Token: true,
         tokenContractAddress: "Q0000000000000000000000000000000000000000000000000000000028c4113a9d3a2e836f28c23ed8e3c1e7c243f56600000000000000000000000000000000",
         tokenDecimals: 18,
         isSubmitting: false,
