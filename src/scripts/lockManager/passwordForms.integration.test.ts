@@ -10,8 +10,8 @@ import StorageUtil from "@/utilities/storageUtil";
 import LockManager from "./lockManager";
 import { passwordBytes } from "./keystoreCompatibility";
 
-// A fast stand-in for argon2id: these tests are about which password bytes
-// every writer and reader use, not about the KDF cost.
+// A fast stand-in for argon2id: these tests check which password bytes
+// every writer and reader use, so the cost of the real KDF adds nothing.
 vi.mock("@theqrl/qrl-cryptography/argon2id.js", () => {
   const derive = (password: Uint8Array, salt: Uint8Array) =>
     new Uint8Array(createHash("sha256").update(password).update(salt).digest());
