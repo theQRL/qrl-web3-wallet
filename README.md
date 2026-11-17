@@ -38,7 +38,7 @@ Building from source produces the same `Extension/` folder that's published on t
 
 ### Prerequisites
 
-- Node.js 22.x ([nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm) recommended)
+- Node.js 22.12 or later ([nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm) recommended)
 - npm
 - git
 
