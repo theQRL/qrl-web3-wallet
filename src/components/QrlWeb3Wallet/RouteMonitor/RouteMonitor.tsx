@@ -1,3 +1,4 @@
+import { restoredPage } from "@/router/restoredPage";
 import { ROUTES } from "@/router/router";
 import StorageUtil from "@/utilities/storageUtil";
 import { useEffect, useState } from "react";
@@ -18,7 +19,7 @@ const RouteMonitor = () => {
       if (activePage) {
         await StorageUtil.clearActivePage();
         setPreviousRouteUsed(true);
-        navigate(activePage);
+        navigate(restoredPage(activePage));
       } else if (!activePage) {
         setPreviousRouteUsed(true);
         navigate(ROUTES.HOME);

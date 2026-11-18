@@ -488,7 +488,7 @@ export const checkWalletWatchAssetParams = async (paramObject: {
     return {
       canProceed: false,
       proceedError: rpcErrors.invalidParams({
-        message: "Asset type should be QRC20.",
+        message: "Asset type should be QRC20 or ZRC20.",
       }),
     };
   }

@@ -27,6 +27,6 @@ describe("wallet_watchAsset asset type", () => {
   it.each(["ERC20", "QRC721", "", "QRC-20"])("rejects %j", async (type) => {
     const result = await check(type);
     expect(result.canProceed).toBe(false);
-    expect(result.proceedError?.message).toBe("Asset type should be QRC20.");
+    expect(result.proceedError?.message).toBe("Asset type should be QRC20 or ZRC20.");
   });
 });
