@@ -106,7 +106,7 @@ const V1_HEX_1234_HASH =
 const V1_ABC_HASH =
   "0x01193153c23e49664699e8206e0dc62bb265e1ea2235e7947b1c333b99bc6a75";
 
-// Values recorded on 2.0.0 for messages whose digest differs from 1.0.3.
+// Values since 2.0.0 for messages whose digest differs from 1.0.3.
 const V2_NUL_LEADING_ABC_HASH =
   "0x5e44eceb106ca39acbb8d10e8ed6bcdbd5dec594b9f2b764c047f7a9b43f8c87";
 const V2_NUL_TRAILING_ABC_HASH =
@@ -125,7 +125,7 @@ describe("personal_sign message hashing against the 1.0.3 stack", () => {
   });
 
   // Documented difference: 1.0.3 dropped NUL edge characters before hashing,
-  // 2.0.0 hashes every byte. The wallet signs exactly what 2.0.0 hashes.
+  // since 2.0.0 every byte is hashed. The wallet signs exactly what the library hashes.
   it("hashes the NUL edge characters of a message, which 1.0.3 dropped", () => {
     const { hashMessage } = web3.qrl.accounts;
     expect(hashMessage("\u0000abc")).toBe(V2_NUL_LEADING_ABC_HASH);

@@ -219,7 +219,7 @@ const QrlSignTypedDataV4Content = observer(() => {
     navigator.clipboard.writeText(JSON.stringify(typedData));
   };
 
-  // @theqrl/web3 2.0.0 hashes typed data with a different domain struct, so
+  // Since 2.0.0, @theqrl/web3 hashes typed data with a different domain struct, so
   // the 1.x digest can no longer be produced. The middleware refuses the
   // request before this screen opens; this guard covers any other entry.
   const signTypedDataV4 = () => {

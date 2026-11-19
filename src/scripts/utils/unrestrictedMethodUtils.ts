@@ -7,7 +7,7 @@ const isObject = (value: unknown): value is object =>
   typeof value === "object" && value !== null;
 
 /**
- * @theqrl/web3 2.0.0 refuses `gasPrice` and a `gas` that differs from
+ * Since 2.0.0, @theqrl/web3 refuses `gasPrice` and a `gas` that differs from
  * `gasLimit`. 1.x sent the node the request without `gasPrice`, and with the
  * value of `gasLimit` when both gas fields were present; the same request
  * goes through web3's own call and estimateGas wrappers here.
@@ -43,6 +43,6 @@ export const callForDapp = (
   blockParam?: Parameters<Qrl["call"]>[1],
 ) => qrl.call(dropRejectedFields(transactionObject), blockParam);
 
-/** 2.0.0 reports sync progress as BigInt values; a dApp needs JSON quantities. */
+/** Since 2.0.0, sync progress comes as BigInt values; a dApp needs JSON quantities. */
 export const getSyncingResult = async (qrl: Qrl): Promise<unknown> =>
   getSerializableObject(await qrl.isSyncing());
