@@ -10,7 +10,7 @@
   "lock.unlock.errorFailed": "Failed to unlock wallet. Please try again.",
 
   "freshWallet.title": "This testnet build needs a fresh wallet",
-  "freshWallet.description": "The wallet stored in this browser was created by an earlier test version. This build cannot open it, and its accounts are not carried over. Remove it to set up a new wallet.",
+  "freshWallet.description": "The wallet stored in this browser was created by an earlier test version. This build does not open it, and its accounts are not carried over. Remove it to set up a new wallet.",
   "freshWallet.backupNote": "You can export a backup first. It is a JSON file with the stored keystores, still encrypted with your password. This build cannot read that file; keep it if you want a copy of the old accounts.",
   "freshWallet.confirm": "I understand that this removes the stored wallet from this browser and cannot be undone.",
   "freshWallet.resetButton": "Remove the old wallet and start fresh",

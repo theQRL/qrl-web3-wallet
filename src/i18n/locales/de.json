@@ -10,7 +10,7 @@
   "lock.unlock.errorFailed": "Wallet konnte nicht entsperrt werden. Bitte versuche es erneut.",
 
   "freshWallet.title": "Dieser Testnet-Build braucht eine neue Wallet",
-  "freshWallet.description": "Die in diesem Browser gespeicherte Wallet stammt aus einer früheren Testversion. Dieser Build kann sie nicht öffnen, und ihre Konten werden nicht übernommen. Entferne sie, um eine neue Wallet einzurichten.",
+  "freshWallet.description": "Die in diesem Browser gespeicherte Wallet stammt aus einer früheren Testversion. Dieser Build öffnet sie nicht, und ihre Konten werden nicht übernommen. Entferne sie, um eine neue Wallet einzurichten.",
   "freshWallet.backupNote": "Du kannst vorher ein Backup exportieren. Es ist eine JSON-Datei mit den gespeicherten Keystores, weiterhin mit deinem Passwort verschlüsselt. Dieser Build kann diese Datei nicht lesen; bewahre sie auf, wenn du eine Kopie der alten Konten behalten möchtest.",
   "freshWallet.confirm": "Mir ist klar, dass die gespeicherte Wallet damit aus diesem Browser entfernt wird und sich das nicht rückgängig machen lässt.",
   "freshWallet.resetButton": "Alte Wallet entfernen und neu beginnen",

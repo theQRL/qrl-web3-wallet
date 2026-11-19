@@ -356,8 +356,10 @@ class LockManager {
     if (message.name === LOCK_MANAGER_MESSAGES.RESET_OUTDATED_STORAGE) {
       return await LockManager.resetOutdatedStorage();
     }
-    // While a wallet stored by an earlier build waits for its removal, the
-    // worker answers no other lock request.
+    // While a wallet stored by an earlier build waits for its removal, this
+    // listener refuses every other message from an extension page. The
+    // fresh-wallet screen is the only screen then, and it sends the removal
+    // request alone.
     if ((await StorageUtil.getStorageSchemaState()) === "outdated") {
       throw new Error(OUTDATED_STORAGE_MESSAGE);
     }

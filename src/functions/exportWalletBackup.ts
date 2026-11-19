@@ -5,7 +5,7 @@ const WALLET_VERSION = "0.1.1";
 /**
  * Downloads the stored keystores, still encrypted, with the account list as a
  * JSON backup file. It reads storage only, so it works while the wallet is
- * locked and for keystores this build cannot open.
+ * locked and for a stored wallet this build does not open.
  */
 export const exportWalletBackup = async () => {
   const keystores = await StorageUtil.getKeystores();

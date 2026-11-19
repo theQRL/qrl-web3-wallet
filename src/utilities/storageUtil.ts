@@ -661,10 +661,11 @@ class StorageUtil {
   }
 
   /**
-   * Tells whether the stored wallet was written by a build this one can read.
+   * Tells whether the stored wallet is one this build opens.
    *
    * - A stored version at or above this build's is current. A higher one was
-   *   written by a newer build and is left alone.
+   *   written by a newer build: it is never removed here, and this build
+   *   opens it as it finds it.
    * - No version, or a lower one, beside a stored wallet is outdated.
    * - No version and no stored wallet is a fresh install. It gets this
    *   build's version here, so that what is stored from now on is known to be
