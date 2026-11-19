@@ -1,5 +1,6 @@
 import { formatFiatCompact } from "@/functions/formatFiat";
 import { parseBalanceValue } from "@/functions/parseBalanceValue";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { useStore } from "@/stores/store";
 import StringUtil from "@/utilities/stringUtil";
 import { TrendingDown, TrendingUp } from "lucide-react";
@@ -19,7 +20,7 @@ const ActiveAccountDisplay = observer(() => {
   const numericBalance = parseBalanceValue(accountBalance).toNumber();
   const price = priceStore.getPrice(currency);
   const fiatDisplay =
-    showBalanceAndPrice && price > 0 && accountBalance !== "Unavailable"
+    showBalanceAndPrice && price > 0 && accountBalance !== BALANCE_UNAVAILABLE
       ? formatFiatCompact(numericBalance, price, currency)
       : "";
   const change24h = priceStore.getChange24h(currency);
@@ -29,7 +30,7 @@ const ActiveAccountDisplay = observer(() => {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <div className="flex animate-appear-in text-2xl font-bold text-secondary">
-          {accountBalance === "Unavailable"
+          {accountBalance === BALANCE_UNAVAILABLE
             ? t("common.unavailable")
             : accountBalance}
         </div>

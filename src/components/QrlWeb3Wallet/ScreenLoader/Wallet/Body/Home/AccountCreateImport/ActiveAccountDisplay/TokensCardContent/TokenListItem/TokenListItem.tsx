@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/UI/DropdownMenu";
 import { ROUTES } from "@/router/router";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { useStore } from "@/stores/store";
 import StorageUtil from "@/utilities/storageUtil";
 import { Check, CircleMinus, EllipsisVertical, Send, X } from "lucide-react";
@@ -87,7 +88,7 @@ const TokenListItem = observer(
           <TokenListItemIcon icon={image ?? ""} symbol={symbol} />
           <div className="flex w-full flex-col gap-1">
             <div className="text-xs font-bold">
-              {balance === "Unavailable" ? t("common.unavailable") : balance}
+              {balance === BALANCE_UNAVAILABLE ? t("common.unavailable") : balance}
             </div>
             <div className="text-xs">{name}</div>
           </div>

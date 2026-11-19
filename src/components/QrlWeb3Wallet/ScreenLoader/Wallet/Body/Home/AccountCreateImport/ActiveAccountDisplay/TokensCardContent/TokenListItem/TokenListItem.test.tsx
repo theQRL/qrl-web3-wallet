@@ -1,4 +1,5 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { StoreProvider } from "@/stores/store";
 import i18n from "@/i18n";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -61,7 +62,7 @@ describe("TokenListItem", () => {
   ])("translates an unavailable balance in %s", async (language, message) => {
     await i18n.changeLanguage(language);
     renderComponent(mockedStore(), {
-      balance: "Unavailable", name: "QRL", symbol: "QRL", image: "",
+      balance: BALANCE_UNAVAILABLE, name: "QRL", symbol: "QRL", image: "",
     });
     expect(screen.getByText(message)).toBeInTheDocument();
   });

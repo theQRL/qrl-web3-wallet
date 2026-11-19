@@ -1,4 +1,5 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { StoreProvider } from "@/stores/store";
 import i18n from "@/i18n";
 import { afterEach, describe, expect, it } from "vitest";
@@ -56,7 +57,7 @@ describe("AccountId", () => {
     await i18n.changeLanguage(language);
     renderComponent(
       mockedStore({
-        qrlStore: { getAccountBalance: () => "Unavailable" },
+        qrlStore: { getAccountBalance: () => BALANCE_UNAVAILABLE },
         priceStore: { getPrice: () => 2 },
         settingsStore: { showBalanceAndPrice: true, currency: "USD" },
       }),

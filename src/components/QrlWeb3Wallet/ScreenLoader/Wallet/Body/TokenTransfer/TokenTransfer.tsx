@@ -23,6 +23,7 @@ import {
 import { formatFiatCompact } from "@/functions/formatFiat";
 import { parseBalanceValue } from "@/functions/parseBalanceValue";
 import { ROUTES } from "@/router/router";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { useStore } from "@/stores/store";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
 import AddressUtil from "@/utilities/addressUtil";
@@ -112,8 +113,8 @@ const TokenTransfer = observer(() => {
   const [qrnsResolving, setQrnsResolving] = useState(false);
   const [qrnsError, setQrnsError] = useState<string | null>(null);
   const isBalanceUnavailable =
-    accountBalance === "Unavailable" ||
-    (isQrc20Token && tokenBalance === "Unavailable");
+    accountBalance === BALANCE_UNAVAILABLE ||
+    (isQrc20Token && tokenBalance === BALANCE_UNAVAILABLE);
 
   type SignResult = {
     transactionHash?: string;

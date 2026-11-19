@@ -23,6 +23,9 @@ import Web3, {
 } from "@theqrl/web3";
 import { action, makeAutoObservable, observable, runInAction } from "mobx";
 
+/** The balance of an account whose balance could not be fetched. */
+export const BALANCE_UNAVAILABLE = "Unavailable";
+
 type ActiveAccountType = {
   accountAddress: string;
 };
@@ -181,7 +184,7 @@ class QrlStore {
           storedAccountsList.map(async (account) => {
             const unavailableAccount = {
               accountAddress: account,
-              accountBalance: "Unavailable",
+              accountBalance: BALANCE_UNAVAILABLE,
             };
             try {
               const accountBalance =

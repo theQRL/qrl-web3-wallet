@@ -4,7 +4,7 @@ import Web3 from "@theqrl/web3";
 import { runInAction } from "mobx";
 import { QRL_EXAMPLE_ADDRESS } from "@/constants/address";
 import StorageUtil from "@/utilities/storageUtil";
-import QrlStore from "./qrlStore";
+import QrlStore, { BALANCE_UNAVAILABLE } from "./qrlStore";
 
 describe("QrlStore account balances", () => {
   beforeEach(() => {
@@ -30,7 +30,7 @@ describe("QrlStore account balances", () => {
 
     await store.fetchAccounts();
 
-    expect(store.getAccountBalance(failedAddress)).toBe("Unavailable");
+    expect(store.getAccountBalance(failedAddress)).toBe(BALANCE_UNAVAILABLE);
     expect(store.getAccountBalance(QRL_EXAMPLE_ADDRESS)).toBe("12.5 QRL");
     expect(store.qrlAccounts.isLoading).toBe(false);
   });

@@ -1,4 +1,5 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { StoreProvider } from "@/stores/store";
 import i18n from "@/i18n";
 import { afterEach, describe, expect, it } from "vitest";
@@ -27,9 +28,9 @@ describe("AccountAddressSection", () => {
     ["es", "No disponible"],
   ])("translates unavailable native and token balances in %s", async (language, message) => {
     await i18n.changeLanguage(language);
-    for (const tokenBalance of [undefined, "Unavailable"]) {
+    for (const tokenBalance of [undefined, BALANCE_UNAVAILABLE]) {
       renderComponent(mockedStore({
-        qrlStore: { getAccountBalance: () => "Unavailable" },
+        qrlStore: { getAccountBalance: () => BALANCE_UNAVAILABLE },
       }), tokenBalance);
       expect(screen.getByText(message)).toBeInTheDocument();
       cleanup();

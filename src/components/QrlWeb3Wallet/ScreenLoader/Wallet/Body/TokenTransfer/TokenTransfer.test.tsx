@@ -1,4 +1,5 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { StoreProvider } from "@/stores/store";
 import { QRL_EXAMPLE_ADDRESS } from "@/constants/address";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -128,7 +129,7 @@ describe("TokenTransfer", () => {
         mockedStore({
           lockStore: { getAccountSeed },
           qrlStore: {
-            getAccountBalance: () => "Unavailable",
+            getAccountBalance: () => BALANCE_UNAVAILABLE,
             getNativeTokenGas: async () => "0.001",
             getQrc20TokenGas: async () => "0.001",
             signNativeToken,
@@ -159,13 +160,13 @@ describe("TokenTransfer", () => {
   ])("translates the unavailable balance error in %s", async (language, message) => {
     await i18n.changeLanguage(language);
     renderComponent(mockedStore({
-      qrlStore: { getAccountBalance: () => "Unavailable" },
+      qrlStore: { getAccountBalance: () => BALANCE_UNAVAILABLE },
     }));
     expect(await screen.findByText(message)).toBeInTheDocument();
   });
 
   it("updates the balance error when a failed balance request recovers", async () => {
-    const balance = observable.box("Unavailable");
+    const balance = observable.box(BALANCE_UNAVAILABLE);
     const store = mockedStore({
       qrlStore: {
         getAccountBalance: () => balance.get(),

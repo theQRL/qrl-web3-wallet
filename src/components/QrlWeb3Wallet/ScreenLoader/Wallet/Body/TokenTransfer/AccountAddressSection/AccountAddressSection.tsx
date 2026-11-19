@@ -1,3 +1,4 @@
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { useStore } from "@/stores/store";
 import StringUtil from "@/utilities/stringUtil";
 import { observer } from "mobx-react-lite";
@@ -28,7 +29,7 @@ const AccountAddressSection = observer(
         <div className="flex flex-col gap-1">
           <div>{t('transfer.balance')}</div>
           <div className="font-bold text-secondary">
-            {tokenAccountBalance === "Unavailable"
+            {tokenAccountBalance === BALANCE_UNAVAILABLE
               ? t("common.unavailable")
               : tokenAccountBalance}
           </div>
