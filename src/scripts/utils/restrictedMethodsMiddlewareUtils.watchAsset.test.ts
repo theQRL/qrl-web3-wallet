@@ -14,19 +14,12 @@ describe("wallet_watchAsset asset type", () => {
     );
   });
 
-  it.each(["ZRC20", "zrc20"])(
-    "still accepts the earlier name %s",
+  it.each(["ZRC20", "ERC20", "QRC721", "", "QRC-20"])(
+    "rejects %j",
     async (type) => {
       const result = await check(type);
-      expect(result.proceedError?.message).toBe(
-        "Must specify address, symbol, and decimals.",
-      );
+      expect(result.canProceed).toBe(false);
+      expect(result.proceedError?.message).toBe("Asset type should be QRC20.");
     },
   );
-
-  it.each(["ERC20", "QRC721", "", "QRC-20"])("rejects %j", async (type) => {
-    const result = await check(type);
-    expect(result.canProceed).toBe(false);
-    expect(result.proceedError?.message).toBe("Asset type should be QRC20 or ZRC20.");
-  });
 });

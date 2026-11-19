@@ -8,11 +8,7 @@
  * Runs in a dedicated thread so the popup UI stays responsive.
  */
 
-import {
-  decryptKeystore,
-  hasEmptyPasswordKey,
-  reencryptKeystore,
-} from "@/scripts/lockManager/keystoreCompatibility";
+import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import type { KeyStore } from "@theqrl/web3";
 
@@ -26,7 +22,6 @@ export type DecryptedKey = {
   address: string;
   seed: string;
   mnemonicPhrases: string;
-  recoveryOnly?: boolean;
 };
 
 export type ChangePasswordWorkerResponse =
@@ -42,24 +37,21 @@ self.onmessage = async (
   const normalisedOld = oldPassword.normalize("NFC");
   const normalisedNew = newPassword.normalize("NFC");
   try {
-    // Never re-encrypt the vault under a password that derives no key bytes.
-    if (hasEmptyPasswordKey(normalisedNew)) {
+    // Never re-encrypt the vault under an empty password.
+    if (!normalisedNew) {
       throw new Error("Refusing to encrypt an account without a password");
     }
     const newKeystores: KeyStore[] = [];
     const newKeys: DecryptedKey[] = [];
 
     for (const keyStore of keystores) {
-      const account = await decryptKeystore(keyStore, normalisedOld);
-      const reEncrypted = await reencryptKeystore(
-        keyStore,
-        account.seed,
-        normalisedNew,
-      );
+      const { address, seed } = await decrypt(keyStore, normalisedOld);
+      const reEncrypted = await encrypt(seed, normalisedNew);
       newKeystores.push(reEncrypted);
       newKeys.push({
-        ...account,
-        mnemonicPhrases: getMnemonicFromHexSeed(account.seed),
+        address,
+        seed,
+        mnemonicPhrases: getMnemonicFromHexSeed(seed),
       });
     }
 

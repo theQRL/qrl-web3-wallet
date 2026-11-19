@@ -1,5 +1,4 @@
 import {
-  type AccountSigningStatus,
   DecryptedKeyType,
   EncryptAccountType,
   LOCK_MANAGER_MESSAGES,
@@ -8,10 +7,6 @@ import type {
   ChangePasswordWorkerResponse,
 } from "@/scripts/workers/changePasswordWorker";
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
-import AddressUtil, {
-  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-  RECOVERY_ONLY_ACCOUNT_MESSAGE,
-} from "@/utilities/addressUtil";
 import { KeyStore, Web3BaseWalletAccount } from "@theqrl/web3";
 import { action, makeAutoObservable, runInAction } from "mobx";
 import browser from "webextension-polyfill";
@@ -41,7 +36,6 @@ class LockStore {
       getWalletPassword: action.bound,
       getMnemonicPhrases: action.bound,
       getAccountSeed: action.bound,
-      getAccountSigningStatus: action.bound,
       encryptAccount: action.bound,
       changePassword: action.bound,
       readLockState: action.bound,
@@ -174,28 +168,14 @@ class LockStore {
     const accountKey = decryptedKeys?.find(
       (key) => key?.address?.toLowerCase() === accountAddress?.toLowerCase(),
     );
-    if (accountKey?.recoveryOnly) {
-      throw new Error(RECOVERY_ONLY_ACCOUNT_MESSAGE);
-    }
-    if (accountKey && AddressUtil.isLegacyQrlAddress(accountKey.address)) {
-      throw new Error(LEGACY_ACCOUNT_RECOVERY_MESSAGE);
-    }
     return accountKey?.seed ?? "";
-  }
-
-  async getAccountSigningStatus(accountAddress: string) {
-    return (await this.sendWithRetry({
-      name: LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS,
-      data: { address: accountAddress },
-    })) as AccountSigningStatus;
   }
 
   async encryptAccount(account: Web3BaseWalletAccount, password: string) {
     // Never persist a keystore under an empty password. The service worker
-    // refuses this too, and it also refuses the NUL-only forms that derive
-    // no key bytes; failing here for the empty string keeps the guarantee
-    // visible at the call site and avoids a round trip for a request that
-    // can never succeed.
+    // refuses this too; failing here as well keeps the guarantee visible at
+    // the call site and avoids a round trip for a request that can never
+    // succeed.
     if (!password) {
       throw new Error("Refusing to encrypt an account without a password");
     }

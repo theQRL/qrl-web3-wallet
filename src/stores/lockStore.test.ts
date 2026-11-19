@@ -1,9 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import browser from "webextension-polyfill";
-import {
-  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-  RECOVERY_ONLY_ACCOUNT_MESSAGE,
-} from "@/utilities/addressUtil";
 
 // ── Plain object stores (hoisting-safe) ────────────────────────────
 const localStore: Record<string, any> = {};
@@ -90,92 +85,6 @@ describe("LockStore – readLockState timestamp check", () => {
 
     return store;
   }
-
-  it.each([
-    "QRL Web3 Wallet is locked",
-    "Could not establish connection. Receiving end does not exist.",
-  ])("retries a signing-status lookup after %s", async (message) => {
-    const store = await createLockStore();
-    const status = { known: true, recoveryOnly: false };
-    mockSendMessage.mockClear();
-    vi.mocked(browser.runtime.connect).mockClear();
-    mockSendMessage.mockRejectedValueOnce(new Error(message)).mockResolvedValueOnce(status);
-
-    expect(await store.getAccountSigningStatus(MOCK_KEYS[0].address)).toEqual(status);
-    expect(mockSendMessage).toHaveBeenCalledTimes(2);
-    expect(mockSendMessage).toHaveBeenNthCalledWith(1, {
-      name: "GET_ACCOUNT_SIGNING_STATUS",
-      data: { address: MOCK_KEYS[0].address },
-    });
-    expect(mockSendMessage).toHaveBeenNthCalledWith(2, {
-      name: "GET_ACCOUNT_SIGNING_STATUS",
-      data: { address: MOCK_KEYS[0].address },
-    });
-    expect(browser.runtime.connect).toHaveBeenCalledTimes(1);
-  });
-
-  it("reports a persistent signing-status failure after bounded retries", async () => {
-    const store = await createLockStore();
-    mockSendMessage.mockClear();
-    mockSendMessage.mockRejectedValue(new Error("QRL Web3 Wallet is locked"));
-    await expect(store.getAccountSigningStatus(MOCK_KEYS[0].address)).rejects.toThrow(
-      "QRL Web3 Wallet is locked",
-    );
-    expect(mockSendMessage).toHaveBeenCalledTimes(3);
-    mockSendMessage.mockResolvedValue({});
-  });
-
-  it.each(["lowercase", "uppercase"])(
-    "keeps legacy recovery phrases readable and blocks %s signing requests",
-    async (casing) => {
-      const store = await createLockStore();
-      const legacyAddress = `Q${"ab".repeat(20)}`;
-      const requestedAddress =
-        casing === "lowercase"
-          ? legacyAddress.toLowerCase()
-          : legacyAddress.toUpperCase();
-      mockSendMessage.mockResolvedValue([
-        { ...MOCK_KEYS[0], address: legacyAddress },
-      ]);
-
-      expect(await store.getMnemonicPhrases(requestedAddress)).toBe(
-        "mocked mnemonic",
-      );
-      const callsBeforeSigning = mockSendMessage.mock.calls.length;
-      await expect(store.getAccountSeed(requestedAddress)).rejects.toThrow(
-        LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-      );
-      expect(mockSendMessage).toHaveBeenCalledTimes(callsBeforeSigning + 1);
-      expect(mockSendMessage).toHaveBeenLastCalledWith({
-        name: "GET_DECRYPTED_KEYS",
-      });
-    },
-  );
-
-  it.each(["lowercase", "uppercase"])(
-    "blocks a recovery-only key with a 64-byte label using %s",
-    async (casing) => {
-      const store = await createLockStore();
-      const key = { ...MOCK_KEYS[0], recoveryOnly: true };
-      const requestedAddress =
-        casing === "lowercase"
-          ? key.address.toLowerCase()
-          : key.address.toUpperCase();
-      mockSendMessage.mockResolvedValue([key]);
-
-      expect(await store.getMnemonicPhrases(requestedAddress)).toBe(
-        key.mnemonicPhrases,
-      );
-      await expect(store.getAccountSeed(requestedAddress)).rejects.toThrow(
-        RECOVERY_ONLY_ACCOUNT_MESSAGE,
-      );
-
-      mockSendMessage.mockResolvedValue(MOCK_KEYS);
-      expect(await store.getAccountSeed(requestedAddress)).toBe(
-        MOCK_KEYS[0].seed,
-      );
-    },
-  );
 
   describe("readLockState with cachedKeys", () => {
     it("should clear cachedKeys when LOCKED timestamp > UNLOCKED timestamp (intentional lock)", async () => {

@@ -13,11 +13,6 @@ import type { Contact } from "@/types/contact";
 import type { GasTier } from "@/types/gasFee";
 import type { NFTCollectionType } from "@/types/nft";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
-import {
-  readStoredHistoryEntry,
-  readStoredNftCollection,
-  readStoredTransferDraft,
-} from "./storedNames";
 import { KeyStore } from "@theqrl/web3";
 import browser from "webextension-polyfill";
 
@@ -171,9 +166,7 @@ class StorageUtil {
     if (storedTransactionValues) {
       transactionValues = {
         ...transactionValues,
-        ...readStoredTransferDraft(
-          storedTransactionValues[transactionValuesIdentifier],
-        ),
+        ...storedTransactionValues[transactionValuesIdentifier],
       };
     }
 
@@ -469,7 +462,7 @@ class StorageUtil {
         ALL_NFT_COLLECTIONS_IDENTIFIER
       ]?.[accountAddress]?.[chainId]?.collections ?? [];
 
-    return storedCollections.map(readStoredNftCollection) as NFTCollectionType[];
+    return storedCollections as NFTCollectionType[];
   }
 
   static async clearFromNFTCollectionsList(
@@ -817,7 +810,7 @@ class StorageUtil {
         accountAddress
       ]?.[chainId]?.transactions ?? [];
 
-    return transactions.map(readStoredHistoryEntry) as TransactionHistoryEntry[];
+    return transactions as TransactionHistoryEntry[];
   }
 
   static async updateTransactionHistoryEntry(
@@ -828,13 +821,10 @@ class StorageUtil {
     const { chainId } = await this.getActiveBlockChain();
 
     const storageData = await browser.storage.local.get(TX_HISTORY_IDENTIFIER);
-    const stored =
+    const transactions: TransactionHistoryEntry[] =
       storageData?.[TX_HISTORY_IDENTIFIER]?.[ALL_TX_HISTORY_IDENTIFIER]?.[
         accountAddress
       ]?.[chainId]?.transactions ?? [];
-    const transactions: TransactionHistoryEntry[] = stored.map(
-      readStoredHistoryEntry,
-    );
 
     // confirmed / failed are terminal states; refuse updates that would
     // revert a tx back to pending (or otherwise change a terminal status).

@@ -18,7 +18,7 @@ import {
 export const TYPED_DATA_V4_UNSUPPORTED_MESSAGE =
   "qrl_signTypedData_v4 is not supported by this wallet version.";
 
-export const getFromAddress = (req: JsonRpcRequest<JsonRpcRequest>) => {
+const getFromAddress = (req: JsonRpcRequest<JsonRpcRequest>) => {
   switch (req.method) {
     case RESTRICTED_METHODS.QRL_SEND_TRANSACTION:
       // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime for this RPC method
@@ -481,14 +481,11 @@ export const checkWalletWatchAssetParams = async (paramObject: {
     };
   }
 
-  // "QRC20" is the name of the token standard. "ZRC20", its earlier name, is
-  // still accepted, because dApps written for earlier versions send it.
-  const assetType = paramObject?.type?.toLowerCase();
-  if (assetType !== "qrc20" && assetType !== "zrc20") {
+  if (!paramObject?.type || paramObject?.type?.toLowerCase() !== "qrc20") {
     return {
       canProceed: false,
       proceedError: rpcErrors.invalidParams({
-        message: "Asset type should be QRC20 or ZRC20.",
+        message: "Asset type should be QRC20.",
       }),
     };
   }

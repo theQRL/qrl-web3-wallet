@@ -1,8 +1,4 @@
 import StorageUtil from "@/utilities/storageUtil";
-import AddressUtil, {
-  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-  RECOVERY_ONLY_ACCOUNT_MESSAGE,
-} from "@/utilities/addressUtil";
 import { JsonRpcMiddleware } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
 import { v4 as uuid } from "uuid";
 import {
@@ -17,7 +13,6 @@ import {
   EXTENSION_MESSAGES,
 } from "../constants/streamConstants";
 import { checkDomain } from "../phishing/phishingDetector";
-import LockManager from "../lockManager/lockManager";
 import {
   checkAccountHasBeenAuthorized,
   checkAccountAndChainHaveBeenAuthorized,
@@ -26,7 +21,6 @@ import {
   checkWalletRequestPermissionParams,
   checkWalletSwitchQrlChainParams,
   checkWalletWatchAssetParams,
-  getFromAddress,
   TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
   updateAccountsAndBlockchainsForUrlOrigin,
 } from "../utils/restrictedMethodsMiddlewareUtils";
@@ -306,26 +300,6 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
         message: TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
       });
       return end();
-    }
-
-    if (
-      requestedMethod === RESTRICTED_METHODS.QRL_SEND_TRANSACTION ||
-      requestedMethod === RESTRICTED_METHODS.PERSONAL_SIGN
-    ) {
-      const fromAddress = getFromAddress(req);
-      if (typeof fromAddress === "string") {
-        const recoveryOnly =
-          !(await LockManager.isLocked()).isLocked &&
-          LockManager.getAccountSigningStatus(fromAddress).recoveryOnly;
-        if (recoveryOnly || AddressUtil.isLegacyQrlAddress(fromAddress)) {
-          res.error = providerErrors.unauthorized({
-            message: recoveryOnly
-              ? RECOVERY_ONLY_ACCOUNT_MESSAGE
-              : LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-          });
-          return end();
-        }
-      }
     }
     if (isRequestPending) {
       try {

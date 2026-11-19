@@ -1,8 +1,4 @@
 import { DEFAULT_BLOCKCHAIN } from "@/configuration/qrlBlockchainConfig";
-import {
-  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-  RECOVERY_ONLY_ACCOUNT_MESSAGE,
-} from "@/utilities/addressUtil";
 import StorageUtil from "@/utilities/storageUtil";
 import { JsonRpcEngine } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
 import type { Json, JsonRpcRequest } from "@theqrl/qrl-wallet-provider/utils";
@@ -25,7 +21,6 @@ vi.mock("webextension-polyfill", async (importOriginal) => {
 });
 
 const ACCOUNT = `Q${"ab".repeat(64)}`;
-const LEGACY_ACCOUNT = `Q${"ab".repeat(20)}`;
 const ORIGIN = "https://dapp.example";
 const SIGNING_METHODS = [
   RESTRICTED_METHODS.QRL_SEND_TRANSACTION,
@@ -88,7 +83,7 @@ describe("restrictedMethodsMiddleware signing", () => {
     ]);
     vi.spyOn(StorageUtil, "getDAppsConnectedAccountsData").mockResolvedValue({
       urlOrigin: ORIGIN,
-      accounts: [ACCOUNT, LEGACY_ACCOUNT, LEGACY_ACCOUNT.toLowerCase()],
+      accounts: [ACCOUNT],
       blockchains: [DEFAULT_BLOCKCHAIN],
       permissions: [],
     });
@@ -109,97 +104,28 @@ describe("restrictedMethodsMiddleware signing", () => {
   });
 
   describe.each(SIGNING_METHODS)("%s", (method) => {
-    it.each([
-      { accountType: "legacy", account: LEGACY_ACCOUNT, recoveryOnly: false },
-      {
-        accountType: "legacy recovery-only",
-        account: LEGACY_ACCOUNT,
-        recoveryOnly: true,
-      },
-      {
-        accountType: "64-byte recovery-only",
-        account: ACCOUNT,
-        recoveryOnly: true,
-      },
-      {
-        accountType: "lowercase legacy",
-        account: LEGACY_ACCOUNT.toLowerCase(),
-        recoveryOnly: false,
-      },
-    ])(
-      "rejects a $accountType signer before approval or RPC",
-      async ({ account, recoveryOnly }) => {
-        vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
-          {
-            address: account.toUpperCase(),
-            seed: "",
-            mnemonicPhrases: "",
-            recoveryOnly,
-          },
-        ]);
+    it("returns the authorization error for an unconnected origin", async () => {
+      vi.mocked(StorageUtil.getDAppsConnectedAccountsData).mockResolvedValue(
+        undefined,
+      );
 
-        const result = await handle(method, account);
-
-        expect(result).toMatchObject({
-          error: {
-            code: 4100,
-            message: recoveryOnly
-              ? RECOVERY_ONLY_ACCOUNT_MESSAGE
-              : LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-          },
-        });
-        expect(result).not.toHaveProperty("result");
-        expect(StorageUtil.setDAppsRequestData).not.toHaveBeenCalled();
-        expect(browser.action.openPopup).not.toHaveBeenCalled();
-        expect(browser.runtime.onMessage.addListener).not.toHaveBeenCalled();
-        expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
-        expect(rpc).not.toHaveBeenCalled();
-        expect(fetch).not.toHaveBeenCalled();
-      },
-    );
-
-    it.each([ACCOUNT, LEGACY_ACCOUNT])(
-      "returns the authorization error for an unconnected origin requesting %s",
-      async (account) => {
-        vi.mocked(StorageUtil.getDAppsConnectedAccountsData).mockResolvedValue(
-          undefined,
-        );
-        vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
-          {
-            address: account,
-            seed: "",
-            mnemonicPhrases: "",
-            recoveryOnly: true,
-          },
-        ]);
-
-        expect(await handle(method, account)).toMatchObject({
-          error: {
-            code: 4100,
-            message: `The requested account ${account} has not been authorized by the user.`,
-          },
-        });
-        expect(LockManager.isLocked).not.toHaveBeenCalled();
-        expect(LockManager.getDecryptedKeys).not.toHaveBeenCalled();
-        expect(StorageUtil.setDAppsRequestData).not.toHaveBeenCalled();
-        expect(browser.action.openPopup).not.toHaveBeenCalled();
-        expect(browser.runtime.onMessage.addListener).not.toHaveBeenCalled();
-        expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
-        expect(rpc).not.toHaveBeenCalled();
-        expect(fetch).not.toHaveBeenCalled();
-      },
-    );
-
-    it("keeps approval and success for a 64-byte signer with another recovery-only key", async () => {
-      vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
-        {
-          address: LEGACY_ACCOUNT,
-          seed: "",
-          mnemonicPhrases: "",
-          recoveryOnly: true,
+      expect(await handle(method)).toMatchObject({
+        error: {
+          code: 4100,
+          message: `The requested account ${ACCOUNT} has not been authorized by the user.`,
         },
-        { address: ACCOUNT.toUpperCase(), seed: "", mnemonicPhrases: "" },
-      ]);
+      });
+      expect(LockManager.isLocked).not.toHaveBeenCalled();
+      expect(LockManager.getDecryptedKeys).not.toHaveBeenCalled();
+      expect(StorageUtil.setDAppsRequestData).not.toHaveBeenCalled();
+      expect(browser.action.openPopup).not.toHaveBeenCalled();
+      expect(browser.runtime.onMessage.addListener).not.toHaveBeenCalled();
+      expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
+      expect(rpc).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("asks for approval and returns the approved result", async () => {
       const signedData = {
         signature: "0xsignature",
         publicKey: "0xpublickey",
@@ -243,59 +169,23 @@ describe("restrictedMethodsMiddleware signing", () => {
     };
 
     it.each([
-      { state: "unlocked", isLocked: false, recoveryOnly: false },
-      { state: "unlocked recovery-only", isLocked: false, recoveryOnly: true },
-      { state: "locked", isLocked: true, recoveryOnly: false },
-      { state: "locked recovery-only", isLocked: true, recoveryOnly: true },
+      { state: "unlocked", isLocked: false },
+      { state: "locked", isLocked: true },
     ])(
-      "refuses a connected origin the same way when $state",
-      async ({ isLocked, recoveryOnly }) => {
+      "refuses a connected origin the same way when $state, without consulting the lock manager",
+      async ({ isLocked }) => {
         vi.mocked(LockManager.isLocked).mockResolvedValue({
           isLocked,
           hasPasswordSet: true,
         });
-        vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
-          { address: ACCOUNT, seed: "", mnemonicPhrases: "", recoveryOnly },
-        ]);
 
         const result = await handle(RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4);
 
         expect(result).toMatchObject(refusal);
         expect(result).not.toHaveProperty("result");
+        expect(LockManager.isLocked).not.toHaveBeenCalled();
+        expect(LockManager.getDecryptedKeys).not.toHaveBeenCalled();
         expectNoApproval();
-      },
-    );
-
-    it.each([
-      ["a 64-byte", ACCOUNT],
-      ["a legacy", LEGACY_ACCOUNT],
-      ["a lowercase legacy", LEGACY_ACCOUNT.toLowerCase()],
-    ])(
-      "refuses %s signer in every lock state without consulting the lock manager",
-      async (_label, account) => {
-        for (const isLocked of [false, true]) {
-          for (const recoveryOnly of [false, true]) {
-            vi.mocked(LockManager.isLocked).mockClear();
-            vi.mocked(LockManager.getDecryptedKeys).mockClear();
-            vi.mocked(LockManager.isLocked).mockResolvedValue({
-              isLocked,
-              hasPasswordSet: true,
-            });
-            vi.mocked(LockManager.getDecryptedKeys).mockReturnValue([
-              { address: account, seed: "", mnemonicPhrases: "", recoveryOnly },
-            ]);
-
-            const result = await handle(
-              RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4,
-              account,
-            );
-
-            expect(result).toMatchObject(refusal);
-            expect(LockManager.isLocked).not.toHaveBeenCalled();
-            expect(LockManager.getDecryptedKeys).not.toHaveBeenCalled();
-            expectNoApproval();
-          }
-        }
       },
     );
 
@@ -347,45 +237,4 @@ describe("restrictedMethodsMiddleware signing", () => {
       expect(result).not.toHaveProperty("result");
     },
   );
-
-  it("rejects a legacy signer while locked", async () => {
-    vi.mocked(LockManager.isLocked).mockResolvedValue({
-      isLocked: true,
-      hasPasswordSet: true,
-    });
-
-    const result = await handle(
-      RESTRICTED_METHODS.QRL_SEND_TRANSACTION,
-      LEGACY_ACCOUNT,
-    );
-
-    expect(result).toMatchObject({
-      error: { code: 4100, message: LEGACY_ACCOUNT_RECOVERY_MESSAGE },
-    });
-    expect(browser.action.openPopup).not.toHaveBeenCalled();
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("rejects a legacy signer while another approval is pending", async () => {
-    const pending = handle(RESTRICTED_METHODS.PERSONAL_SIGN);
-    await vi.waitFor(() => {
-      expect(browser.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
-    });
-
-    const result = await handle(
-      RESTRICTED_METHODS.QRL_SEND_TRANSACTION,
-      LEGACY_ACCOUNT,
-    );
-
-    expect(result).toMatchObject({
-      error: { code: 4100, message: LEGACY_ACCOUNT_RECOVERY_MESSAGE },
-    });
-    expect(browser.action.openPopup).toHaveBeenCalledTimes(1);
-    expect(StorageUtil.setDAppsRequestData).toHaveBeenCalledTimes(1);
-    expect(rpc).not.toHaveBeenCalled();
-    await respond({ signature: "0xsignature" });
-    expect(await pending).toMatchObject({
-      result: { signature: "0xsignature" },
-    });
-  });
 });

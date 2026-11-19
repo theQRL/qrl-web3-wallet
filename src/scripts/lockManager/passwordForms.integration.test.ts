@@ -3,15 +3,13 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { KeyStore } from "@theqrl/web3";
 import { ExtendedSeed, Seed, newMLDSA87Descriptor } from "@theqrl/wallet.js";
-import { encrypt } from "@theqrl/web3-qrl-accounts";
 import { bytesToHex } from "@theqrl/web3-utils";
 import type { DecryptedKey } from "@/scripts/workers/unlockWorker";
 import StorageUtil from "@/utilities/storageUtil";
 import LockManager from "./lockManager";
-import { passwordBytes } from "./keystoreCompatibility";
 
-// A fast stand-in for argon2id: these tests check which password bytes
-// every writer and reader use, so the cost of the real KDF adds nothing.
+// A fast stand-in for argon2id: these tests check that every writer and
+// reader agree on a password, so the cost of the real KDF adds nothing.
 vi.mock("@theqrl/qrl-cryptography/argon2id.js", () => {
   const derive = (password: Uint8Array, salt: Uint8Array) =>
     new Uint8Array(createHash("sha256").update(password).update(salt).digest());
@@ -67,9 +65,6 @@ const PASSWORDS = [
   "päss🔐",
 ];
 
-// The 1.x conversion strips these to no key bytes at all. Upstream refuses to
-// write a keystore under an empty password, and that now covers all three.
-const EMPTY_KEY_PASSWORDS = ["", "\u0000", "\u0000\u0000"];
 
 let stored: KeyStore[] = [];
 
@@ -195,30 +190,11 @@ describe.each(
     });
     expect((await seedsAfterUnlock("base-pw")).ok).toBe(false);
   }, 120000);
-
-  it("opens a vault written like 6af685b, survives the KDF upgrade and an added account", async () => {
-    useMemoryKeystores();
-    await reset();
-    // 6af685b wrote encrypt(seed, NFC(password)) keyed with the 1.x bytes.
-    stored = [
-      await encrypt(SEED_A, passwordBytes(password.normalize("NFC")), {
-        m: 19456,
-        t: 2,
-      }),
-    ];
-    expect(await popupUnlock(password)).toBe(true);
-    await addAccount();
-    await LockManager.lock();
-    expect(await seedsAfterUnlock(password)).toEqual({
-      ok: true,
-      seeds: [SEED_A, SEED_B].sort(),
-    });
-  }, 120000);
 });
 
-describe.each(
-  EMPTY_KEY_PASSWORDS.map((password) => [JSON.stringify(password), password]),
-)("password %s, which derives no key bytes", (_label, password) => {
+describe("an empty password", () => {
+  const password = "";
+
   it("is refused for a new vault and persists no keystore", async () => {
     useMemoryKeystores();
     await reset();
@@ -242,58 +218,36 @@ describe.each(
     });
   }, 120000);
 
-  it("still opens an old vault, which is not rewritten and takes no new account", async () => {
-    useMemoryKeystores();
-    await reset();
-    const oldVault = [
-      await encrypt(SEED_A, passwordBytes(password), { m: 19456, t: 2 }),
-    ];
-    stored = oldVault;
-    expect(await popupUnlock(password)).toBe(true);
-    // No KDF upgrade: the vault is never written again under this password.
-    expect(stored).toBe(oldVault);
-    // The session has no password for "", so the request stops there; the
-    // NUL forms reach the service worker's guard.
-    await expect(Promise.resolve().then(addAccount)).rejects.toThrow(
-      password === ""
-        ? "QRL Web3 Wallet password is unavailable"
-        : "Refusing to encrypt an account without a password",
-    );
-    expect(stored).toBe(oldVault);
-    await LockManager.lock();
-    expect(await seedsAfterUnlock(password)).toEqual({
-      ok: true,
-      seeds: [SEED_A],
-    });
-  }, 120000);
 });
 
 describe("accepted passwords", () => {
-  it("are the passwords with the same 1.x key bytes", async () => {
+  it("are the typed password only: a NUL character makes another password", async () => {
     useMemoryKeystores();
     await reset();
     await LockManager.encryptAccount({ password: "pw", seed: SEED_A });
     await LockManager.lock();
-    expect((await seedsAfterUnlock("pw\u0000")).ok).toBe(true);
-    expect((await seedsAfterUnlock("\u0000pw")).ok).toBe(true);
-    expect((await seedsAfterUnlock("pw\u0000\u0000")).ok).toBe(false);
+    expect((await seedsAfterUnlock("pw")).ok).toBe(true);
+    expect((await seedsAfterUnlock("pw\u0000")).ok).toBe(false);
+    expect((await seedsAfterUnlock("\u0000pw")).ok).toBe(false);
     expect((await seedsAfterUnlock("other")).ok).toBe(false);
   }, 120000);
 
-  it("stay the same after a session that unlocked with a NUL form and added an account", async () => {
+  it("include the composed and the decomposed spelling of the same password", async () => {
     useMemoryKeystores();
     await reset();
-    await LockManager.encryptAccount({ password: "pw", seed: SEED_A });
+    await LockManager.encryptAccount({
+      password: "cafe\u0301".normalize("NFC"),
+      seed: SEED_A,
+    });
     await LockManager.lock();
-    expect(await popupUnlock("pw\u0000")).toBe(true);
+    expect(await popupUnlock("cafe\u0301")).toBe(true);
     await addAccount();
     await LockManager.lock();
-    for (const typed of ["pw", "pw\u0000", "\u0000pw"]) {
+    for (const typed of ["caf\u00e9", "cafe\u0301"]) {
       expect(await seedsAfterUnlock(typed)).toEqual({
         ok: true,
         seeds: [SEED_A, SEED_B].sort(),
       });
     }
-    expect((await seedsAfterUnlock("pw\u0000\u0000")).ok).toBe(false);
   }, 120000);
 });

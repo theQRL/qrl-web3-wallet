@@ -37,7 +37,6 @@ import type { TFunction } from "i18next";
 import { z } from "zod";
 import BackButton from "../../../Shared/BackButton/BackButton";
 import CircuitBackground from "../../../Shared/CircuitBackground/CircuitBackground";
-import { useAccountSigning } from "../../../Shared/useAccountSigning";
 import RecipientPicker from "../TokenTransfer/RecipientPicker/RecipientPicker";
 
 const { Common } = qrl.accounts;
@@ -74,7 +73,6 @@ const NFTTransfer = observer(() => {
     getGasFeeData,
   } = qrlStore;
   const { accountAddress } = activeAccount;
-  const { signingError, canSign } = useAccountSigning(accountAddress);
 
   const contractAddress: string = state?.contractAddress ?? "";
   const tokenId: string = state?.tokenId ?? "";
@@ -177,7 +175,6 @@ const NFTTransfer = observer(() => {
   };
 
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
-    if (!canSign) return;
     try {
       let receiver = formData.receiverAddress;
       if (isQrnsName(receiver)) {
@@ -356,11 +353,6 @@ const NFTTransfer = observer(() => {
               <CardTitle>{t("nft.sendNft")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-6">
-              {signingError && (
-                <p className="text-sm font-medium text-destructive">
-                  {signingError}
-                </p>
-              )}
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
                   {nftImageUrl && !imageError ? (
@@ -455,7 +447,6 @@ const NFTTransfer = observer(() => {
               </Button>
               <Button
                 disabled={
-                  !canSign ||
                   isSubmitting ||
                   !isValid ||
                   qrnsResolving ||

@@ -1,22 +1,13 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
 import { StoreProvider } from "@/stores/store";
 import { QRL_EXAMPLE_ADDRESS } from "@/constants/address";
-import {
-  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-  RECOVERY_ONLY_ACCOUNT_MESSAGE,
-} from "@/utilities/addressUtil";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import type { AccountSigningStatus } from "@/scripts/lockManager/lockManager";
 import i18n from "@/i18n";
 import { observable } from "mobx";
 import TokenTransfer from "./TokenTransfer";
-
-const getAccountSigningStatus = vi.fn<
-  (address: string) => Promise<AccountSigningStatus>
->();
 
 const {
   mockGetTransactionValues,
@@ -63,9 +54,6 @@ describe("TokenTransfer", () => {
   });
 
   beforeEach(() => {
-    getAccountSigningStatus
-      .mockReset()
-      .mockResolvedValue({ known: true, recoveryOnly: false });
     mockGetTransactionValues.mockResolvedValue({
       receiverAddress: "",
       amount: 0,
@@ -75,7 +63,6 @@ describe("TokenTransfer", () => {
   });
 
   const renderComponent = (mockedStoreValues = mockedStore()) => {
-    mockedStoreValues.lockStore.getAccountSigningStatus = getAccountSigningStatus;
     return render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter>
@@ -89,7 +76,6 @@ describe("TokenTransfer", () => {
     state: Record<string, any>,
     mockedStoreValues = mockedStore(),
   ) => {
-    mockedStoreValues.lockStore.getAccountSigningStatus = getAccountSigningStatus;
     return render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter initialEntries={[{ pathname: "/token-transfer", state }]}>
@@ -120,125 +106,6 @@ describe("TokenTransfer", () => {
       await userEvent.click(sendButton);
     });
   };
-
-  describe.each([
-    {
-      accountType: "legacy",
-      address: `Q${"ab".repeat(20)}`,
-      recoveryOnly: false,
-      message: LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-    },
-    {
-      accountType: "legacy recovery-only",
-      address: `Q${"ab".repeat(20)}`,
-      recoveryOnly: true,
-      message: RECOVERY_ONLY_ACCOUNT_MESSAGE,
-    },
-    {
-      accountType: "64-byte recovery-only",
-      address: QRL_EXAMPLE_ADDRESS,
-      recoveryOnly: true,
-      message: RECOVERY_ONLY_ACCOUNT_MESSAGE,
-    },
-  ])("$accountType account", ({ address, recoveryOnly, message }) => {
-    it.each([false, true])(
-      "shows the refusal before gas or balance validation (QRC20: %s)",
-      async (isQrc20Token) => {
-        getAccountSigningStatus.mockResolvedValue({ known: true, recoveryOnly });
-        const getAccountSeed = vi.fn(async () => "");
-        const getNativeTokenGas = vi.fn(async () => "0.001");
-        const getQrc20TokenGas = vi.fn(async () => "0.001");
-        const signNativeToken = vi.fn(async () => successSignResult);
-        const signQrc20Token = vi.fn(async () => successSignResult);
-        const tokenSymbol = isQrc20Token ? "TST" : "QRL";
-        renderComponentWithState(
-          {
-            tokenDetails: {
-              isQrc20Token,
-              tokenContractAddress: QRL_EXAMPLE_ADDRESS,
-              tokenDecimals: 18,
-              tokenImage: "token.png",
-              tokenBalance: "0.0",
-              tokenName: "Test Token",
-              tokenSymbol,
-            },
-          },
-          mockedStore({
-            lockStore: { getAccountSeed },
-            qrlStore: {
-              activeAccount: { accountAddress: address },
-              getAccountBalance: () => "Unavailable",
-              getNativeTokenGas,
-              getQrc20TokenGas,
-              signNativeToken,
-              signQrc20Token,
-            },
-          }),
-        );
-
-        expect(await screen.findByText(message)).toHaveClass("text-destructive");
-        const sendButton = await screen.findByRole("button", {
-          name: `Send ${tokenSymbol}`,
-        });
-        expect(sendButton).toBeDisabled();
-        await fillForm("2.5");
-        expect(sendButton).toBeDisabled();
-        await userEvent.click(sendButton);
-        expect(screen.getByText(message)).toBeInTheDocument();
-        expect(screen.queryByText(/Insufficient/)).not.toBeInTheDocument();
-        expect(getNativeTokenGas).not.toHaveBeenCalled();
-        expect(getQrc20TokenGas).not.toHaveBeenCalled();
-        expect(getAccountSigningStatus).toHaveBeenCalledWith(address);
-        expect(getAccountSeed).not.toHaveBeenCalled();
-        expect(signNativeToken).not.toHaveBeenCalled();
-        expect(signQrc20Token).not.toHaveBeenCalled();
-      },
-    );
-  });
-
-  it("waits for the active account check before enabling Send or estimating gas", async () => {
-    let resolveStatus: (status: AccountSigningStatus) => void = () => {};
-    getAccountSigningStatus.mockReturnValue(
-      new Promise((resolve) => {
-        resolveStatus = resolve;
-      }),
-    );
-    const getNativeTokenGas = vi.fn(async () => "0.001");
-    renderComponent(
-      mockedStore({
-        qrlStore: { getAccountBalance: () => "100.0 QRL", getNativeTokenGas },
-      }),
-    );
-
-    await fillForm("2.5");
-    const sendButton = screen.getByRole("button", { name: "Send QRL" });
-    expect(sendButton).toBeDisabled();
-    expect(getNativeTokenGas).not.toHaveBeenCalled();
-
-    await act(async () => {
-      resolveStatus({ known: true, recoveryOnly: false });
-    });
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    expect(getNativeTokenGas).toHaveBeenCalled();
-    expect(
-      screen.queryByText(RECOVERY_ONLY_ACCOUNT_MESSAGE),
-    ).not.toBeInTheDocument();
-  });
-
-  it("reports a failed legacy status lookup before giving recovery advice", async () => {
-    getAccountSigningStatus.mockRejectedValue(new Error("Wallet is locked"));
-    const getNativeTokenGas = vi.fn(async () => "0.001");
-    renderComponent(mockedStore({
-      qrlStore: {
-        activeAccount: { accountAddress: `Q${"ab".repeat(20)}` },
-        getNativeTokenGas,
-      },
-    }));
-    expect(await screen.findByText("An error occured. Wallet is locked")).toBeInTheDocument();
-    expect(screen.queryByText(LEGACY_ACCOUNT_RECOVERY_MESSAGE)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send QRL" })).toBeDisabled();
-    expect(getNativeTokenGas).not.toHaveBeenCalled();
-  });
 
   it.each([false, true])(
     "keeps Send disabled when the native balance is unavailable (QRC20: %s)",

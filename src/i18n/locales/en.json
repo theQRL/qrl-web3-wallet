@@ -104,8 +104,6 @@
   "transfer.errorBalanceUnavailable": "Balance unavailable. Check the network connection and try again.",
   "transfer.errorOccurred": "An error occured. {{error}}",
   "transfer.errorFailed": "Transaction failed.",
-  "transfer.errorLegacyAccount": "This account uses a legacy 20-byte address and cannot sign on this network. Import the recovery phrase you saved for it to use the same keys as a 64-byte account. Funds at the 20-byte address need a separate network migration.",
-  "transfer.errorRecoveryOnlyAccount": "This account was imported from a recovery phrase that this wallet version cannot read, so it cannot sign. Its keys stay stored unchanged and are included in the backup from Settings > Data > Export Backup.",
   "transfer.dialogRunning": "Transaction running",
   "transfer.dialogPleaseWait": "Please wait while the transaction completes.",
   "transfer.dialogSigning": "Signing transaction",

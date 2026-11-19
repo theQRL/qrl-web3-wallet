@@ -68,18 +68,6 @@ vi.mock("@theqrl/web3-qrl-accounts", () => ({
 vi.mock("@/functions/getMnemonicFromHexSeed", () => ({
   getMnemonicFromHexSeed: vi.fn(() => "mocked mnemonic"),
 }));
-// The real conversion needs the node environment (see
-// passwordForms.integration.test.ts); UTF-8 bytes are enough for these tests.
-vi.mock("./keystoreCompatibility", async (importOriginal) => {
-  const passwordBytes = (password: string) =>
-    new TextEncoder().encode(password);
-  return {
-    ...(await importOriginal<typeof import("./keystoreCompatibility")>()),
-    passwordBytes,
-    hasEmptyPasswordKey: (password: string) =>
-      passwordBytes(password).length === 0,
-  };
-});
 
 import browser from "webextension-polyfill";
 import { encrypt } from "@theqrl/web3-qrl-accounts";
@@ -414,7 +402,7 @@ describe("LockManager – keep-alive & auto-lock", () => {
 
       expect(mockEncrypt).toHaveBeenCalledWith(
         "",
-        new TextEncoder().encode("correct horse battery staple"),
+        "correct horse battery staple",
       );
       expect(localStore["KEYSTORES"]).toBeDefined();
 

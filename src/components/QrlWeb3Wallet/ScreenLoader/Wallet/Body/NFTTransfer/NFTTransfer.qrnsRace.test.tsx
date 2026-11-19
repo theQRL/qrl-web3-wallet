@@ -49,10 +49,6 @@ describe("NFTTransfer QRNS resolution", () => {
       lockStore: { getAccountSeed: vi.fn(async () => "seed") },
       qrlStore: { signNftTransfer },
     });
-    store.lockStore.getAccountSigningStatus = vi.fn(async () => ({
-      known: true,
-      recoveryOnly: false,
-    }));
     render(
       <StoreProvider value={store}>
         <MemoryRouter initialEntries={[{ pathname: "/nft-transfer", state }]}>

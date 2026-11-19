@@ -17,9 +17,6 @@ import { getOptimalTokenBalance } from "@/functions/getOptimalTokenBalance";
 import type { GasFeeOverrides } from "@/types/gasFee";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
 import StorageUtil from "@/utilities/storageUtil";
-import AddressUtil, {
-  LEGACY_ACCOUNT_RECOVERY_MESSAGE,
-} from "@/utilities/addressUtil";
 import Web3, {
   Web3QRLInterface,
   utils,
@@ -186,9 +183,6 @@ class QrlStore {
               accountAddress: account,
               accountBalance: "Unavailable",
             };
-            if (AddressUtil.isLegacyQrlAddress(account)) {
-              return unavailableAccount;
-            }
             try {
               const accountBalance =
                 (await this.qrlInstance?.getBalance(account)) ?? BigInt(0);
@@ -284,7 +278,6 @@ class QrlStore {
   }
 
   getAccountBalance(accountAddress: string) {
-    if (AddressUtil.isLegacyQrlAddress(accountAddress)) return "Unavailable";
     return (
       this.qrlAccounts.accounts.find(
         (account) => account.accountAddress === accountAddress,
@@ -377,9 +370,6 @@ class QrlStore {
   }
 
   async getQrc20TokenDetails(contractAddress: string) {
-    if (AddressUtil.isLegacyQrlAddress(this.activeAccount.accountAddress)) {
-      return { token: undefined, error: LEGACY_ACCOUNT_RECOVERY_MESSAGE };
-    }
     const tokenDetails = {
       token: undefined,
       error: "",
@@ -423,9 +413,6 @@ class QrlStore {
   }
 
   async getNftCollectionDetails(contractAddress: string) {
-    if (AddressUtil.isLegacyQrlAddress(this.activeAccount.accountAddress)) {
-      return { collection: undefined, error: LEGACY_ACCOUNT_RECOVERY_MESSAGE };
-    }
     const result: {
       collection?: { name: string; symbol: string; balance: number };
       error: string;
@@ -470,9 +457,6 @@ class QrlStore {
 
   async getOwnedNftTokenIds(contractAddress: string) {
     const tokenIds: string[] = [];
-    if (AddressUtil.isLegacyQrlAddress(this.activeAccount.accountAddress)) {
-      return tokenIds;
-    }
 
     if (this.qrlInstance && this.qrlInstance.Contract) {
       try {

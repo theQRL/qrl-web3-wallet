@@ -56,10 +56,6 @@ describe("TokenTransfer QRNS resolution", () => {
         addTransaction: vi.fn<() => Promise<void>>().mockResolvedValue(),
       },
     });
-    store.lockStore.getAccountSigningStatus = vi.fn(async () => ({
-      known: true,
-      recoveryOnly: false,
-    }));
     render(
       <StoreProvider value={store}>
         <MemoryRouter>

@@ -1,11 +1,6 @@
 import StorageUtil, { LockState } from "@/utilities/storageUtil";
 import { Bytes } from "@theqrl/web3";
-import { encrypt } from "@theqrl/web3-qrl-accounts";
-import {
-  decryptKeystore,
-  hasEmptyPasswordKey,
-  passwordBytes,
-} from "./keystoreCompatibility";
+import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import browser from "webextension-polyfill";
 
@@ -24,12 +19,6 @@ export type DecryptedKeyType = {
   address: string;
   seed: string;
   mnemonicPhrases: string;
-  recoveryOnly?: boolean;
-};
-
-export type AccountSigningStatus = {
-  recoveryOnly: boolean;
-  known: boolean;
 };
 
 // SET_DECRYPTED_KEYS payload: keys are stored alongside the wallet password
@@ -50,7 +39,6 @@ export const LOCK_MANAGER_MESSAGES = {
   UNLOCK: "LOCK_MANAGER_UNLOCK",
   LOCK_MANAGER_KEEP_LIVE: "LOCK_MANAGER_KEEP_LIVE",
   GET_DECRYPTED_KEYS: "GET_DECRYPTED_KEYS",
-  GET_ACCOUNT_SIGNING_STATUS: "GET_ACCOUNT_SIGNING_STATUS",
   GET_WALLET_PASSWORD: "GET_WALLET_PASSWORD",
   SET_DECRYPTED_KEYS: "SET_DECRYPTED_KEYS",
   UPDATE_AUTO_LOCK: "LOCK_MANAGER_UPDATE_AUTO_LOCK",
@@ -181,13 +169,11 @@ class LockManager {
         // Yield the event loop between decryptions so Chrome
         // doesn't consider the service worker unresponsive.
         await new Promise((r) => setTimeout(r, 0));
-        const account = await decryptKeystore(
-          keyStore,
-          normalisedPassword,
-        );
+        const { address, seed } = await decrypt(keyStore, normalisedPassword);
         decryptedKeys.push({
-          ...account,
-          mnemonicPhrases: getMnemonicFromHexSeed(account.seed),
+          address,
+          seed,
+          mnemonicPhrases: getMnemonicFromHexSeed(seed),
         });
       }
       this.walletPassword = normalisedPassword;
@@ -258,14 +244,12 @@ class LockManager {
     // Never persist a keystore under an empty password: the KDF accepts ""
     // and the ciphertext is then trivially recomputable from the cleartext
     // salt stored beside it. Defence in depth behind getWalletPassword's own
-    // guard below, which is the path every caller is expected to use. The
-    // check is on the key bytes, so a password of one or two NUL characters,
-    // which derives no bytes either, is refused as well.
-    if (hasEmptyPasswordKey(password)) {
+    // guard below, which is the path every caller is expected to use.
+    if (!password) {
       throw new Error("Refusing to encrypt an account without a password");
     }
     const keystores = await StorageUtil.getKeystores();
-    const encryptedKeyStore = await encrypt(seed, passwordBytes(password));
+    const encryptedKeyStore = await encrypt(seed, password);
     const updatedKeyStores = [...keystores, encryptedKeyStore];
     await StorageUtil.setKeystores(
       Array.from(
@@ -323,13 +307,6 @@ class LockManager {
     return this.decryptedKeys;
   }
 
-  static getAccountSigningStatus(accountAddress: string): AccountSigningStatus {
-    const key = this.getDecryptedKeys().find(
-      (key) => key?.address?.toLowerCase() === accountAddress?.toLowerCase(),
-    );
-    return { recoveryOnly: key?.recoveryOnly === true, known: !!key };
-  }
-
   private static clearDecryptedKeys() {
     this.decryptedKeys = undefined;
   }
@@ -370,17 +347,6 @@ class LockManager {
       result = { success: true };
     } else if (message.name === LOCK_MANAGER_MESSAGES.GET_DECRYPTED_KEYS) {
       result = LockManager.getDecryptedKeys();
-    } else if (message.name === LOCK_MANAGER_MESSAGES.GET_ACCOUNT_SIGNING_STATUS) {
-      await LockManager.isLocked();
-      const data: unknown = message.data;
-      const address =
-        typeof data === "object" &&
-        data !== null &&
-        "address" in data &&
-        typeof data.address === "string"
-          ? data.address
-          : "";
-      result = LockManager.getAccountSigningStatus(address);
     } else if (message.name === LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD) {
       result = LockManager.getWalletPassword();
     } else if (message.name === LOCK_MANAGER_MESSAGES.ENCRYPT_ACCOUNT) {

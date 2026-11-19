@@ -6,11 +6,7 @@
  * lifecycle issues (Chrome can't kill a worker that runs inside the popup).
  */
 
-import {
-  decryptKeystore,
-  hasEmptyPasswordKey,
-  reencryptKeystore,
-} from "@/scripts/lockManager/keystoreCompatibility";
+import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import {
   RECOMMENDED_KEYSTORE_KDF_PARAMS,
@@ -27,7 +23,6 @@ export type DecryptedKey = {
   address: string;
   seed: string;
   mnemonicPhrases: string;
-  recoveryOnly?: boolean;
 };
 
 export type UnlockWorkerResponse =
@@ -49,27 +44,18 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
   try {
     const keys: DecryptedKey[] = [];
     let upgradedKeystores: KeyStore[] | undefined;
-    // An old vault under a password without key bytes still opens, but it is
-    // never written again, so it gets no KDF upgrade either.
-    const canRewrite = !hasEmptyPasswordKey(normalisedPassword);
     for (const keyStore of keystores) {
-      const account = await decryptKeystore(
-        keyStore,
-        normalisedPassword,
-      );
+      const { address, seed } = await decrypt(keyStore, normalisedPassword);
       keys.push({
-        ...account,
-        mnemonicPhrases: getMnemonicFromHexSeed(account.seed),
+        address,
+        seed,
+        mnemonicPhrases: getMnemonicFromHexSeed(seed),
       });
-      if (canRewrite && shouldUpgradeKeystoreParams(keyStore)) {
+      if (shouldUpgradeKeystoreParams(keyStore)) {
         if (!upgradedKeystores) {
           upgradedKeystores = [...keystores];
         }
-        const reEncrypted = await reencryptKeystore(
-          keyStore,
-          account.seed,
-          normalisedPassword,
-        );
+        const reEncrypted = await encrypt(seed, normalisedPassword);
         const idx = upgradedKeystores.findIndex(
           (k) => k.address?.toLowerCase() === keyStore.address?.toLowerCase(),
         );

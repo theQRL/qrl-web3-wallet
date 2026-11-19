@@ -104,8 +104,6 @@
   "transfer.errorBalanceUnavailable": "Saldo no disponible. Comprueba la conexión de red e inténtalo de nuevo.",
   "transfer.errorOccurred": "Ocurrió un error. {{error}}",
   "transfer.errorFailed": "La transacción falló.",
-  "transfer.errorLegacyAccount": "Esta cuenta usa una dirección antigua de 20 bytes y no puede firmar en esta red. Importa la frase de recuperación que guardaste para usar las mismas claves en una cuenta de 64 bytes. Los fondos de la dirección de 20 bytes necesitan una migración de red independiente.",
-  "transfer.errorRecoveryOnlyAccount": "Esta cuenta se importó desde una frase de recuperación que esta versión de la billetera no puede leer, por lo que no puede firmar. Sus claves siguen almacenadas sin cambios y se incluyen en el respaldo de Configuración > Datos > Exportar Respaldo.",
   "transfer.dialogRunning": "Transacción en curso",
   "transfer.dialogPleaseWait": "Por favor espera mientras se completa la transacción.",
   "transfer.dialogSigning": "Firmando transacción",

@@ -4,30 +4,9 @@ import {
   QRL_EXAMPLE_ADDRESS_2,
 } from "@/constants/address";
 import { describe, expect, it } from "vitest";
-import AddressUtil, { RECOVERY_ONLY_ACCOUNT_MESSAGE } from "./addressUtil";
-import en from "@/i18n/locales/en.json";
-import de from "@/i18n/locales/de.json";
-import es from "@/i18n/locales/es.json";
+import AddressUtil from "./addressUtil";
 
 describe("addressUtil", () => {
-  it("matches the English recovery-only message used by the transfer form", () => {
-    expect(RECOVERY_ONLY_ACCOUNT_MESSAGE).toBe(
-      en["transfer.errorRecoveryOnlyAccount"],
-    );
-  });
-
-  it.each([en, de, es])(
-    "uses the translated backup menu path for recovery-only accounts",
-    (locale) => {
-      const menuPath = [
-        locale["settings.title"],
-        locale["settings.data"],
-        locale["settings.data.exportButton"],
-      ].join(" > ");
-      expect(locale["transfer.errorRecoveryOnlyAccount"]).toContain(menuPath);
-    },
-  );
-
   it("accepts 64-byte Q-prefixed QRL addresses", () => {
     expect(QRL_EXAMPLE_ADDRESS).toHaveLength(QRL_ADDRESS_LENGTH);
     expect(AddressUtil.isQrlAddress(QRL_EXAMPLE_ADDRESS)).toBe(true);
