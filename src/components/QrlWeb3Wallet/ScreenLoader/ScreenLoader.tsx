@@ -23,21 +23,32 @@ const DAppRequest = withSuspense(
 const Wallet = withSuspense(
   lazy(() => import("@/components/QrlWeb3Wallet/ScreenLoader/Wallet/Wallet")),
 );
+const FreshWallet = withSuspense(
+  lazy(
+    () =>
+      import(
+        "@/components/QrlWeb3Wallet/ScreenLoader/FreshWallet/FreshWallet"
+      ),
+  ),
+);
 
 const ScreenLoader = observer(() => {
   const { dAppRequestStore, lockStore, qrlStore } = useStore();
   const { hasDAppRequest, readDAppRequestData } = dAppRequestStore;
-  const { isLocked, readLockState } = lockStore;
+  const { isLocked, readLockState, storageState } = lockStore;
 
   const [screen, setScreen] = useState(SCREENS.LOCK);
   const wasLockedRef = useRef(true);
 
   useEffect(() => {
+    // A wallet stored by an earlier build gets its own screen. Neither the
+    // lock state nor a dApp request is loaded for it.
+    if (storageState !== "current") return;
     (async () => {
       await readLockState();
       await readDAppRequestData();
     })();
-  }, []);
+  }, [storageState]);
 
   useEffect(() => {
     if (wasLockedRef.current && !isLocked) {
@@ -58,6 +69,10 @@ const ScreenLoader = observer(() => {
       setScreen(SCREENS.WALLET);
     }
   }, [isLocked, hasDAppRequest]);
+
+  if (storageState === "checking") return null;
+
+  if (storageState === "outdated") return <FreshWallet />;
 
   if (screen === SCREENS.LOCK) return <Lock />;
 

@@ -169,6 +169,7 @@ const mockedStoreValues: StoreType = {
     hasPasswordSet: false,
     isLoading: false,
     isLocked: false,
+    storageState: "current",
     readLockState: async () => {},
     unlock: async (password: string) => {
       return !!password;
@@ -192,6 +193,7 @@ const mockedStoreValues: StoreType = {
     changePassword: async () => {
       return true;
     },
+    resetOutdatedStorage: async () => {},
   } as unknown as LockStore,
   ledgerStore: {
     connectionState: "disconnected",

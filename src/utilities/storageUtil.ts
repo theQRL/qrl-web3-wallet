@@ -55,6 +55,24 @@ const ALL_NFT_COLLECTIONS_IDENTIFIER = "ALL_NFT_COLLECTIONS";
 const SETTINGS_IDENTIFIER = "SETTINGS";
 const PRICE_CACHE_IDENTIFIER = "PRICE_CACHE";
 
+const STORAGE_SCHEMA_VERSION_IDENTIFIER = "STORAGE_SCHEMA_VERSION";
+
+/**
+ * Version of the data this build keeps in extension storage. Raise it when a
+ * build can no longer read what an earlier build stored. Every wallet stored
+ * under a lower version then gets the fresh-wallet screen and has to be
+ * removed, so raise it only for a break that leaves no way to carry the
+ * stored wallet over.
+ */
+export const STORAGE_SCHEMA_VERSION = 1;
+
+/**
+ * "outdated" means an earlier build stored a wallet here that this build does
+ * not open. The fresh-wallet screen is shown for it, and the service worker
+ * refuses lock and dApp requests until the user has removed it.
+ */
+export type StorageSchemaState = "current" | "outdated";
+
 export type WalletSettings = {
   themePreference?: "system" | "light" | "dark";
   autoLockMinutes?: number;
@@ -640,6 +658,56 @@ class StorageUtil {
 
   static async clearAllData() {
     await browser.storage.local.clear();
+  }
+
+  /**
+   * Tells whether the stored wallet was written by a build this one can read.
+   *
+   * - A stored version at or above this build's is current. A higher one was
+   *   written by a newer build and is left alone.
+   * - No version, or a lower one, beside a stored wallet is outdated.
+   * - No version and no stored wallet is a fresh install. It gets this
+   *   build's version here, so that what is stored from now on is known to be
+   *   current.
+   */
+  static async getStorageSchemaState(): Promise<StorageSchemaState> {
+    const storageData = await browser.storage.local.get(
+      STORAGE_SCHEMA_VERSION_IDENTIFIER,
+    );
+    const stored: unknown = storageData?.[STORAGE_SCHEMA_VERSION_IDENTIFIER];
+    if (typeof stored === "number" && stored >= STORAGE_SCHEMA_VERSION) {
+      return "current";
+    }
+    if (await this.hasStoredWallet()) {
+      return "outdated";
+    }
+    await this.markStorageSchemaCurrent();
+    return "current";
+  }
+
+  static async markStorageSchemaCurrent() {
+    await browser.storage.local.set({
+      [STORAGE_SCHEMA_VERSION_IDENTIFIER]: STORAGE_SCHEMA_VERSION,
+    });
+  }
+
+  /**
+   * True when keystores, accounts or Ledger accounts are stored. Data that
+   * cannot be read counts as a stored wallet: it is not this build's.
+   */
+  private static async hasStoredWallet() {
+    try {
+      const [keystores, accounts, ledgerAccounts] = await Promise.all([
+        this.getKeystores(),
+        this.getAllAccounts(),
+        this.getLedgerAccounts(),
+      ]);
+      return (
+        keystores.length > 0 || accounts.length > 0 || ledgerAccounts.length > 0
+      );
+    } catch {
+      return true;
+    }
   }
 
   /**

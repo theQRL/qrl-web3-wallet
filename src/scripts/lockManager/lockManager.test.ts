@@ -71,6 +71,7 @@ vi.mock("@/functions/getMnemonicFromHexSeed", () => ({
 
 import browser from "webextension-polyfill";
 import { encrypt } from "@theqrl/web3-qrl-accounts";
+import { STORAGE_SCHEMA_VERSION } from "@/utilities/storageUtil";
 import LockManager, { LOCK_MANAGER_MESSAGES } from "./lockManager";
 import type { DecryptedKeyType } from "./lockManager";
 
@@ -96,6 +97,8 @@ describe("LockManager – keep-alive & auto-lock", () => {
     clearStore(localStore);
     clearStore(sessionStore);
     clearStore(alarmsStore);
+    // Every test starts on a store this build wrote.
+    localStore["STORAGE_SCHEMA_VERSION"] = STORAGE_SCHEMA_VERSION;
     await LockManager.lock();
   });
 

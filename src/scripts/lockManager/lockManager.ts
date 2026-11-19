@@ -43,7 +43,11 @@ export const LOCK_MANAGER_MESSAGES = {
   SET_DECRYPTED_KEYS: "SET_DECRYPTED_KEYS",
   UPDATE_AUTO_LOCK: "LOCK_MANAGER_UPDATE_AUTO_LOCK",
   SEND_TX_NOTIFICATION: "SEND_TX_NOTIFICATION",
+  RESET_OUTDATED_STORAGE: "RESET_OUTDATED_STORAGE",
 } as const;
+
+export const OUTDATED_STORAGE_MESSAGE =
+  "QRL Web3 Wallet needs a fresh wallet before it can be used. Open the extension to continue.";
 
 /**
  * The lock manager, which is part of the extension service worker handles lock related data and functions.
@@ -68,6 +72,24 @@ class LockManager {
     await this.clearSessionKeys();
     await this.stopKeepAlive();
     await this.clearAutoLockAlarm();
+  }
+
+  /**
+   * Removes a wallet that an earlier build stored: the keys in memory, their
+   * session copy, and everything in local and session storage. It runs for an
+   * outdated store only, when the user asks for it on the fresh-wallet
+   * screen. A store that is current, or a newer build's, is left untouched;
+   * that is the answer when another window has removed the wallet already.
+   */
+  static async resetOutdatedStorage() {
+    if ((await StorageUtil.getStorageSchemaState()) !== "outdated") {
+      return { removed: false };
+    }
+    await this.lock();
+    await browser.storage.session.clear();
+    await StorageUtil.clearAllData();
+    await StorageUtil.markStorageSchemaCurrent();
+    return { removed: true };
   }
 
   static async startKeepAlive() {
@@ -330,6 +352,14 @@ class LockManager {
       ) {
         return undefined;
       }
+    }
+    if (message.name === LOCK_MANAGER_MESSAGES.RESET_OUTDATED_STORAGE) {
+      return await LockManager.resetOutdatedStorage();
+    }
+    // While a wallet stored by an earlier build waits for its removal, the
+    // worker answers no other lock request.
+    if ((await StorageUtil.getStorageSchemaState()) === "outdated") {
+      throw new Error(OUTDATED_STORAGE_MESSAGE);
     }
     let result;
     if (message.name === LOCK_MANAGER_MESSAGES.IS_LOCKED) {

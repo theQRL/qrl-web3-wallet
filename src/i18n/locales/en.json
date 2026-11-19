@@ -9,6 +9,13 @@
   "lock.unlock.errorIncorrect": "The entered password is incorrect",
   "lock.unlock.errorFailed": "Failed to unlock wallet. Please try again.",
 
+  "freshWallet.title": "This testnet build needs a fresh wallet",
+  "freshWallet.description": "The wallet stored in this browser was created by an earlier test version. This build cannot open it, and its accounts are not carried over. Remove it to set up a new wallet.",
+  "freshWallet.backupNote": "You can export a backup first. It is a JSON file with the stored keystores, still encrypted with your password. This build cannot read that file; keep it if you want a copy of the old accounts.",
+  "freshWallet.confirm": "I understand that this removes the stored wallet from this browser and cannot be undone.",
+  "freshWallet.resetButton": "Remove the old wallet and start fresh",
+  "freshWallet.exportError": "The backup could not be exported.",
+  "freshWallet.resetError": "The stored wallet could not be removed. Try again.",
   "welcome.title": "Welcome",
   "welcome.description": "Let's start using the QRL Web3 Wallet",
   "welcome.tagline1": "We are",

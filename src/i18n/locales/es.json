@@ -9,6 +9,13 @@
   "lock.unlock.errorIncorrect": "La contraseña ingresada es incorrecta",
   "lock.unlock.errorFailed": "Error al desbloquear la billetera. Por favor, inténtalo de nuevo.",
 
+  "freshWallet.title": "Esta versión de testnet necesita una billetera nueva",
+  "freshWallet.description": "La billetera guardada en este navegador se creó con una versión de prueba anterior. Esta versión no puede abrirla y sus cuentas no se conservan. Elimínala para configurar una billetera nueva.",
+  "freshWallet.backupNote": "Antes puedes exportar un respaldo. Es un archivo JSON con los keystores guardados, todavía encriptados con tu contraseña. Esta versión no puede leer ese archivo; consérvalo si quieres una copia de las cuentas anteriores.",
+  "freshWallet.confirm": "Entiendo que esto elimina la billetera guardada en este navegador y que no se puede deshacer.",
+  "freshWallet.resetButton": "Eliminar la billetera anterior y empezar de nuevo",
+  "freshWallet.exportError": "No se pudo exportar el respaldo.",
+  "freshWallet.resetError": "No se pudo eliminar la billetera guardada. Inténtalo de nuevo.",
   "welcome.title": "Bienvenido",
   "welcome.description": "Comencemos a usar QRL Web3 Wallet",
   "welcome.tagline1": "Somos",
