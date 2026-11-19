@@ -1,4 +1,4 @@
-import { QRNS } from "@theqrl/web3-qrl-qrns";
+import { qrl } from "@theqrl/web3";
 
 /**
  * Check if input looks like a QRNS name (e.g. alice.qrl, sub.alice.qrl).
@@ -16,9 +16,8 @@ export async function resolveQrnsName(
   rpcUrl: string,
   registryAddress?: string,
 ): Promise<string> {
-  const qrns = new QRNS(registryAddress, rpcUrl);
-  const address = await qrns.getAddress(name);
-  const addr = String(address);
+  const qrns = new qrl.qrns.QRNS(registryAddress, rpcUrl);
+  const addr = await qrns.getAddress(name);
   // Convert 0x-prefixed address to Q-prefixed
   if (addr.startsWith("0x")) {
     return "Q" + addr.slice(2);

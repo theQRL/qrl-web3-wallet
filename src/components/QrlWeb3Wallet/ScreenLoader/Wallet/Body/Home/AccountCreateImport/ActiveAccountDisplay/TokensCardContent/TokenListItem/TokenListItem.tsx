@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/UI/DropdownMenu";
 import { ROUTES } from "@/router/router";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { useStore } from "@/stores/store";
 import StorageUtil from "@/utilities/storageUtil";
 import { Check, CircleMinus, EllipsisVertical, Send, X } from "lucide-react";
@@ -27,7 +28,7 @@ import { useNavigate } from "react-router-dom";
 import TokenListItemIcon from "./TokenListItemIcon/TokenListItemIcon";
 
 type TokenListItemProps = {
-  isZrc20Token?: boolean;
+  isQrc20Token?: boolean;
   contractAddress?: string;
   decimals?: number;
   image: string;
@@ -39,7 +40,7 @@ type TokenListItemProps = {
 
 const TokenListItem = observer(
   ({
-    isZrc20Token = false,
+    isQrc20Token = false,
     contractAddress,
     decimals,
     image,
@@ -60,7 +61,7 @@ const TokenListItem = observer(
       navigate(ROUTES.TOKEN_TRANSFER, {
         state: {
           tokenDetails: {
-            isZrc20Token,
+            isQrc20Token,
             tokenContractAddress: contractAddress,
             tokenDecimals: decimals,
             tokenImage: image,
@@ -86,7 +87,9 @@ const TokenListItem = observer(
         <div className="flex items-center gap-4">
           <TokenListItemIcon icon={image ?? ""} symbol={symbol} />
           <div className="flex w-full flex-col gap-1">
-            <div className="text-xs font-bold">{balance}</div>
+            <div className="text-xs font-bold">
+              {balance === BALANCE_UNAVAILABLE ? t("common.unavailable") : balance}
+            </div>
             <div className="text-xs">{name}</div>
           </div>
         </div>
@@ -113,13 +116,13 @@ const TokenListItem = observer(
                 </div>
               </DropdownMenuItem>
               <DropdownMenuItem
-                disabled={!isZrc20Token}
+                disabled={!isQrc20Token}
                 className="cursor-pointer data-[highlighted]:text-secondary"
                 onClick={() => setHideDialogOpen(true)}
               >
                 <div className="flex gap-2">
                   <CircleMinus size="16" />
-                  <button disabled={!isZrc20Token} aria-label={t('tokens.hideToken')}>
+                  <button disabled={!isQrc20Token} aria-label={t('tokens.hideToken')}>
                     {t('tokens.hideToken')}
                   </button>
                 </div>

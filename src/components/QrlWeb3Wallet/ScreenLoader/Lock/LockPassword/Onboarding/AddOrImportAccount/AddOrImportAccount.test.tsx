@@ -1,7 +1,7 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
 import { StoreProvider } from "@/stores/store";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { ComponentProps } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { Web3BaseWalletAccount } from "@theqrl/web3";
@@ -110,6 +110,7 @@ describe("AddOrImportAccount", () => {
   });
 
   it("should import the account on clicking the import account button", async () => {
+    const user = userEvent.setup();
     const mockedSelectStep = vi.fn();
     const mockedAddAnAccountToWallet = vi.fn(async () => {});
     renderComponent(
@@ -142,11 +143,12 @@ describe("AddOrImportAccount", () => {
     const importButton = screen.getByRole("button", { name: "Import" });
     expect(importButton).toBeInTheDocument();
     expect(importButton).toBeDisabled();
-    await userEvent.type(
-      mnemonicPhrasesField,
+    await user.click(mnemonicPhrasesField);
+    await user.paste(
       "harsh altar congo heater chilly spade buy pore money swiss trendy stable decade bosom ironic maxim slab grill chosen text pouch recent eric text injury cheese trek tsar fish rogue tempo differ",
     );
-    await userEvent.click(importButton);
+    await waitFor(() => expect(importButton).toBeEnabled());
+    await user.click(importButton);
     expect(mockedAddAnAccountToWallet).toHaveBeenCalledTimes(1);
     expect(mockedAddAnAccountToWallet).toBeCalledWith({
       address: "MockedAddress",

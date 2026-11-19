@@ -58,7 +58,6 @@ import type { DecryptedKeyType } from "@/scripts/lockManager/lockManager";
 
 const MOCK_KEYS: DecryptedKeyType[] = [
   {
-    password: "test123",
     address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     seed: "0x010000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     mnemonicPhrases: "mocked mnemonic",
@@ -86,6 +85,44 @@ describe("LockStore – readLockState timestamp check", () => {
 
     return store;
   }
+
+  describe("stored wallet's version at start", () => {
+    it("reports a current store and reads the lock state", async () => {
+      const store = await createLockStore();
+
+      expect(store.storageState).toBe("current");
+      expect(store.isLocked).toBe(false);
+      expect(mockSendMessage).toHaveBeenCalledWith({
+        name: "LOCK_MANAGER_IS_LOCKED",
+      });
+    });
+
+    it("reports a wallet of an earlier build and asks the service worker nothing", async () => {
+      localStore["KEYSTORES"] = JSON.stringify([{ address: "Qab" }]);
+      localStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["Qab"] };
+
+      const module = await import("./lockStore");
+      const store = new module.default();
+      await new Promise((r) => setTimeout(r, 300));
+
+      expect(store.storageState).toBe("outdated");
+      expect(store.isLoading).toBe(false);
+      expect(store.isLocked).toBe(true);
+      expect(mockSendMessage).not.toHaveBeenCalled();
+    });
+
+    it("carries on as current when the store cannot be read", async () => {
+      const browser = (await import("webextension-polyfill")).default;
+      vi.mocked(browser.storage.local.get).mockRejectedValueOnce(
+        new Error("storage unavailable"),
+      );
+
+      const store = await createLockStore();
+
+      expect(store.storageState).toBe("current");
+      expect(store.isLocked).toBe(false);
+    });
+  });
 
   describe("readLockState with cachedKeys", () => {
     it("should clear cachedKeys when LOCKED timestamp > UNLOCKED timestamp (intentional lock)", async () => {

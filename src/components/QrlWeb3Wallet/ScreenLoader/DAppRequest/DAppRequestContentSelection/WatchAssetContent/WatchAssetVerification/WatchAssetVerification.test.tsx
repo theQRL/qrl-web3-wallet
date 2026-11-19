@@ -30,7 +30,7 @@ describe("WatchAssetVerification", () => {
         },
       },
       qrlStore: {
-        getZrc20TokenDetails: async () => ({
+        getQrc20TokenDetails: async () => ({
           token: {
             balance: 2,
             decimals: 18n,
@@ -83,7 +83,7 @@ describe("WatchAssetVerification", () => {
           },
         },
         qrlStore: {
-          getZrc20TokenDetails: async () => ({
+          getQrc20TokenDetails: async () => ({
             token: {
               balance: 2,
               decimals: 18n,

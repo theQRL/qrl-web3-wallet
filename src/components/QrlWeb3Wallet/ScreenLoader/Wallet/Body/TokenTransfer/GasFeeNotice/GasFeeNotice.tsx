@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 type GasFeeNoticeProps = {
-  isZrc20Token: boolean;
+  isQrc20Token: boolean;
   tokenContractAddress: string;
   tokenDecimals: number;
   from: string;
@@ -37,7 +37,7 @@ const gasFeeNoticeClasses = cva(
 
 export const GasFeeNotice = observer(
   ({
-    isZrc20Token,
+    isQrc20Token,
     tokenContractAddress,
     tokenDecimals,
     from,
@@ -49,7 +49,7 @@ export const GasFeeNotice = observer(
   }: GasFeeNoticeProps) => {
     const { t } = useTranslation();
     const { qrlStore, priceStore, settingsStore } = useStore();
-    const { getNativeTokenGas, getZrc20TokenGas } = qrlStore;
+    const { getNativeTokenGas, getQrc20TokenGas } = qrlStore;
 
     const hasValuesForGasCalculation = !!from && !!to && !!value;
 
@@ -64,8 +64,8 @@ export const GasFeeNotice = observer(
       return await getNativeTokenGas(overrides);
     };
 
-    const calculateZrc20TokenGas = async () => {
-      return await getZrc20TokenGas(
+    const calculateQrc20TokenGas = async () => {
+      return await getQrc20TokenGas(
         from,
         to,
         value,
@@ -78,8 +78,8 @@ export const GasFeeNotice = observer(
     const calculateGasFee = async () => {
       setGasFee({ ...gasFee, isLoading: true, error: "" });
       try {
-        const gasFeeAmount = await (isZrc20Token
-          ? calculateZrc20TokenGas()
+        const gasFeeAmount = await (isQrc20Token
+          ? calculateQrc20TokenGas()
           : calculateNativeTokenGas());
         setGasFee({
           ...gasFee,

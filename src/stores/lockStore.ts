@@ -6,7 +6,10 @@ import {
 import type {
   ChangePasswordWorkerResponse,
 } from "@/scripts/workers/changePasswordWorker";
-import StorageUtil, { LockState } from "@/utilities/storageUtil";
+import StorageUtil, {
+  LockState,
+  type StorageSchemaState,
+} from "@/utilities/storageUtil";
 import { KeyStore, Web3BaseWalletAccount } from "@theqrl/web3";
 import { action, makeAutoObservable, runInAction } from "mobx";
 import browser from "webextension-polyfill";
@@ -17,6 +20,11 @@ class LockStore {
   hasPasswordSet = true;
   isLoading = true;
   isLocked = true;
+  /**
+   * Whether the stored wallet is one this build opens. For "outdated" the
+   * fresh-wallet screen is the only screen shown.
+   */
+  storageState: StorageSchemaState | "checking" = "checking";
   private keepAlivePort?: browser.Runtime.Port;
   /**
    * Cached copy of decrypted keys so the popup can re-send them to the SW
@@ -39,6 +47,7 @@ class LockStore {
       encryptAccount: action.bound,
       changePassword: action.bound,
       readLockState: action.bound,
+      resetOutdatedStorage: action.bound,
       lock: action.bound,
       unlock: action.bound,
     });
@@ -78,6 +87,19 @@ class LockStore {
    * then start the storage listener.
    */
   private async initialize() {
+    const storageState = await this.readStorageState();
+    runInAction(() => {
+      this.storageState = storageState;
+    });
+    if (storageState === "outdated") {
+      // The service worker refuses every lock request until the old wallet
+      // is removed, so none is sent.
+      runInAction(() => {
+        this.isLoading = false;
+      });
+      return;
+    }
+
     // Give the port connection a moment to wake the SW
     await new Promise((r) => setTimeout(r, 200));
 
@@ -107,6 +129,16 @@ class LockStore {
     }
 
     this.initializeStorageListener();
+  }
+
+  private async readStorageState(): Promise<StorageSchemaState> {
+    try {
+      return await StorageUtil.getStorageSchemaState();
+    } catch {
+      // Storage that cannot be read fails in the usual flow, where the
+      // service worker decides.
+      return "current";
+    }
   }
 
   initializeStorageListener() {
@@ -248,6 +280,18 @@ class LockStore {
     this.cachedKeys = result.newKeys as DecryptedKeyType[];
     this.cachedPassword = normalisedNewPassword;
     return true;
+  }
+
+  /**
+   * Asks the service worker to remove a wallet that an earlier build stored.
+   * Only the fresh-wallet screen calls this, after the user confirmed. It
+   * also resolves when there was nothing left to remove, and rejects when
+   * the wallet could not be removed.
+   */
+  async resetOutdatedStorage() {
+    await browser.runtime.sendMessage({
+      name: LOCK_MANAGER_MESSAGES.RESET_OUTDATED_STORAGE,
+    });
   }
 
   async readLockState() {

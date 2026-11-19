@@ -16,7 +16,7 @@ import {
 } from "@/components/UI/Form";
 import { Input } from "@/components/UI/Input";
 import { Label } from "@/components/UI/Label";
-import { NFT_UNITS_OF_GAS, ZRC_721_CONTRACT_ABI } from "@/constants/nftToken";
+import { NFT_UNITS_OF_GAS, QRC_721_CONTRACT_ABI } from "@/constants/nftToken";
 import { ROUTES } from "@/router/router";
 import { useStore } from "@/stores/store";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
@@ -82,6 +82,7 @@ const NFTTransfer = observer(() => {
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
   const [qrnsResolving, setQrnsResolving] = useState(false);
   const [qrnsError, setQrnsError] = useState<string | null>(null);
 
@@ -124,7 +125,7 @@ const NFTTransfer = observer(() => {
       }
 
       const contract = new qrlInstance.Contract(
-        ZRC_721_CONTRACT_ABI,
+        QRC_721_CONTRACT_ABI,
         contractAddress,
       );
       const transferCall = contract.methods.safeTransferFrom(
@@ -176,7 +177,10 @@ const NFTTransfer = observer(() => {
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
     try {
       let receiver = formData.receiverAddress;
-      if (isQrnsName(receiver) && resolvedAddress) {
+      if (isQrnsName(receiver)) {
+        if (!resolvedAddress || resolvedName !== receiver.trim()) {
+          return;
+        }
         receiver = resolvedAddress;
       }
 
@@ -224,7 +228,7 @@ const NFTTransfer = observer(() => {
         amount: 0,
         tokenSymbol: collectionName,
         tokenName: `${nftName || collectionName} #${tokenId}`,
-        isZrc20Token: false,
+        isQrc20Token: false,
         tokenContractAddress: contractAddress,
         tokenDecimals: 0,
         transactionHash,
@@ -291,8 +295,12 @@ const NFTTransfer = observer(() => {
   useEffect(() => {
     clearTimeout(resolveTimerRef.current);
 
+    // A lookup that finishes after the field changed must not show or use its answer.
+    let isStale = false;
+
     if (!watchedReceiver || !isQrnsName(watchedReceiver)) {
       setResolvedAddress(null);
+      setResolvedName(null);
       setQrnsError(null);
       setQrnsResolving(false);
       return;
@@ -301,6 +309,7 @@ const NFTTransfer = observer(() => {
     setQrnsResolving(true);
     setQrnsError(null);
     setResolvedAddress(null);
+    setResolvedName(null);
 
     const rpcUrl = qrlStore.qrlConnection.blockchain.defaultRpcUrl;
     const registry = qrlStore.qrlConnection.blockchain.qrnsRegistryAddress;
@@ -309,17 +318,26 @@ const NFTTransfer = observer(() => {
     resolveTimerRef.current = setTimeout(() => {
       resolveQrnsName(nameToResolve, rpcUrl, registry)
         .then((addr) => {
+          if (isStale) return;
           setResolvedAddress(addr);
+          setResolvedName(nameToResolve);
           setQrnsError(null);
         })
         .catch(() => {
+          if (isStale) return;
           setResolvedAddress(null);
+          setResolvedName(null);
           setQrnsError(t("transfer.qrnsResolutionFailed"));
         })
-        .finally(() => setQrnsResolving(false));
+        .finally(() => {
+          if (!isStale) setQrnsResolving(false);
+        });
     }, 500);
 
-    return () => clearTimeout(resolveTimerRef.current);
+    return () => {
+      isStale = true;
+      clearTimeout(resolveTimerRef.current);
+    };
   }, [watchedReceiver]);
 
   const [imageError, setImageError] = useState(false);

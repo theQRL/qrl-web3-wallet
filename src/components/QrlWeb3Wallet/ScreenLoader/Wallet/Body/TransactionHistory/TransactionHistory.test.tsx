@@ -16,7 +16,7 @@ const makeSampleEntry = (
   amount: 2.5,
   tokenSymbol: "QRL",
   tokenName: "QRL",
-  isZrc20Token: false,
+  isQrc20Token: false,
   tokenContractAddress: "",
   tokenDecimals: 18,
   transactionHash: "0xtxhash1",
@@ -47,7 +47,7 @@ describe("TransactionHistory", () => {
     expect(screen.getByText("Transaction History")).toBeInTheDocument();
     expect(screen.getByText("All")).toBeInTheDocument();
     expect(screen.getByText("Native")).toBeInTheDocument();
-    expect(screen.getByText("ZRC-20")).toBeInTheDocument();
+    expect(screen.getByText("QRC-20")).toBeInTheDocument();
     expect(screen.getByText("NFT")).toBeInTheDocument();
   });
 
@@ -65,7 +65,7 @@ describe("TransactionHistory", () => {
         transactionHash: "0xtxhash2",
         amount: 5,
         tokenSymbol: "TST",
-        isZrc20Token: true,
+        isQrc20Token: true,
       }),
     ];
 

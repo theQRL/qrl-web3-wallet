@@ -1,4 +1,4 @@
-export const ZRC_20_CONTRACT_ABI = [
+export const QRC_20_CONTRACT_ABI = [
   {
     inputs: [
       { internalType: "string", name: "name", type: "string" },
@@ -149,6 +149,6 @@ export const ZRC_20_CONTRACT_ABI = [
   },
 ] as const;
 
-export const ZRC_20_TOKEN_UNITS_OF_GAS = 65000;
+export const QRC_20_TOKEN_UNITS_OF_GAS = 65000;
 
-export const ZRC_20_ITEMS_DISPLAY_LIMIT = 2;
+export const QRC_20_ITEMS_DISPLAY_LIMIT = 2;

@@ -145,7 +145,7 @@ const QrlSendTransactionForContent = observer(
           amount: amountFor(value, isQrlTransfer),
           tokenSymbol,
           tokenName,
-          isZrc20Token: false,
+          isQrc20Token: false,
           tokenContractAddress: "",
           tokenDecimals: 18,
           transactionHash,
@@ -234,7 +234,9 @@ const QrlSendTransactionForContent = observer(
       }
 
       const transactionHash = await new Promise<string>((resolve, reject) => {
-        promiEvent.once("transactionHash", (hash) => resolve(String(hash)));
+        promiEvent.once("transactionHash", (hash) => {
+          resolve(hash);
+        });
         promiEvent.catch(reject);
       });
 

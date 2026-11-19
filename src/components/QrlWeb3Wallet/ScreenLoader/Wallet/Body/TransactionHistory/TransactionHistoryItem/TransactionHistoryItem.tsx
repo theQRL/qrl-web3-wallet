@@ -61,7 +61,7 @@ const TransactionHistoryItem = observer(({
   const { showBalanceAndPrice, currency } = settingsStore;
   const qrlPrice = priceStore.getPrice(currency);
   const fiatDisplay =
-    showBalanceAndPrice && qrlPrice > 0 && !transaction.isZrc20Token
+    showBalanceAndPrice && qrlPrice > 0 && !transaction.isQrc20Token
       ? formatFiatCompact(amount, qrlPrice, currency)
       : "";
 

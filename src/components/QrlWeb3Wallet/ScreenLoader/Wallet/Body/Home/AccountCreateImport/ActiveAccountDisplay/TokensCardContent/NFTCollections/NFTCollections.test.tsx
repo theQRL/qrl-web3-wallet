@@ -57,14 +57,14 @@ describe("NFTCollections", () => {
         address: "0xABC",
         name: "Col1",
         symbol: "C1",
-        standard: "ZRC721",
+        standard: "QRC721",
         image: "",
       },
       {
         address: "0xDEF",
         name: "Col2",
         symbol: "C2",
-        standard: "ZRC721",
+        standard: "QRC721",
         image: "",
       },
     ]);
@@ -82,7 +82,7 @@ describe("NFTCollections", () => {
       address: `0x${i}`,
       name: `Col${i}`,
       symbol: `C${i}`,
-      standard: "ZRC721" as const,
+      standard: "QRC721" as const,
       image: "",
     }));
     mockGetNFTCollectionsList.mockResolvedValue(collections);

@@ -1,5 +1,7 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { StoreProvider } from "@/stores/store";
+import i18n from "@/i18n";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { ComponentProps } from "react";
@@ -7,7 +9,10 @@ import { MemoryRouter } from "react-router-dom";
 import AccountId from "./AccountId";
 
 describe("AccountId", () => {
-  afterEach(cleanup);
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage("en");
+  });
 
   const renderComponent = (
     mockedStoreValues = mockedStore(),
@@ -42,5 +47,23 @@ describe("AccountId", () => {
     for (const word of addressParts) {
       expect(screen.getByText(word)).toBeInTheDocument();
     }
+  });
+
+  it.each([
+    ["en", "Unavailable"],
+    ["de", "Nicht verfügbar"],
+    ["es", "No disponible"],
+  ])("shows an unavailable balance in %s without a zero fiat value", async (language, message) => {
+    await i18n.changeLanguage(language);
+    renderComponent(
+      mockedStore({
+        qrlStore: { getAccountBalance: () => BALANCE_UNAVAILABLE },
+        priceStore: { getPrice: () => 2 },
+        settingsStore: { showBalanceAndPrice: true, currency: "USD" },
+      }),
+    );
+
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(screen.queryByText(/\$0\.00/)).not.toBeInTheDocument();
   });
 });

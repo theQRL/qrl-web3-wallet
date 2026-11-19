@@ -15,6 +15,9 @@ import {
   Permission,
 } from "../middlewares/middlewareTypes";
 
+export const TYPED_DATA_V4_UNSUPPORTED_MESSAGE =
+  "qrl_signTypedData_v4 is not supported by this wallet version.";
+
 const getFromAddress = (req: JsonRpcRequest<JsonRpcRequest>) => {
   switch (req.method) {
     case RESTRICTED_METHODS.QRL_SEND_TRANSACTION:
@@ -478,11 +481,11 @@ export const checkWalletWatchAssetParams = async (paramObject: {
     };
   }
 
-  if (!paramObject?.type || paramObject?.type?.toLowerCase() !== "zrc20") {
+  if (!paramObject?.type || paramObject?.type?.toLowerCase() !== "qrc20") {
     return {
       canProceed: false,
       proceedError: rpcErrors.invalidParams({
-        message: "Asset type should be ZRC20.",
+        message: "Asset type should be QRC20.",
       }),
     };
   }

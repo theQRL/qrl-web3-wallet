@@ -43,13 +43,20 @@ export default defineConfig({
     ],
   },
   test: {
+    // Bound parallelism while the crypto integration tests run Argon2id.
+    maxWorkers: 4,
     environment: "jsdom",
     clearMocks: true,
     globals: false,
     setupFiles: ["src/__mocks__/i18nTestSetup.ts", "vitest.setup.ts"],
     server: {
       deps: {
-        inline: ["@theqrl/abi", "@theqrl/qrl-cryptography", "@noble/hashes"],
+        inline: [
+          "@theqrl/abi",
+          "@theqrl/qrl-cryptography",
+          "@theqrl/web3-qrl-accounts",
+          "@noble/hashes",
+        ],
       },
     },
     coverage: {

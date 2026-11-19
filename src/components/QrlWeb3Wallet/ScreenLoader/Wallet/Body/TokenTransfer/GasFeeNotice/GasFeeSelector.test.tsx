@@ -30,7 +30,7 @@ describe("GasFeeSelector", () => {
   afterEach(cleanup);
 
   const defaultProps: ComponentProps<typeof GasFeeSelector> = {
-    isZrc20Token: false,
+    isQrc20Token: false,
     tokenContractAddress: "",
     tokenDecimals: 18,
     from: "Q00000000000000000000000000000000000000000000000000000000205046e6A6E159eD6ACedE46A36CAD6D449C80A100000000000000000000000000000000",
@@ -334,19 +334,19 @@ describe("GasFeeSelector", () => {
     expect(advancedCalls.length).toBeGreaterThan(0);
   });
 
-  it("should calculate gas for ZRC-20 tokens", async () => {
-    const getZrc20TokenGas = vi.fn<any>(async () => "1.5");
+  it("should calculate gas for QRC-20 tokens", async () => {
+    const getQrc20TokenGas = vi.fn<any>(async () => "1.5");
     renderComponent(
-      mockedStore({ qrlStore: { getZrc20TokenGas } }),
+      mockedStore({ qrlStore: { getQrc20TokenGas } }),
       {
-        isZrc20Token: true,
+        isQrc20Token: true,
         tokenContractAddress: "Q0000000000000000000000000000000000000000000000000000000028c4113a9d3a2e836f28c23ed8e3c1e7c243f56600000000000000000000000000000000",
         tokenDecimals: 18,
       },
     );
 
     await waitFor(() => {
-      expect(getZrc20TokenGas).toHaveBeenCalled();
+      expect(getQrc20TokenGas).toHaveBeenCalled();
     });
 
     expect(screen.getByText("Gas fee")).toBeInTheDocument();

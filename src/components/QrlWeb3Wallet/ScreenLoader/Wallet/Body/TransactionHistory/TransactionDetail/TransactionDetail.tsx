@@ -220,7 +220,7 @@ const TransactionDetail = observer(() => {
           amount: transaction.amount,
           tokenSymbol: transaction.tokenSymbol,
           tokenName: transaction.tokenName,
-          isZrc20Token: transaction.isZrc20Token,
+          isQrc20Token: transaction.isQrc20Token,
           tokenContractAddress: transaction.tokenContractAddress,
           tokenDecimals: transaction.tokenDecimals,
           transactionHash: result.transactionHash,
@@ -325,7 +325,7 @@ const TransactionDetail = observer(() => {
 
   const { showBalanceAndPrice, currency } = settingsStore;
   const qrlPrice = priceStore.getPrice(currency);
-  const showFiat = showBalanceAndPrice && qrlPrice > 0 && !transaction.isZrc20Token;
+  const showFiat = showBalanceAndPrice && qrlPrice > 0 && !transaction.isQrc20Token;
   const fiatAmount = showFiat ? formatFiatCompact(amount, qrlPrice, currency) : "";
   const fiatGasFee = showFiat ? formatFiatCompact(totalGasFeeQrl, qrlPrice, currency) : "";
   const fiatTotalCost = showFiat ? formatFiatCompact(totalCost, qrlPrice, currency) : "";

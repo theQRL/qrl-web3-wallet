@@ -100,6 +100,7 @@ vi.mock("@/functions/getMnemonicFromHexSeed", () => ({
   getMnemonicFromHexSeed: vi.fn(() => "mocked mnemonic"),
 }));
 
+import { STORAGE_SCHEMA_VERSION } from "@/utilities/storageUtil";
 import LockManager, {
   LOCK_MANAGER_MESSAGES,
   type DecryptedKeyType,
@@ -109,7 +110,6 @@ import LockManager, {
 
 const MOCK_KEYS: DecryptedKeyType[] = [
   {
-    password: "pass",
     address: "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
     seed: "0x010000aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     mnemonicPhrases: "word ".repeat(24).trim(),
@@ -124,6 +124,7 @@ const clearStore = (store: Record<string, any>) => {
 const seedStorage = () => {
   mockLocalStore["KEYSTORES"] = JSON.stringify([{ address: "0x123" }]);
   mockLocalStore["ACCOUNTS"] = { ALL_ACCOUNTS: ["0x123"] };
+  mockLocalStore["STORAGE_SCHEMA_VERSION"] = STORAGE_SCHEMA_VERSION;
 };
 
 const minutes = (m: number) => m * 60_000;

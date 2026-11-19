@@ -6,13 +6,14 @@
  * lifecycle issues (Chrome can't kill a worker that runs inside the popup).
  */
 
-import { decrypt, encrypt } from "@theqrl/web3-qrl-accounts";
+import { decrypt } from "@theqrl/web3-qrl-accounts";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import {
   RECOMMENDED_KEYSTORE_KDF_PARAMS,
   shouldUpgradeKeystoreParams,
 } from "@/scripts/lockManager/keystoreParams";
 import type { KeyStore } from "@theqrl/web3";
+import { encryptVerified } from "./encryptVerified";
 
 export type UnlockWorkerRequest = {
   keystores: KeyStore[];
@@ -52,14 +53,20 @@ self.onmessage = async (event: MessageEvent<UnlockWorkerRequest>) => {
         mnemonicPhrases: getMnemonicFromHexSeed(seed),
       });
       if (shouldUpgradeKeystoreParams(keyStore)) {
-        if (!upgradedKeystores) {
-          upgradedKeystores = [...keystores];
+        // The stored keystore has just opened, so it stays in place when its
+        // replacement cannot be written or does not read back. The unlock
+        // goes on, and the upgrade is tried again at the next one.
+        const reEncrypted = await encryptVerified(
+          { address, seed },
+          normalisedPassword,
+        ).catch(() => undefined);
+        if (reEncrypted) {
+          upgradedKeystores ??= [...keystores];
+          const idx = upgradedKeystores.findIndex(
+            (k) => k.address?.toLowerCase() === keyStore.address?.toLowerCase(),
+          );
+          if (idx >= 0) upgradedKeystores[idx] = reEncrypted;
         }
-        const reEncrypted = await encrypt(seed, normalisedPassword);
-        const idx = upgradedKeystores.findIndex(
-          (k) => k.address?.toLowerCase() === keyStore.address?.toLowerCase(),
-        );
-        if (idx >= 0) upgradedKeystores[idx] = reEncrypted;
       }
     }
     // Reference the constant so tree-shaking does not drop the import.

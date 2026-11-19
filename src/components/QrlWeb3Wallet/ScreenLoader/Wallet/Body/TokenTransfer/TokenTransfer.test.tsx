@@ -1,9 +1,13 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { StoreProvider } from "@/stores/store";
+import { QRL_EXAMPLE_ADDRESS } from "@/constants/address";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import i18n from "@/i18n";
+import { observable } from "mobx";
 import TokenTransfer from "./TokenTransfer";
 
 const {
@@ -45,7 +49,10 @@ const successSignResult = {
 };
 
 describe("TokenTransfer", () => {
-  afterEach(cleanup);
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage("en");
+  });
 
   beforeEach(() => {
     mockGetTransactionValues.mockResolvedValue({
@@ -56,48 +63,128 @@ describe("TokenTransfer", () => {
     mockClearTransactionValues.mockResolvedValue(undefined);
   });
 
-  const renderComponent = (mockedStoreValues = mockedStore()) =>
-    render(
+  const renderComponent = (mockedStoreValues = mockedStore()) => {
+    return render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter>
           <TokenTransfer />
         </MemoryRouter>
       </StoreProvider>,
     );
+  };
 
   const renderComponentWithState = (
     state: Record<string, any>,
     mockedStoreValues = mockedStore(),
-  ) =>
-    render(
+  ) => {
+    return render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter initialEntries={[{ pathname: "/token-transfer", state }]}>
           <TokenTransfer />
         </MemoryRouter>
       </StoreProvider>,
     );
+  };
 
-  const fillAndSubmitForm = async (buttonName = "Send QRL") => {
+  const fillForm = async (amount: string) => {
+    const user = userEvent.setup();
     const receiverAddressField = screen.getByRole("textbox", {
       name: "receiverAddress",
     });
     const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "2.5");
-      },
-      { timeout: 5000 },
+    await user.click(receiverAddressField);
+    await user.paste(
+      "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
     );
+    await user.type(amountField, amount);
+  };
+
+  const fillAndSubmitForm = async (buttonName = "Send QRL") => {
+    await fillForm("2.5");
     const sendButton = screen.getByRole("button", { name: buttonName });
-    expect(sendButton).toBeEnabled();
+    await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
       await userEvent.click(sendButton);
     });
   };
+
+  it.each([false, true])(
+    "keeps Send disabled when the native balance is unavailable (QRC20: %s)",
+    async (isQrc20Token) => {
+      const getAccountSeed = vi.fn(async () => "");
+      const signNativeToken = vi.fn(async () => successSignResult);
+      const signQrc20Token = vi.fn(async () => successSignResult);
+      renderComponentWithState(
+        {
+          tokenDetails: {
+            isQrc20Token,
+            tokenContractAddress: QRL_EXAMPLE_ADDRESS,
+            tokenDecimals: 18,
+            tokenImage: "",
+            tokenBalance: "100 TST",
+            tokenName: "Test Token",
+            tokenSymbol: isQrc20Token ? "TST" : "QRL",
+          },
+        },
+        mockedStore({
+          lockStore: { getAccountSeed },
+          qrlStore: {
+            getAccountBalance: () => BALANCE_UNAVAILABLE,
+            getNativeTokenGas: async () => "0.001",
+            getQrc20TokenGas: async () => "0.001",
+            signNativeToken,
+            signQrc20Token,
+          },
+        }),
+      );
+
+      expect(await screen.findByText(
+        "Balance unavailable. Check the network connection and try again.",
+      )).toBeInTheDocument();
+      await fillForm("2.5");
+      const sendButton = screen.getByRole("button", {
+        name: `Send ${isQrc20Token ? "TST" : "QRL"}`,
+      });
+      expect(sendButton).toBeDisabled();
+      await userEvent.click(sendButton);
+      expect(screen.queryByText(/Insufficient/)).not.toBeInTheDocument();
+      expect(getAccountSeed).not.toHaveBeenCalled();
+      expect(signNativeToken).not.toHaveBeenCalled();
+      expect(signQrc20Token).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["de", "Guthaben nicht verfügbar. Prüfe die Netzwerkverbindung und versuche es erneut."],
+    ["es", "Saldo no disponible. Comprueba la conexión de red e inténtalo de nuevo."],
+  ])("translates the unavailable balance error in %s", async (language, message) => {
+    await i18n.changeLanguage(language);
+    renderComponent(mockedStore({
+      qrlStore: { getAccountBalance: () => BALANCE_UNAVAILABLE },
+    }));
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+
+  it("updates the balance error when a failed balance request recovers", async () => {
+    const balance = observable.box(BALANCE_UNAVAILABLE);
+    const store = mockedStore({
+      qrlStore: {
+        getAccountBalance: () => balance.get(),
+        getNativeTokenGas: async () => "0.001",
+      },
+    });
+    renderComponent(store);
+    await fillForm("2.5");
+    const sendButton = screen.getByRole("button", { name: "Send QRL" });
+    expect(sendButton).toBeDisabled();
+    act(() => {
+      balance.set("100 QRL");
+    });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    expect(screen.queryByText(
+      "Balance unavailable. Check the network connection and try again.",
+    )).not.toBeInTheDocument();
+  });
 
   it("should render the account details component", () => {
     renderComponent();
@@ -133,27 +220,23 @@ describe("TokenTransfer", () => {
   });
 
   it("should enable the send quanta button once receiver address, amount and mnemonic phrases are entered", async () => {
+    const user = userEvent.setup();
     renderComponent();
 
     const receiverAddressField = screen.getByRole("textbox", {
       name: "receiverAddress",
     });
     const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "2.5");
-      },
-      { timeout: 5000 },
+    await user.click(receiverAddressField);
+    await user.paste(
+      "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
     );
+    await user.type(amountField, "2.5");
     const sendQuantaButton = screen.getByRole("button", {
       name: "Send QRL",
     });
     expect(sendQuantaButton).toBeInTheDocument();
-    expect(sendQuantaButton).toBeEnabled();
+    await waitFor(() => expect(sendQuantaButton).toBeEnabled());
   });
 
   it("should display the error message if amount is not valid", async () => {
@@ -316,8 +399,8 @@ describe("TokenTransfer", () => {
     expect(screen.getByText(/Network timeout/)).toBeInTheDocument();
   });
 
-  it("should sign ZRC20 token and add pending transaction when token details are set from state", async () => {
-    const mockSignZrc20Token = vi.fn<any>().mockResolvedValue({
+  it("should sign QRC20 token and add pending transaction when token details are set from state", async () => {
+    const mockSignQrc20Token = vi.fn<any>().mockResolvedValue({
       ...successSignResult,
       data: "0xcontractdata",
     });
@@ -326,7 +409,7 @@ describe("TokenTransfer", () => {
     renderComponentWithState(
       {
         tokenDetails: {
-          isZrc20Token: true,
+          isQrc20Token: true,
           tokenContractAddress:
             "Q000000000000000000000000000000000000000000000000000000001234567890abcdef1234567890abcdef1234567800000000000000000000000000000000",
           tokenDecimals: 18,
@@ -338,7 +421,7 @@ describe("TokenTransfer", () => {
       },
       mockedStore({
         qrlStore: {
-          signZrc20Token: mockSignZrc20Token,
+          signQrc20Token: mockSignQrc20Token,
           sendRawTransaction: vi.fn<any>().mockResolvedValue(undefined),
         },
         transactionHistoryStore: {
@@ -352,7 +435,7 @@ describe("TokenTransfer", () => {
     });
 
     await fillAndSubmitForm("Send TST");
-    expect(mockSignZrc20Token).toHaveBeenCalled();
+    expect(mockSignQrc20Token).toHaveBeenCalled();
     expect(mockAddTransaction).toHaveBeenCalledWith(
       "Q000000000000000000000000000000000000000000000000000000008a8eafb1cf62bfbeb1741769dae1a9dd4799619200000000000000000000000000000000",
       expect.objectContaining({
@@ -362,8 +445,8 @@ describe("TokenTransfer", () => {
     );
   });
 
-  it("should sign ZRC20 token transfer with Ledger account", async () => {
-    const mockSignZrc20Token = vi.fn<any>();
+  it("should sign QRC20 token transfer with Ledger account", async () => {
+    const mockSignQrc20Token = vi.fn<any>();
     const mockSignAndSerializeTransaction = vi
       .fn<any>()
       .mockResolvedValue("0x02f8a00180843b9aca00843b9aca0082520894");
@@ -380,7 +463,7 @@ describe("TokenTransfer", () => {
     renderComponentWithState(
       {
         tokenDetails: {
-          isZrc20Token: true,
+          isQrc20Token: true,
           tokenContractAddress:
             "Q000000000000000000000000000000000000000000000000000000001234567890abcdef1234567890abcdef1234567800000000000000000000000000000000",
           tokenDecimals: 18,
@@ -406,7 +489,7 @@ describe("TokenTransfer", () => {
             maxFeePerGas: BigInt(2250000007),
             maxPriorityFeePerGas: BigInt(2250000000),
           }),
-          signZrc20Token: mockSignZrc20Token,
+          signQrc20Token: mockSignQrc20Token,
           sendRawTransaction: vi.fn<any>().mockResolvedValue(undefined),
         },
         transactionHistoryStore: {
@@ -421,7 +504,7 @@ describe("TokenTransfer", () => {
 
     await fillAndSubmitForm("Send TST");
 
-    expect(mockSignZrc20Token).not.toHaveBeenCalled();
+    expect(mockSignQrc20Token).not.toHaveBeenCalled();
     expect(mockTransfer).toHaveBeenCalled();
     expect(mockSignAndSerializeTransaction).toHaveBeenCalledWith(
       expect.any(String),
@@ -448,7 +531,7 @@ describe("TokenTransfer", () => {
       receiverAddress: "",
       amount: 0,
       tokenDetails: {
-        isZrc20Token: true,
+        isQrc20Token: true,
         tokenContractAddress:
           "Q00000000000000000000000000000000000000000000000000000000abcdef1234567890abcdef1234567890abcdef1200000000000000000000000000000000",
         tokenDecimals: 8,
@@ -484,20 +567,7 @@ describe("TokenTransfer", () => {
       }),
     );
 
-    const receiverAddressField = screen.getByRole("textbox", {
-      name: "receiverAddress",
-    });
-    const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "10");
-      },
-      { timeout: 5000 },
-    );
+    await fillForm("10");
 
     await waitFor(
       () => {
@@ -524,20 +594,7 @@ describe("TokenTransfer", () => {
       }),
     );
 
-    const receiverAddressField = screen.getByRole("textbox", {
-      name: "receiverAddress",
-    });
-    const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "5");
-      },
-      { timeout: 5000 },
-    );
+    await fillForm("5");
 
     await waitFor(() => {
       expect(screen.getByText("Gas fee")).toBeInTheDocument();
@@ -552,11 +609,11 @@ describe("TokenTransfer", () => {
     expect(sendButton).toBeEnabled();
   });
 
-  it("should display insufficient token balance error for ZRC-20 when amount exceeds token balance", async () => {
+  it("should display insufficient token balance error for QRC-20 when amount exceeds token balance", async () => {
     renderComponentWithState(
       {
         tokenDetails: {
-          isZrc20Token: true,
+          isQrc20Token: true,
           tokenContractAddress:
             "Q000000000000000000000000000000000000000000000000000000001234567890abcdef1234567890abcdef1234567800000000000000000000000000000000",
           tokenDecimals: 18,
@@ -569,7 +626,7 @@ describe("TokenTransfer", () => {
       mockedStore({
         qrlStore: {
           getAccountBalance: () => "10.0 QRL",
-          getZrc20TokenGas: vi.fn(async () => "0.001"),
+          getQrc20TokenGas: vi.fn(async () => "0.001"),
         },
       }),
     );
@@ -578,20 +635,7 @@ describe("TokenTransfer", () => {
       expect(screen.getByText("Send TST")).toBeInTheDocument();
     });
 
-    const receiverAddressField = screen.getByRole("textbox", {
-      name: "receiverAddress",
-    });
-    const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "100");
-      },
-      { timeout: 5000 },
-    );
+    await fillForm("100");
 
     await waitFor(
       () => {
@@ -603,11 +647,11 @@ describe("TokenTransfer", () => {
     );
   });
 
-  it("should display insufficient gas error for ZRC-20 when native balance cannot cover gas", async () => {
+  it("should display insufficient gas error for QRC-20 when native balance cannot cover gas", async () => {
     renderComponentWithState(
       {
         tokenDetails: {
-          isZrc20Token: true,
+          isQrc20Token: true,
           tokenContractAddress:
             "Q000000000000000000000000000000000000000000000000000000001234567890abcdef1234567890abcdef1234567800000000000000000000000000000000",
           tokenDecimals: 18,
@@ -620,7 +664,7 @@ describe("TokenTransfer", () => {
       mockedStore({
         qrlStore: {
           getAccountBalance: () => "0.0 QRL",
-          getZrc20TokenGas: vi.fn(async () => "0.001"),
+          getQrc20TokenGas: vi.fn(async () => "0.001"),
         },
       }),
     );
@@ -629,20 +673,7 @@ describe("TokenTransfer", () => {
       expect(screen.getByText("Send TST")).toBeInTheDocument();
     });
 
-    const receiverAddressField = screen.getByRole("textbox", {
-      name: "receiverAddress",
-    });
-    const amountField = screen.getByRole("spinbutton", { name: "amount" });
-    await waitFor(
-      async () => {
-        await userEvent.type(
-          receiverAddressField,
-          "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000",
-        );
-        await userEvent.type(amountField, "10");
-      },
-      { timeout: 5000 },
-    );
+    await fillForm("10");
 
     await waitFor(
       () => {

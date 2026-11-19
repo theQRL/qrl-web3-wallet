@@ -21,6 +21,11 @@ import {
 } from "./constants/streamConstants";
 import { chainIdToHex } from "./utils/chainIdUtils";
 import { checkForLastError, getSerializableObject } from "./utils/scriptUtils";
+import {
+  callForDapp,
+  estimateGasForDapp,
+  getSyncingResult,
+} from "./utils/unrestrictedMethodUtils";
 import { asDuplexStream, asStreamLifecycle } from "./utils/streamTypeUtils";
 
 type MessageType = {
@@ -238,8 +243,7 @@ const prepareListeners = () => {
           accounts: [],
         } as Parameters<BaseProvider["_initializeState"]>[0];
       } else if (method === UNRESTRICTED_METHODS.QRL_SYNCING) {
-        const isSyncing = await qrl.isSyncing();
-        return isSyncing;
+        return await getSyncingResult(qrl);
       } else if (method === UNRESTRICTED_METHODS.QRL_UNINSTALL_FILTER) {
         const [filterIdentifier] = message?.data?.params ?? [];
         const isSuccess = await qrlRpcMethods.uninstallFilter(
@@ -289,8 +293,7 @@ const prepareListeners = () => {
         return "0x".concat(balance.toString(16));
       } else if (method === UNRESTRICTED_METHODS.QRL_ESTIMATE_GAS) {
         const [estimateGasParam] = message.data.params;
-        const estimatedGas = await qrl.estimateGas(estimateGasParam);
-        return "0x".concat(estimatedGas.toString(16));
+        return await estimateGasForDapp(qrl, estimateGasParam);
       } else if (method === UNRESTRICTED_METHODS.QRL_FEE_HISTORY) {
         const [blockCount, newestBlock, rewardPercentiles] =
           message.data.params;
@@ -350,8 +353,7 @@ const prepareListeners = () => {
         return getSerializableObject(transactionDetails);
       } else if (method === UNRESTRICTED_METHODS.QRL_CALL) {
         const [transactionObj, blockParam] = message.data.params;
-        const qrlCallResponse = await qrl.call(transactionObj, blockParam);
-        return qrlCallResponse;
+        return await callForDapp(qrl, transactionObj, blockParam);
       } else if (method === UNRESTRICTED_METHODS.QRL_GET_CODE) {
         const [address, blockNumber] = message.data.params;
         const byteCode = await qrl.getCode(address, blockNumber);

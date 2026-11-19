@@ -61,11 +61,11 @@ describe("CreateAccount", () => {
   it("should render the account creation form for creating account if the account is not yet created", async () => {
     renderComponent();
 
-    waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
         "Create a new account",
       );
-      expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
+      expect(screen.getByRole("paragraph")).toHaveTextContent(
         "You can add a new account to this wallet. After creating the account, ensure you keep the account recovery phrases safe.",
       );
       expect(

@@ -38,7 +38,7 @@ Building from source produces the same `Extension/` folder that's published on t
 
 ### Prerequisites
 
-- Node.js 22.x ([nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm) recommended)
+- Node.js 22.12 or later ([nvm](https://github.com/nvm-sh/nvm) or [fnm](https://github.com/Schniz/fnm) recommended)
 - npm
 - git
 
@@ -82,7 +82,7 @@ npm run lint   # eslint (see CONTRIBUTING.md)
 | Transaction          | The user can send `QRL` to other addresses. The receiver's account address, the amount and the user's secret mnemonic phrases (user's password will be used in the future) are required to make the transaction.                                     | [TokenTransfer.tsx](src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/TokenTransfer/TokenTransfer.tsx)                                                                                                                                                                  | :green_circle: |
 | Gas Fee              | Before making a transaction, the user can see an estimated gas fee amount.                                                                                                                                                                            | [GasFeeNotice.tsx](src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/TokenTransfer/GasFeeNotice/GasFeeNotice.tsx)                                                                                                                                                       | :green_circle: |
 | Wallet connect       | Online dApps present the user with a `Connect` button. To connect the wallet with the dApps, multi-wallet support based on EIP-6963 is implemented.                                                                                                   | [DAppRequest.tsx](src/components/QrlWeb3Wallet/ScreenLoader/DAppRequest/DAppRequest.tsx) [middlewares](src/scripts/middlewares) [inPageScript.ts](src/scripts/inPageScript.ts)                                                                                              | :green_circle: |
-| ZRC-20 Tokens        | The wallet supports `ZRC-20` tokens. The users can import and send the ZRC-20 tokens from the wallet.                                                                                                                                                 | [ImportToken.tsx](src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/ImportToken/ImportToken.tsx) [TokensCardContent.tsx](src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/Home/AccountCreateImport/ActiveAccountDisplay/TokensCardContent/TokensCardContent.tsx)    | :green_circle: |
+| QRC-20 Tokens        | The wallet supports `QRC-20` tokens. The users can import and send the QRC-20 tokens from the wallet.                                                                                                                                                 | [ImportToken.tsx](src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/ImportToken/ImportToken.tsx) [TokensCardContent.tsx](src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/Home/AccountCreateImport/ActiveAccountDisplay/TokensCardContent/TokensCardContent.tsx)    | :green_circle: |
 
 ## :hammer_and_wrench: Built with
 

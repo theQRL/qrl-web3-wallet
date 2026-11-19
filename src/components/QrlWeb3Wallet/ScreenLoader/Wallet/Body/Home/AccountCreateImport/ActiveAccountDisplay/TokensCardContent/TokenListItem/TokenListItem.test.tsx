@@ -1,5 +1,7 @@
 import { mockedStore } from "@/__mocks__/mockedStore";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { StoreProvider } from "@/stores/store";
+import i18n from "@/i18n";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -26,7 +28,10 @@ vi.mock(
 );
 
 describe("TokenListItem", () => {
-  afterEach(cleanup);
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage("en");
+  });
 
   const renderComponent = (
     mockedStoreValues = mockedStore(),
@@ -36,7 +41,7 @@ describe("TokenListItem", () => {
       symbol: "QRL",
       contractAddress: "Q000000000000000000000000000000000000000000000000000000000db3981cb93db985e4e3a62ff695f7a1b242dd7c00000000000000000000000000000000",
       decimals: 18,
-      isZrc20Token: false,
+      isQrc20Token: false,
       image: "",
     },
   ) =>
@@ -50,6 +55,18 @@ describe("TokenListItem", () => {
       </StoreProvider>,
     );
 
+  it.each([
+    ["en", "Unavailable"],
+    ["de", "Nicht verfügbar"],
+    ["es", "No disponible"],
+  ])("translates an unavailable balance in %s", async (language, message) => {
+    await i18n.changeLanguage(language);
+    renderComponent(mockedStore(), {
+      balance: BALANCE_UNAVAILABLE, name: "QRL", symbol: "QRL", image: "",
+    });
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+
   it("should render the token list item component", () => {
     renderComponent();
 
@@ -60,9 +77,9 @@ describe("TokenListItem", () => {
     expect(moreButton).toBeEnabled();
   });
 
-  it("should disable the hide token button if the token is not ZRC 20", async () => {
+  it("should disable the hide token button if the token is not QRC-20", async () => {
     renderComponent(mockedStore(), {
-      isZrc20Token: false,
+      isQrc20Token: false,
       image: "",
       balance: "",
       name: "",
@@ -81,7 +98,7 @@ describe("TokenListItem", () => {
   it("should hide the token on clicking the hide token button", async () => {
     const mockedTriggerReRender = vi.fn(() => {});
     renderComponent(mockedStore(), {
-      isZrc20Token: true,
+      isQrc20Token: true,
       image: "",
       balance: "",
       name: "",

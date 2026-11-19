@@ -5,8 +5,8 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { ComponentProps } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/components/UI/Tooltip";
-import { ZRC_20_ITEMS_DISPLAY_LIMIT } from "@/constants/zrc20Token";
-import ZRC20Tokens from "./ZRC20Tokens";
+import { QRC_20_ITEMS_DISPLAY_LIMIT } from "@/constants/qrc20Token";
+import QRC20Tokens from "./QRC20Tokens";
 
 vi.mock("@/utilities/storageUtil", async () => {
   const originalModule = await vi.importActual<
@@ -34,17 +34,17 @@ vi.mock("@/utilities/storageUtil", async () => {
   };
 });
 vi.mock(
-  "@/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/Home/AccountCreateImport/ActiveAccountDisplay/TokensCardContent/ZRC20Tokens/ZRC20Token/ZRC20Token",
-  () => ({ default: () => <div>Mocked ZRC 20 token</div> }),
+  "@/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/Home/AccountCreateImport/ActiveAccountDisplay/TokensCardContent/QRC20Tokens/QRC20Token/QRC20Token",
+  () => ({ default: () => <div>Mocked QRC-20 token</div> }),
 );
 
-describe("ZRC20Tokens", () => {
+describe("QRC20Tokens", () => {
   afterEach(cleanup);
 
   const renderComponent = (
     mockedStoreValues = mockedStore({
       qrlStore: {
-        getZrc20TokenDetails: async (contractAddress: string) => {
+        getQrc20TokenDetails: async (contractAddress: string) => {
           const tokenContracts = {
             "Q0000000000000000000000000000000000000000000000000000000028c4113a9d3a2e836f28c23ed8e3c1e7c243f56600000000000000000000000000000000": {
               token: {
@@ -86,13 +86,13 @@ describe("ZRC20Tokens", () => {
         },
       },
     }),
-    mockedProps: ComponentProps<typeof ZRC20Tokens> = {},
+    mockedProps: ComponentProps<typeof QRC20Tokens> = {},
   ) =>
     render(
       <StoreProvider value={mockedStoreValues}>
         <MemoryRouter>
           <TooltipProvider>
-            <ZRC20Tokens {...mockedProps} />
+            <QRC20Tokens {...mockedProps} />
           </TooltipProvider>
         </MemoryRouter>
       </StoreProvider>,
@@ -102,7 +102,7 @@ describe("ZRC20Tokens", () => {
     renderComponent(undefined, { shouldDisplayAllTokens: true });
 
     await waitFor(() => {
-      expect(screen.getAllByText("Mocked ZRC 20 token")).toHaveLength(3);
+      expect(screen.getAllByText("Mocked QRC-20 token")).toHaveLength(3);
     });
   });
 
@@ -110,8 +110,8 @@ describe("ZRC20Tokens", () => {
     renderComponent(undefined, { shouldDisplayAllTokens: false });
 
     await waitFor(() => {
-      expect(screen.getAllByText("Mocked ZRC 20 token")).toHaveLength(
-        ZRC_20_ITEMS_DISPLAY_LIMIT,
+      expect(screen.getAllByText("Mocked QRC-20 token")).toHaveLength(
+        QRC_20_ITEMS_DISPLAY_LIMIT,
       );
     });
   });

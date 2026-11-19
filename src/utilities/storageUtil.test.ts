@@ -77,7 +77,7 @@ const makeTxEntry = (
   amount: 2.5,
   tokenSymbol: "QRL",
   tokenName: "QRL",
-  isZrc20Token: false,
+  isQrc20Token: false,
   tokenContractAddress: "",
   tokenDecimals: 18,
   transactionHash: "0xtxhash1",
@@ -358,7 +358,7 @@ describe("StorageUtil", () => {
 
     it("should store token details", async () => {
       const tokenDetails = {
-        isZrc20Token: true,
+        isQrc20Token: true,
         tokenContractAddress: "0xtoken",
         tokenDecimals: 18,
         tokenImage: "img.png",

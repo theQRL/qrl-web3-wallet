@@ -1,0 +1,240 @@
+import { DEFAULT_BLOCKCHAIN } from "@/configuration/qrlBlockchainConfig";
+import StorageUtil from "@/utilities/storageUtil";
+import { JsonRpcEngine } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
+import type { Json, JsonRpcRequest } from "@theqrl/qrl-wallet-provider/utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import browser from "webextension-polyfill";
+import { RESTRICTED_METHODS } from "../constants/requestConstants";
+import { EXTENSION_MESSAGES } from "../constants/streamConstants";
+import LockManager from "../lockManager/lockManager";
+import { TYPED_DATA_V4_UNSUPPORTED_MESSAGE } from "../utils/restrictedMethodsMiddlewareUtils";
+import { restrictedMethodsMiddleware } from "./restrictedMethodsMiddleware";
+
+vi.mock("webextension-polyfill", async (importOriginal) => {
+  const original = await importOriginal<{ default: typeof browser }>();
+  return {
+    default: {
+      ...original.default,
+      action: { ...original.default.action, openPopup: vi.fn(async () => {}) },
+    },
+  };
+});
+
+const ACCOUNT = `Q${"ab".repeat(64)}`;
+const ORIGIN = "https://dapp.example";
+const SIGNING_METHODS = [
+  RESTRICTED_METHODS.QRL_SEND_TRANSACTION,
+  RESTRICTED_METHODS.PERSONAL_SIGN,
+];
+const rpc = vi.fn();
+
+const request = (method: string, account: string): JsonRpcRequest => ({
+  id: 1,
+  jsonrpc: "2.0",
+  method,
+  params:
+    method === RESTRICTED_METHODS.QRL_SEND_TRANSACTION
+      ? [{ from: account, to: ACCOUNT, value: "0x1" }]
+      : method === RESTRICTED_METHODS.PERSONAL_SIGN
+        ? ["0x1234", account]
+        : [account, { domain: { chainId: DEFAULT_BLOCKCHAIN.chainId } }],
+  senderData: { url: ORIGIN },
+});
+
+const handle = (method: string, account = ACCOUNT) => {
+  const engine = new JsonRpcEngine();
+  engine.push(restrictedMethodsMiddleware);
+  engine.push((_req, _res, _next, end) => {
+    rpc();
+    end(new Error("Unexpected RPC call"));
+  });
+  return engine.handle(request(method, account));
+};
+
+const respond = async (response: Json) => {
+  await vi.waitFor(() => {
+    expect(browser.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
+  });
+  const requestData = vi.mocked(StorageUtil.setDAppsRequestData).mock
+    .calls[0][0];
+  const listener = vi.mocked(browser.runtime.onMessage.addListener).mock
+    .calls[0][0];
+  void listener(
+    {
+      action: EXTENSION_MESSAGES.DAPP_RESPONSE,
+      method: requestData.method,
+      requestId: requestData.requestId,
+      hasApproved: true,
+      response,
+    },
+    {},
+    () => {},
+  );
+};
+
+describe("restrictedMethodsMiddleware signing", () => {
+  beforeEach(() => {
+    vi.spyOn(LockManager, "isLocked").mockResolvedValue({
+      isLocked: false,
+      hasPasswordSet: true,
+    });
+    vi.spyOn(LockManager, "getDecryptedKeys").mockReturnValue([
+      { address: ACCOUNT, seed: "", mnemonicPhrases: "" },
+    ]);
+    vi.spyOn(StorageUtil, "getDAppsConnectedAccountsData").mockResolvedValue({
+      urlOrigin: ORIGIN,
+      accounts: [ACCOUNT],
+      blockchains: [DEFAULT_BLOCKCHAIN],
+      permissions: [],
+    });
+    vi.spyOn(StorageUtil, "getActiveBlockChain").mockResolvedValue(
+      DEFAULT_BLOCKCHAIN,
+    );
+    vi.spyOn(StorageUtil, "getSettings").mockResolvedValue({
+      phishingDetectionEnabled: false,
+      sidePanelPreferred: false,
+    });
+    vi.spyOn(StorageUtil, "setDAppsRequestData").mockResolvedValue(undefined);
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  describe.each(SIGNING_METHODS)("%s", (method) => {
+    it("returns the authorization error for an unconnected origin", async () => {
+      vi.mocked(StorageUtil.getDAppsConnectedAccountsData).mockResolvedValue(
+        undefined,
+      );
+
+      expect(await handle(method)).toMatchObject({
+        error: {
+          code: 4100,
+          message: `The requested account ${ACCOUNT} has not been authorized by the user.`,
+        },
+      });
+      expect(LockManager.isLocked).not.toHaveBeenCalled();
+      expect(LockManager.getDecryptedKeys).not.toHaveBeenCalled();
+      expect(StorageUtil.setDAppsRequestData).not.toHaveBeenCalled();
+      expect(browser.action.openPopup).not.toHaveBeenCalled();
+      expect(browser.runtime.onMessage.addListener).not.toHaveBeenCalled();
+      expect(browser.tabs.sendMessage).not.toHaveBeenCalled();
+      expect(rpc).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("asks for approval and returns the approved result", async () => {
+      const signedData = {
+        signature: "0xsignature",
+        publicKey: "0xpublickey",
+      };
+      const response =
+        method === RESTRICTED_METHODS.QRL_SEND_TRANSACTION
+          ? { transactionHash: "0xtransaction" }
+          : signedData;
+      const pending = handle(method);
+      await respond(response);
+      const result = await pending;
+
+      expect(result).toEqual({
+        id: 1,
+        jsonrpc: "2.0",
+        result:
+          method === RESTRICTED_METHODS.QRL_SEND_TRANSACTION
+            ? "0xtransaction"
+            : signedData,
+      });
+      expect(browser.action.openPopup).toHaveBeenCalledTimes(1);
+      expect(StorageUtil.setDAppsRequestData).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method,
+          authorizedChainId: DEFAULT_BLOCKCHAIN.chainId,
+        }),
+      );
+    });
+  });
+
+  describe("typed data v4", () => {
+    const refusal = {
+      error: { code: 4200, message: TYPED_DATA_V4_UNSUPPORTED_MESSAGE },
+    };
+    const expectNoApproval = () => {
+      expect(StorageUtil.setDAppsRequestData).not.toHaveBeenCalled();
+      expect(browser.action.openPopup).not.toHaveBeenCalled();
+      expect(browser.runtime.onMessage.addListener).not.toHaveBeenCalled();
+      expect(rpc).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    };
+
+    it.each([
+      { state: "unlocked", isLocked: false },
+      { state: "locked", isLocked: true },
+    ])(
+      "refuses a connected origin the same way when $state, without consulting the lock manager",
+      async ({ isLocked }) => {
+        vi.mocked(LockManager.isLocked).mockResolvedValue({
+          isLocked,
+          hasPasswordSet: true,
+        });
+
+        const result = await handle(RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4);
+
+        expect(result).toMatchObject(refusal);
+        expect(result).not.toHaveProperty("result");
+        expect(LockManager.isLocked).not.toHaveBeenCalled();
+        expect(LockManager.getDecryptedKeys).not.toHaveBeenCalled();
+        expectNoApproval();
+      },
+    );
+
+    it("keeps the authorization answer for an unconnected origin", async () => {
+      vi.mocked(StorageUtil.getDAppsConnectedAccountsData).mockResolvedValue(
+        undefined,
+      );
+
+      expect(
+        await handle(RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4),
+      ).toMatchObject({
+        error: {
+          code: 4100,
+          message: `The requested account ${ACCOUNT} has not been authorized by the user.`,
+        },
+      });
+      expectNoApproval();
+    });
+
+    it("refuses while another approval is pending without disturbing it", async () => {
+      const pending = handle(RESTRICTED_METHODS.PERSONAL_SIGN);
+      await vi.waitFor(() => {
+        expect(browser.runtime.onMessage.addListener).toHaveBeenCalledTimes(1);
+      });
+
+      const result = await handle(RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4);
+
+      expect(result).toMatchObject(refusal);
+      expect(browser.action.openPopup).toHaveBeenCalledTimes(1);
+      expect(StorageUtil.setDAppsRequestData).toHaveBeenCalledTimes(1);
+      await respond({ signature: "0xsignature" });
+      expect(await pending).toMatchObject({
+        result: { signature: "0xsignature" },
+      });
+    });
+  });
+
+  it.each([RESTRICTED_METHODS.PERSONAL_SIGN])(
+    "%s returns popup signing errors as RPC errors",
+    async (method) => {
+      const pending = handle(method);
+      const error = { message: "Signing failed" };
+      await respond({ error });
+      const result = await pending;
+
+      expect(result).toMatchObject({
+        error: { code: 4200, message: error.message, data: error },
+      });
+      expect(result).not.toHaveProperty("result");
+    },
+  );
+});

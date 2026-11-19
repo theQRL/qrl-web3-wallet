@@ -1,5 +1,6 @@
 import { formatFiatCompact } from "@/functions/formatFiat";
 import { parseBalanceValue } from "@/functions/parseBalanceValue";
+import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { useStore } from "@/stores/store";
 import StringUtil from "@/utilities/stringUtil";
 import { Usb } from "lucide-react";
@@ -30,7 +31,9 @@ const AccountId = observer(({ account, hideLabel }: AccountIdType) => {
   const numericBalance = parseBalanceValue(accountBalance).toNumber();
   const price = priceStore.getPrice(settingsStore.currency);
   const fiatDisplay =
-    settingsStore.showBalanceAndPrice && price > 0
+    settingsStore.showBalanceAndPrice &&
+    price > 0 &&
+    accountBalance !== BALANCE_UNAVAILABLE
       ? formatFiatCompact(numericBalance, price, settingsStore.currency)
       : "";
 
@@ -66,7 +69,9 @@ const AccountId = observer(({ account, hideLabel }: AccountIdType) => {
           )}
         </div>
         <div className="text-xs text-secondary">
-          {accountBalance}
+          {accountBalance === BALANCE_UNAVAILABLE
+            ? t("common.unavailable")
+            : accountBalance}
           {fiatDisplay && (
             <span className="ml-1 text-muted-foreground">{fiatDisplay}</span>
           )}

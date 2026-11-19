@@ -19,7 +19,7 @@ import TokensCardContent from "./ActiveAccountDisplay/TokensCardContent/TokensCa
 import NFTCollections from "./ActiveAccountDisplay/TokensCardContent/NFTCollections/NFTCollections";
 import { useEffect, useState } from "react";
 import StorageUtil from "@/utilities/storageUtil";
-import { ZRC_20_ITEMS_DISPLAY_LIMIT } from "@/constants/zrc20Token";
+import { QRC_20_ITEMS_DISPLAY_LIMIT } from "@/constants/qrc20Token";
 
 const tokensClasses = cva("w-full", {
   variants: {
@@ -122,8 +122,8 @@ const AccountCreateImport = observer(() => {
                   {t('home.importToken')}
                 </Button>
               </Link>
-              {tokenContractsList.length > ZRC_20_ITEMS_DISPLAY_LIMIT && (
-                <Link className="w-full" to={ROUTES.ALL_ZRC_20_TOKENS}>
+              {tokenContractsList.length > QRC_20_ITEMS_DISPLAY_LIMIT && (
+                <Link className="w-full" to={ROUTES.ALL_QRC_20_TOKENS}>
                   <Button className="w-full" type="button" variant="outline">
                     <Logs className="mr-2 h-4 w-4" />
                     {t('home.viewAllTokens')}

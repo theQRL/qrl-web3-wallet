@@ -21,6 +21,7 @@ import {
   checkWalletRequestPermissionParams,
   checkWalletSwitchQrlChainParams,
   checkWalletWatchAssetParams,
+  TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
   updateAccountsAndBlockchainsForUrlOrigin,
 } from "../utils/restrictedMethodsMiddlewareUtils";
 import { DAppRequestType, DAppResponseType } from "./middlewareTypes";
@@ -281,6 +282,25 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       requestedMethod as RestrictedMethodValue,
     )
   ) {
+    const precheckResult = await checkRequestCanProceed(req);
+    const { canProceed, proceedError } = precheckResult;
+    const authorizedChainId =
+      "authorizedChainId" in precheckResult
+        ? (precheckResult.authorizedChainId as string | undefined)
+        : undefined;
+    if (!canProceed) {
+      res.error = proceedError?.serialize();
+      return end();
+    }
+
+    // A connected origin gets the same answer whatever the wallet state, so
+    // the refusal comes before any lock, signer or pending-request check.
+    if (requestedMethod === RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4) {
+      res.error = providerErrors.unsupportedMethod({
+        message: TYPED_DATA_V4_UNSUPPORTED_MESSAGE,
+      });
+      return end();
+    }
     if (isRequestPending) {
       try {
         const settings = await StorageUtil.getSettings();
@@ -294,19 +314,6 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       }
       return end();
     } else {
-      // check if the request can proceed
-      const precheckResult = await checkRequestCanProceed(req);
-      const { canProceed, proceedError } = precheckResult;
-      const authorizedChainId =
-        "authorizedChainId" in precheckResult
-          ? (precheckResult.authorizedChainId as string | undefined)
-          : undefined;
-      if (!canProceed) {
-        // @ts-expect-error - proceedError type from provider library is not assignable to res.error's narrow type
-        res.error = proceedError;
-        return end();
-      }
-
       // check if the request can complete silently without user interaction
       const { hasCompleted, completionResult, completionError } =
         await checkRequestCanCompleteSilently(req);
@@ -381,10 +388,9 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
               }
               break;
             }
-            case RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4:
             case RESTRICTED_METHODS.PERSONAL_SIGN: {
               const signedData = restrictedMethodResult?.response;
-              if (signedData) {
+              if (signedData && !signedData.error) {
                 res.result = signedData;
               } else {
                 res.error = providerErrors.unsupportedMethod({

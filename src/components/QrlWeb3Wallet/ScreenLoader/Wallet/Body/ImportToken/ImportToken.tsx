@@ -34,14 +34,14 @@ const FormSchema = z.object({
 const ImportToken = observer(() => {
   const { t } = useTranslation();
   const { qrlStore } = useStore();
-  const { getZrc20TokenDetails } = qrlStore;
+  const { getQrc20TokenDetails } = qrlStore;
 
   const [token, setToken] =
-    useState<Awaited<ReturnType<typeof getZrc20TokenDetails>>["token"]>();
+    useState<Awaited<ReturnType<typeof getQrc20TokenDetails>>["token"]>();
   const [hasTokenImported, setHasTokenImported] = useState(false);
 
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
-    const tokenDetails = await getZrc20TokenDetails(formData.contractAddress);
+    const tokenDetails = await getQrc20TokenDetails(formData.contractAddress);
     if (tokenDetails.error) {
       control.setError("contractAddress", { message: tokenDetails.error });
     } else {

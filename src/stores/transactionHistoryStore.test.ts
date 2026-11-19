@@ -36,7 +36,7 @@ const makeSampleEntry = (
   amount: 2.5,
   tokenSymbol: "QRL",
   tokenName: "QRL",
-  isZrc20Token: false,
+  isQrc20Token: false,
   tokenContractAddress: "",
   tokenDecimals: 18,
   transactionHash: "0xtxhash1",
@@ -112,33 +112,33 @@ describe("TransactionHistoryStore", () => {
     const store = new TransactionHistoryStore();
     store.setFilter("native");
     expect(store.filter).toBe("native");
-    store.setFilter("zrc20");
-    expect(store.filter).toBe("zrc20");
+    store.setFilter("qrc20");
+    expect(store.filter).toBe("qrc20");
     store.setFilter("all");
     expect(store.filter).toBe("all");
   });
 
   it("should return filtered transactions for native filter", () => {
     const store = new TransactionHistoryStore();
-    const nativeEntry = makeSampleEntry({ isZrc20Token: false });
-    const zrc20Entry = makeSampleEntry({
+    const nativeEntry = makeSampleEntry({ isQrc20Token: false });
+    const qrc20Entry = makeSampleEntry({
       id: "0xtxhash2",
       transactionHash: "0xtxhash2",
-      isZrc20Token: true,
+      isQrc20Token: true,
       tokenSymbol: "TST",
     });
 
     // Manually set transactions since we're testing the computed property
-    store.transactions = [nativeEntry, zrc20Entry];
+    store.transactions = [nativeEntry, qrc20Entry];
 
     store.setFilter("native");
     expect(store.filteredTransactions).toEqual([nativeEntry]);
 
-    store.setFilter("zrc20");
-    expect(store.filteredTransactions).toEqual([zrc20Entry]);
+    store.setFilter("qrc20");
+    expect(store.filteredTransactions).toEqual([qrc20Entry]);
 
     store.setFilter("all");
-    expect(store.filteredTransactions).toEqual([nativeEntry, zrc20Entry]);
+    expect(store.filteredTransactions).toEqual([nativeEntry, qrc20Entry]);
   });
 
   it("should clear history", async () => {
