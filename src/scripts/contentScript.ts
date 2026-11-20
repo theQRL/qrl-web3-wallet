@@ -25,6 +25,7 @@ import {
   callForDapp,
   estimateGasForDapp,
   getSyncingResult,
+  getTransactionFromBlockForDapp,
 } from "./utils/unrestrictedMethodUtils";
 import { asDuplexStream, asStreamLifecycle } from "./utils/streamTypeUtils";
 
@@ -395,11 +396,11 @@ const prepareListeners = () => {
           UNRESTRICTED_METHODS.QRL_GET_TRANSACTION_BY_BLOCK_NUMBER_AND_INDEX
       ) {
         const [blockHashOrNumber, transactionIndex] = message?.data?.params ?? [];
-        const transactionInformation = qrl?.getTransactionFromBlock(
+        return await getTransactionFromBlockForDapp(
+          qrl,
           blockHashOrNumber,
           transactionIndex,
         );
-        return getSerializableObject(transactionInformation);
       } else if (method === UNRESTRICTED_METHODS.QRL_CHAIN_ID) {
         const chainId = await qrl.getChainId({
           number: FMT_NUMBER.HEX,

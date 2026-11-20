@@ -46,3 +46,17 @@ export const callForDapp = (
 /** Since 2.0.0, sync progress comes as BigInt values; a dApp needs JSON quantities. */
 export const getSyncingResult = async (qrl: Qrl): Promise<unknown> =>
   getSerializableObject(await qrl.isSyncing());
+
+/**
+ * A transaction by its position in a block, in the form a dApp can receive.
+ * The lookup is awaited here: a pending promise serializes to an empty
+ * object, which is what dApps got for both request methods.
+ */
+export const getTransactionFromBlockForDapp = async (
+  qrl: Qrl,
+  blockHashOrNumber: Parameters<Qrl["getTransactionFromBlock"]>[0],
+  transactionIndex: Parameters<Qrl["getTransactionFromBlock"]>[1],
+): Promise<unknown> =>
+  getSerializableObject(
+    await qrl.getTransactionFromBlock(blockHashOrNumber, transactionIndex),
+  );
