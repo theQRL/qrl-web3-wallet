@@ -25,6 +25,13 @@ class LockStore {
    * fresh-wallet screen is the only screen shown.
    */
   storageState: StorageSchemaState | "checking" = "checking";
+  /**
+   * True while the first-run onboarding is on screen in this page. The wallet
+   * reads as unlocked as soon as the first keystore is written, but the
+   * onboarding still has steps to show (recovery phrase download and its
+   * confirmation), so the screen must not switch to the wallet yet.
+   */
+  isOnboarding = false;
   private keepAlivePort?: browser.Runtime.Port;
   /**
    * Cached copy of decrypted keys so the popup can re-send them to the SW
@@ -41,6 +48,7 @@ class LockStore {
 
   constructor() {
     makeAutoObservable(this, {
+      setOnboarding: action.bound,
       getWalletPassword: action.bound,
       getMnemonicPhrases: action.bound,
       getAccountSeed: action.bound,
@@ -139,6 +147,10 @@ class LockStore {
       // service worker decides.
       return "current";
     }
+  }
+
+  setOnboarding(isOnboarding: boolean) {
+    this.isOnboarding = isOnboarding;
   }
 
   initializeStorageListener() {
