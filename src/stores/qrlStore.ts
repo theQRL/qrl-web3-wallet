@@ -14,6 +14,7 @@ import {
   QRC_20_TOKEN_UNITS_OF_GAS,
 } from "@/constants/qrc20Token";
 import { getOptimalTokenBalance } from "@/functions/getOptimalTokenBalance";
+import { quantaToPlanck, toTokenBaseUnits } from "@/functions/toTokenBaseUnits";
 import type { GasFeeOverrides } from "@/types/gasFee";
 import type { TransactionHistoryEntry } from "@/types/transactionHistory";
 import StorageUtil from "@/utilities/storageUtil";
@@ -304,7 +305,8 @@ class QrlStore {
   async signNativeToken(
     from: string,
     to: string,
-    value: number,
+    // The send form hands the amount over as the text that was typed.
+    value: number | string,
     seed: string,
     overrides?: GasFeeOverrides,
   ) {
@@ -316,6 +318,7 @@ class QrlStore {
       maxFeePerGas?: string;
       maxPriorityFeePerGas?: string;
       gasLimit?: number;
+      value?: string;
     } = { error: "" };
 
     try {
@@ -326,10 +329,14 @@ class QrlStore {
           ? overrides.gasLimit
           : NATIVE_TOKEN_UNITS_OF_GAS;
       const nonce = await this.qrlInstance?.getTransactionCount(from);
+      // Exact for the amount as typed. The library's own conversion takes
+      // a number, which rounds a long amount, and refuses one below
+      // 0.000001 because it prints as 1e-7.
+      const planck = quantaToPlanck(value).toString();
       const transactionObject = {
         from,
         to,
-        value: utils.toPlanck(value, "quanta"),
+        value: planck,
         nonce,
         gasLimit,
         maxFeePerGas: `0x${maxFeePerGas.toString(16)}`,
@@ -358,6 +365,7 @@ class QrlStore {
           maxFeePerGas: maxFeePerGas.toString(),
           maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
           gasLimit,
+          value: planck,
         };
       } else {
         throw new Error("Transaction could not be signed");
@@ -677,7 +685,8 @@ class QrlStore {
   async getQrc20TokenGas(
     from: string,
     to: string,
-    value: number,
+    // The send form hands the amount over as the text that was typed.
+    value: number | string,
     contractAddress: string,
     decimals: number,
     overrides?: GasFeeOverrides,
@@ -689,7 +698,7 @@ class QrlStore {
       );
       const contractTransfer = contract.methods.transfer(
         to,
-        BigInt(value * 10 ** decimals),
+        toTokenBaseUnits(value, decimals),
       );
       const estimatedGasLimit = Number(
         await contractTransfer.estimateGas({ from }),
@@ -711,7 +720,7 @@ class QrlStore {
   async signQrc20Token(
     from: string,
     to: string,
-    value: number,
+    value: number | string,
     seed: string,
     contractAddress: string,
     decimals: number,
@@ -738,7 +747,7 @@ class QrlStore {
         );
         const contractTransfer = contract.methods.transfer(
           to,
-          BigInt(value * 10 ** decimals),
+          toTokenBaseUnits(value, decimals),
         );
         const { maxFeePerGas, maxPriorityFeePerGas } =
           await this.getGasFeeData(overrides);
@@ -844,9 +853,12 @@ class QrlStore {
           to: originalTx.isQrc20Token
             ? originalTx.tokenContractAddress
             : originalTx.to,
+          // The value as it was signed, where the entry has it. An entry
+          // of an earlier version has the amount as a number only.
           value: originalTx.isQrc20Token
             ? "0"
-            : utils.toPlanck(originalTx.amount, "quanta"),
+            : (originalTx.value ??
+              quantaToPlanck(originalTx.amount).toString()),
           nonce,
           gasLimit:
             originalTx.gasLimit ??
