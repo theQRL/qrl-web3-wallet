@@ -116,6 +116,9 @@ class LockManager {
   // The operations on the session copy of the keys, run one after the
   // other in the order they were asked for.
   private static sessionOps: Promise<unknown> = Promise.resolve();
+  // The same for the stored keystores: each account reads the list and
+  // writes it back as one step.
+  private static keystoreOps: Promise<unknown> = Promise.resolve();
   static readonly AUTO_LOCK_ALARM = "QRL_AUTO_LOCK";
   static readonly KEEP_ALIVE_ALARM = "QRL_KEEP_ALIVE";
   private static readonly SESSION_KEYS_KEY = SESSION_KEYS_STORAGE_KEY;
@@ -470,6 +473,32 @@ class LockManager {
     return session === this.session;
   }
 
+  /**
+   * A wallet has one password. Once a keystore is stored, another account
+   * goes under the password of the unlocked session and no other: with one
+   * keystore under a second password, the next unlock fails for every
+   * account.
+   */
+  private static assertWalletPassword(keystoreCount: number, password: string) {
+    if (keystoreCount > 0 && password !== this.walletPassword) {
+      throw new Error(
+        "Refusing to store an account under a password that is not the wallet's",
+      );
+    }
+  }
+
+  /**
+   * Runs a read and write of the stored keystores after every one asked for
+   * before it, so two accounts stored at the same time are both kept.
+   */
+  private static queueKeystoreOp<Result>(
+    operation: () => Promise<Result>,
+  ): Promise<Result> {
+    const result = this.keystoreOps.then(operation);
+    this.keystoreOps = result.catch(() => undefined);
+    return result;
+  }
+
   static async encryptAccount(accountData: EncryptAccountType) {
     const { password: rawPassword, seed } = accountData;
     const password = rawPassword.normalize("NFC");
@@ -481,22 +510,40 @@ class LockManager {
       throw new Error("Refusing to encrypt an account without a password");
     }
     const session = this.session;
-    const encryptedKeyStore = await encrypt(seed, password);
-    // Read the stored list after the derivation, right before writing it
-    // back, so an account stored meanwhile from another window is kept.
-    const keystores = await StorageUtil.getKeystores();
-    const updatedKeyStores = [...keystores, encryptedKeyStore];
-    await StorageUtil.setKeystores(
-      Array.from(
-        new Map(
-          updatedKeyStores.map((item) => [item.address.toLowerCase(), item]),
-        ).values(),
-      ),
+    // Checked before the derivation is paid for, and once more below
+    // against the wallet as it is when the keystore is written.
+    this.assertWalletPassword(
+      (await StorageUtil.getKeystores()).length,
+      password,
     );
-    // A lock while the account was being stored ended the session it
-    // started in. The account is stored, and the wallet stays locked.
+    const encryptedKeyStore = await encrypt(seed, password);
+    // The stored list is read after the derivation and written back in the
+    // same step of the queue, so an account stored meanwhile, from this
+    // window or another, is kept.
+    await this.queueKeystoreOp(async () => {
+      const keystores = await StorageUtil.getKeystores();
+      this.assertWalletPassword(keystores.length, password);
+      await StorageUtil.setKeystores(
+        Array.from(
+          new Map(
+            [...keystores, encryptedKeyStore].map((item) => [
+              item.address.toLowerCase(),
+              item,
+            ]),
+          ).values(),
+        ),
+      );
+      // A lock while a first account was being stored ended the session it
+      // started in: the account is stored, and the wallet stays locked.
+      // With a keystore stored before, the check above has refused the
+      // account by now, since a locked wallet holds no password.
+      if (session === this.session) {
+        // Known from here on, also to the next account in this queue.
+        this.walletPassword = password;
+        this.keystoreWrites += 1;
+      }
+    });
     if (session !== this.session) return;
-    this.keystoreWrites += 1;
     // Add the new account key directly to in-memory keys
     // instead of re-decrypting everything (which would block the SW).
     const newKey: DecryptedKeyType = {
@@ -504,7 +551,6 @@ class LockManager {
       seed: seed as string,
       mnemonicPhrases: getMnemonicFromHexSeed(seed as string),
     };
-    this.walletPassword = password;
     const existingKeys = this.decryptedKeys ?? [];
     await this.setDecryptedKeys(
       Array.from(

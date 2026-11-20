@@ -93,6 +93,7 @@ const restartWorker = () => {
     session: 0,
     lockedHere: false,
     sessionOps: Promise.resolve(),
+    keystoreOps: Promise.resolve(),
   });
 };
 
@@ -560,6 +561,153 @@ describe("LockManager – keep-alive & auto-lock", () => {
 
       expect(mockEncrypt).not.toHaveBeenCalled();
       expect(localStore["KEYSTORES"]).toBeUndefined();
+    });
+
+    it("refuses an account under another password once the wallet has a keystore", async () => {
+      mockEncrypt.mockResolvedValueOnce({ address: "Qfirst" });
+      await LockManager.encryptAccount({
+        seed: "" as any,
+        password: "correct horse battery staple",
+      });
+      mockEncrypt.mockClear();
+
+      await expect(
+        LockManager.encryptAccount({ seed: "" as any, password: "another" }),
+      ).rejects.toThrow(
+        "Refusing to store an account under a password that is not the wallet's",
+      );
+
+      // Refused before the derivation is paid for, and nothing is stored.
+      expect(mockEncrypt).not.toHaveBeenCalled();
+      const stored: { address: string }[] = JSON.parse(localStore["KEYSTORES"]);
+      expect(stored.map((keystore) => keystore.address)).toEqual(["Qfirst"]);
+      await LockManager.lock();
+    });
+
+    it("refuses an account for a wallet whose password this worker does not hold", async () => {
+      // A wallet is stored, and this worker has just started: it holds no
+      // password, whatever a caller sends along.
+      localStore["KEYSTORES"] = JSON.stringify([{ address: "Qfirst" }]);
+
+      await expect(
+        LockManager.encryptAccount({
+          seed: "" as any,
+          password: "correct horse battery staple",
+        }),
+      ).rejects.toThrow(
+        "Refusing to store an account under a password that is not the wallet's",
+      );
+      expect(mockEncrypt).not.toHaveBeenCalled();
+    });
+
+    it("refuses an account, and stores nothing, when a lock arrives while it is being encrypted and the wallet has a keystore", async () => {
+      localStore["KEYSTORES"] = JSON.stringify([{ address: "Qfirst" }]);
+      await LockManager.setDecryptedKeysFromPopup({
+        keys: MOCK_KEYS,
+        walletPassword: "correct horse battery staple",
+      });
+      let finish: (keystore: { address: string }) => void = () => undefined;
+      mockEncrypt.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = resolve;
+          }),
+      );
+
+      const adding = LockManager.encryptAccount({
+        seed: "" as any,
+        password: "correct horse battery staple",
+      });
+      for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+      expect(mockEncrypt).toHaveBeenCalledTimes(1);
+      await LockManager.lock();
+      finish({ address: "Qnew" });
+
+      // The locked wallet holds no password any more, so the account that
+      // was on its way is not written under one that can no longer be
+      // compared.
+      await expect(adding).rejects.toThrow(
+        "Refusing to store an account under a password that is not the wallet's",
+      );
+      const stored: { address: string }[] = JSON.parse(localStore["KEYSTORES"]);
+      expect(stored.map((keystore) => keystore.address)).toEqual(["Qfirst"]);
+      expect(() => LockManager.getDecryptedKeys()).toThrow(
+        "QRL Web3 Wallet is locked",
+      );
+    });
+
+    it("stores one of two first accounts that arrive with different passwords at the same moment", async () => {
+      // Two onboarding pages, each with a password of its own. Both pass
+      // the first check, since no keystore is stored yet.
+      let finishFirst: (keystore: { address: string }) => void = () =>
+        undefined;
+      mockEncrypt
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              finishFirst = resolve;
+            }),
+        )
+        .mockResolvedValueOnce({ address: "Qsecond" });
+
+      const first = LockManager.encryptAccount({
+        seed: "" as any,
+        password: "password of the first page",
+      });
+      await LockManager.encryptAccount({
+        seed: "" as any,
+        password: "password of the second page",
+      });
+      finishFirst({ address: "Qfirst" });
+
+      await expect(first).rejects.toThrow(
+        "Refusing to store an account under a password that is not the wallet's",
+      );
+      const stored: { address: string }[] = JSON.parse(localStore["KEYSTORES"]);
+      expect(stored.map((keystore) => keystore.address)).toEqual(["Qsecond"]);
+      expect(LockManager.getWalletPassword()).toBe(
+        "password of the second page",
+      );
+      await LockManager.lock();
+    });
+
+    it("keeps both accounts when two are written at the same moment", async () => {
+      mockEncrypt
+        .mockResolvedValueOnce({ address: "Qaaa" })
+        .mockResolvedValueOnce({ address: "Qbbb" });
+      // The first write is held, so the second account is ready to read
+      // the stored list while the first has not written it back.
+      let releaseWrite: () => void = () => undefined;
+      const writeGate = new Promise<void>((resolve) => {
+        releaseWrite = resolve;
+      });
+      const original = StorageUtil.setKeystores.bind(StorageUtil);
+      const spy = vi
+        .spyOn(StorageUtil, "setKeystores")
+        .mockImplementationOnce(async (keystores) => {
+          await writeGate;
+          return original(keystores);
+        });
+
+      const first = LockManager.encryptAccount({
+        seed: "" as any,
+        password: "correct horse battery staple",
+      });
+      const second = LockManager.encryptAccount({
+        seed: "" as any,
+        password: "correct horse battery staple",
+      });
+      for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+      releaseWrite();
+      await Promise.all([first, second]);
+
+      const stored: { address: string }[] = JSON.parse(localStore["KEYSTORES"]);
+      expect(stored.map((keystore) => keystore.address)).toEqual([
+        "Qaaa",
+        "Qbbb",
+      ]);
+      spy.mockRestore();
+      await LockManager.lock();
     });
 
     it("keeps a keystore that was stored while another account was being encrypted", async () => {
@@ -1180,7 +1328,7 @@ describe("LockManager – keep-alive & auto-lock", () => {
       );
     });
 
-    it("stores a new account and stays locked when a lock arrives while the account is being encrypted", async () => {
+    it("stores a first account and stays locked when a lock arrives while it is being encrypted", async () => {
       await LockManager.setDecryptedKeysFromPopup({
         keys: MOCK_KEYS,
         walletPassword: "correct horse battery staple",
