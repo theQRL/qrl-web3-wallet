@@ -16,6 +16,14 @@ import { useEffect } from "react";
 import { SEND_TRANSACTION_TYPES } from "../QrlSendTransaction";
 import { utils, qrl } from "@theqrl/web3";
 import { revalidateAuthorizedDAppRequest } from "@/scripts/utils/restrictedMethodsMiddlewareUtils";
+import {
+  hasInputField,
+  UNREAD_INPUT_MESSAGE,
+} from "@/scripts/utils/dappTransactionCallData";
+import {
+  isSupportedTransactionType,
+  unsupportedTransactionTypeMessage,
+} from "@/scripts/utils/dappTransactionType";
 
 type DAppTransactionReceipt = {
   transactionHash?: string;
@@ -34,10 +42,9 @@ type TransactionObject = {
   gas: string;
   value?: string;
   nonce: bigint | undefined;
-  type?: string;
-  maxPriorityFeePerGas?: bigint;
-  maxFeePerGas?: string;
-  gasPrice?: bigint | undefined;
+  type: "0x2";
+  maxPriorityFeePerGas: bigint;
+  maxFeePerGas: string;
 };
 
 type QrlSendTransactionForContentProps = {
@@ -99,6 +106,24 @@ const QrlSendTransactionForContent = observer(
 
     const copyData = () => {
       navigator.clipboard.writeText(data);
+    };
+
+    // QRL 2.0 has a single transaction type, 0x2, and the library signs
+    // nothing else. A request names that type or leaves the type out;
+    // another type is refused before the approval is shown, and here once
+    // more. The fee values are the wallet's own, so a `gasPrice` in the
+    // request is not used. The library refuses a transaction that carries
+    // one.
+    const typeTwoFeeFields = async (requestedType: unknown) => {
+      if (!isSupportedTransactionType(requestedType)) {
+        throw new Error(unsupportedTransactionTypeMessage(requestedType));
+      }
+      const { maxFeePerGas, maxPriorityFeePerGas } = await getGasFeeData();
+      return {
+        type: "0x2" as const,
+        maxPriorityFeePerGas,
+        maxFeePerGas: `0x${maxFeePerGas.toString(16)}`,
+      };
     };
 
     const amountFor = (
@@ -272,14 +297,23 @@ const QrlSendTransactionForContent = observer(
       );
     };
 
+    // The service worker stores a request with its call data as `data`.
+    // One that still names `input` did not come that way, and signing it
+    // from the fields read here would leave its call data out.
+    const refuseUnreadInput = (request: unknown) => {
+      if (hasInputField(request)) {
+        throw new Error(UNREAD_INPUT_MESSAGE);
+      }
+    };
+
     const deployContractOrInteract = async () => {
       const request = dAppRequestData?.params?.[0];
       try {
+        refuseUnreadInput(request);
         const { from, to, data, gas, type, value } = request;
 
         const isLedgerAccount = ledgerStore.isLedgerAccount(from ?? "");
 
-        const gasPrice = await qrlInstance?.getGasPrice();
         const transactionObject: TransactionObject = {
           from,
           ...(to && { to }),
@@ -287,15 +321,8 @@ const QrlSendTransactionForContent = observer(
           gas,
           value,
           nonce: await qrlInstance?.getTransactionCount(from),
+          ...(await typeTwoFeeFields(type)),
         };
-        if (type === "0x2") {
-          const { maxFeePerGas, maxPriorityFeePerGas } = await getGasFeeData();
-          transactionObject.type = "0x2";
-          transactionObject.maxPriorityFeePerGas = maxPriorityFeePerGas;
-          transactionObject.maxFeePerGas = `0x${maxFeePerGas.toString(16)}`;
-        } else {
-          transactionObject.gasPrice = gasPrice;
-        }
 
         let rawTransactionToSend: string | undefined;
 
@@ -305,6 +332,8 @@ const QrlSendTransactionForContent = observer(
 
           const txData: Record<string, unknown> = {
             nonce: `0x${transactionObject.nonce?.toString(16)}`,
+            maxPriorityFeePerGas: transactionObject.maxPriorityFeePerGas,
+            maxFeePerGas: transactionObject.maxFeePerGas,
             gasLimit: transactionObject.gas,
             data: transactionObject.data || "0x",
             value: transactionObject.value ? `0x${BigInt(transactionObject.value).toString(16)}` : "0x0",
@@ -312,13 +341,6 @@ const QrlSendTransactionForContent = observer(
 
           if (transactionObject.to) {
             txData.to = transactionObject.to;
-          }
-
-          if (transactionObject.type === "0x2") {
-            txData.maxPriorityFeePerGas = transactionObject.maxPriorityFeePerGas;
-            txData.maxFeePerGas = transactionObject.maxFeePerGas;
-          } else {
-            txData.gasPrice = `0x${BigInt(transactionObject.gasPrice ?? 0).toString(16)}`;
           }
 
           rawTransactionToSend = await ledgerStore.signAndSerializeTransaction(from ?? "", txData, common);
@@ -357,6 +379,7 @@ const QrlSendTransactionForContent = observer(
     const sendZndTransfer = async () => {
       const request = dAppRequestData?.params?.[0];
       try {
+        refuseUnreadInput(request);
         const { from, to, gas, type, value } = request;
 
         if (!from) {
@@ -380,23 +403,14 @@ const QrlSendTransactionForContent = observer(
 
         const isLedgerAccount = ledgerStore.isLedgerAccount(from);
 
-        const gasPrice = await qrlInstance?.getGasPrice();
         const transactionObject: TransactionObject = {
           from,
           to,
           gas,
           value,
           nonce: await qrlInstance?.getTransactionCount(from),
+          ...(await typeTwoFeeFields(type)),
         };
-
-        if (type === "0x2") {
-          const { maxFeePerGas, maxPriorityFeePerGas } = await getGasFeeData();
-          transactionObject.type = "0x2";
-          transactionObject.maxPriorityFeePerGas = maxPriorityFeePerGas;
-          transactionObject.maxFeePerGas = `0x${maxFeePerGas.toString(16)}`;
-        } else {
-          transactionObject.gasPrice = gasPrice;
-        }
 
         let rawTransactionToSend: string | undefined;
 

@@ -14,6 +14,11 @@ import {
   PARENT_CAPABILITIES,
   Permission,
 } from "../middlewares/middlewareTypes";
+import { callDataProblem } from "./dappTransactionCallData";
+import {
+  isSupportedTransactionType,
+  unsupportedTransactionTypeMessage,
+} from "./dappTransactionType";
 
 export const TYPED_DATA_V4_UNSUPPORTED_MESSAGE =
   "qrl_signTypedData_v4 is not supported by this wallet version.";
@@ -47,6 +52,46 @@ export const checkAccountHasBeenAuthorized = async (
     proceedError: providerErrors.unauthorized({
       message: `The requested account ${fromAddress} has not been authorized by the user.`,
     }),
+  };
+};
+
+/**
+ * A send request names the chain's one transaction type or none. Another
+ * type is refused here, before the user is asked to approve a transaction
+ * that cannot be signed.
+ */
+export const checkTransactionTypeIsSupported = (
+  req: JsonRpcRequest<JsonRpcRequest>,
+) => {
+  // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime for this RPC method
+  const type: unknown = req.params?.[0]?.type;
+  if (isSupportedTransactionType(type)) {
+    return { canProceed: true, proceedError: undefined };
+  }
+  return {
+    canProceed: false,
+    proceedError: rpcErrors.invalidParams({
+      message: unsupportedTransactionTypeMessage(type),
+    }),
+  };
+};
+
+/**
+ * A send request names its call data once: as `data`, as `input`, or as
+ * both with the same bytes. Two that differ are refused here, before the
+ * user is asked: the wallet could only guess which one to show and sign.
+ */
+export const checkTransactionCallData = (
+  req: JsonRpcRequest<JsonRpcRequest>,
+) => {
+  // @ts-expect-error - params is typed as JsonRpcParams but is an array at runtime for this RPC method
+  const problem = callDataProblem(req.params?.[0]);
+  if (problem === undefined) {
+    return { canProceed: true, proceedError: undefined };
+  }
+  return {
+    canProceed: false,
+    proceedError: rpcErrors.invalidParams({ message: problem }),
   };
 };
 

@@ -13,9 +13,12 @@ import {
   EXTENSION_MESSAGES,
 } from "../constants/streamConstants";
 import { checkDomain } from "../phishing/phishingDetector";
+import { withCallDataAsData } from "../utils/dappTransactionCallData";
 import {
   checkAccountHasBeenAuthorized,
   checkAccountAndChainHaveBeenAuthorized,
+  checkTransactionCallData,
+  checkTransactionTypeIsSupported,
   checkUrlOriginHasBeenConnected,
   checkWalletAddQrlChainParams,
   checkWalletRequestPermissionParams,
@@ -132,7 +135,14 @@ const checkRequestCanProceed = async (req: JsonRpcRequest<JsonRpcRequest>) => {
       return await checkWalletRequestPermissionParams(req?.params?.[0]);
     case RESTRICTED_METHODS.WALLET_GET_CAPABILITIES:
       return await checkAccountHasBeenAuthorized(req);
-    case RESTRICTED_METHODS.QRL_SEND_TRANSACTION:
+    case RESTRICTED_METHODS.QRL_SEND_TRANSACTION: {
+      const authorization = await checkAccountAndChainHaveBeenAuthorized(req);
+      if (!authorization.canProceed) return authorization;
+      const transactionType = checkTransactionTypeIsSupported(req);
+      if (!transactionType.canProceed) return transactionType;
+      const callData = checkTransactionCallData(req);
+      return callData.canProceed ? authorization : callData;
+    }
     case RESTRICTED_METHODS.QRL_SIGN_TYPED_DATA_V4:
     case RESTRICTED_METHODS.PERSONAL_SIGN:
       return await checkAccountAndChainHaveBeenAuthorized(req);
@@ -143,6 +153,14 @@ const checkRequestCanProceed = async (req: JsonRpcRequest<JsonRpcRequest>) => {
       };
   }
 };
+
+// The approval reads the call data of a send request as `data`. A dApp may
+// name it `input` instead, as the library's contract calls do.
+const paramsForApproval = (req: JsonRpcRequest<JsonRpcRequest>) =>
+  req.method === RESTRICTED_METHODS.QRL_SEND_TRANSACTION &&
+  Array.isArray(req.params)
+    ? [withCallDataAsData(req.params[0]), ...req.params.slice(1)]
+    : req.params;
 
 // get the result of the user approval/rejection of the request
 const getRestrictedMethodResult = async (
@@ -181,7 +199,7 @@ const getRestrictedMethodResult = async (
   const requestId = uuid();
   const request: DAppRequestType = {
     method: req.method,
-    params: req.params,
+    params: paramsForApproval(req),
     requestData: { senderData: req.senderData },
     phishingResult,
     requestId,
