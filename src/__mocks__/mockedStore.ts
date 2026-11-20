@@ -170,6 +170,8 @@ const mockedStoreValues: StoreType = {
     isLoading: false,
     isLocked: false,
     storageState: "current",
+    isOnboarding: false,
+    setOnboarding: (_isOnboarding: boolean) => {},
     readLockState: async () => {},
     unlock: async (password: string) => {
       return !!password;

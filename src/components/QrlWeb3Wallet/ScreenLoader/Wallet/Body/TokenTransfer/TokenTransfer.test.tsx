@@ -3,7 +3,14 @@ import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { StoreProvider } from "@/stores/store";
 import { QRL_EXAMPLE_ADDRESS } from "@/constants/address";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import i18n from "@/i18n";
@@ -99,8 +106,8 @@ describe("TokenTransfer", () => {
     await user.type(amountField, amount);
   };
 
-  const fillAndSubmitForm = async (buttonName = "Send QRL") => {
-    await fillForm("2.5");
+  const fillAndSubmitForm = async (buttonName = "Send QRL", amount = "2.5") => {
+    await fillForm(amount);
     const sendButton = screen.getByRole("button", { name: buttonName });
     await waitFor(() => expect(sendButton).toBeEnabled());
     await act(async () => {
@@ -283,6 +290,99 @@ describe("TokenTransfer", () => {
         tokenSymbol: "QRL",
       }),
     );
+  });
+
+  describe("a native amount of more digits than a number holds", () => {
+    const RECEIVER =
+      "Q0000000000000000000000000000000000000000000000000000000020fb08ff1f1376a14c055e9f56df80563e16722b00000000000000000000000000000000";
+    // 18 significant digits; the form's number keeps about 17 of them.
+    const TYPED = "0.123456789012345678";
+    const PLANCK = 123456789012345678n;
+
+    // The field is set in one step, as a browser holds the text; typing it
+    // key by key goes through the test library's own number handling.
+    const fillAndSend = async () => {
+      await fillForm("1");
+      fireEvent.change(screen.getByRole("spinbutton", { name: "amount" }), {
+        target: { value: TYPED },
+      });
+      const sendButton = screen.getByRole("button", { name: "Send QRL" });
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
+    };
+
+    it("should hand the amount to the signing as it was typed and keep the signed value for a replacement", async () => {
+      const mockSignNativeToken = vi.fn<any>().mockResolvedValue({
+        ...successSignResult,
+        value: PLANCK.toString(),
+      });
+      const mockAddTransaction = vi.fn<any>().mockResolvedValue(undefined);
+
+      renderComponent(
+        mockedStore({
+          qrlStore: {
+            signNativeToken: mockSignNativeToken,
+            sendRawTransaction: vi.fn<any>().mockResolvedValue(undefined),
+          },
+          transactionHistoryStore: { addTransaction: mockAddTransaction },
+        }),
+      );
+
+      await fillAndSend();
+
+      expect(mockSignNativeToken).toHaveBeenCalledWith(
+        expect.any(String),
+        RECEIVER,
+        TYPED,
+        expect.any(String),
+        undefined,
+      );
+      expect(mockAddTransaction).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ value: PLANCK.toString() }),
+      );
+    });
+
+    it("should sign exactly that amount with a Ledger account", async () => {
+      const mockSignAndSerializeTransaction = vi
+        .fn<any>()
+        .mockResolvedValue("0x02f8a00180843b9aca00843b9aca0082520894");
+      const mockAddTransaction = vi.fn<any>().mockResolvedValue(undefined);
+
+      renderComponent(
+        mockedStore({
+          ledgerStore: {
+            isLedgerAccount: () => true,
+            signAndSerializeTransaction: mockSignAndSerializeTransaction,
+          } as any,
+          qrlStore: {
+            qrlInstance: {
+              getTransactionCount: async () => 0,
+              getChainId: async () => 1,
+            } as any,
+            sendRawTransaction: vi.fn<any>().mockResolvedValue(undefined),
+          },
+          transactionHistoryStore: { addTransaction: mockAddTransaction },
+        }),
+      );
+
+      await fillAndSend();
+
+      expect(mockSignAndSerializeTransaction).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          to: RECEIVER,
+          value: `0x${PLANCK.toString(16)}`,
+        }),
+        expect.anything(),
+      );
+      expect(mockAddTransaction).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ value: PLANCK.toString() }),
+      );
+    });
   });
 
   it("should display error when Ledger signing fails", async () => {
@@ -523,6 +623,140 @@ describe("TokenTransfer", () => {
         tokenSymbol: "TST",
         data: "0xa9059cbb",
       }),
+    );
+  });
+
+  it("should hand a QRC20 amount to the fee estimate and to the signing as it was typed", async () => {
+    const contract =
+      "Q000000000000000000000000000000000000000000000000000000001234567890abcdef1234567890abcdef1234567800000000000000000000000000000000";
+    const mockGetQrc20TokenGas = vi.fn<any>(async () => "0.001");
+    const mockSignQrc20Token = vi.fn<any>().mockResolvedValue({
+      ...successSignResult,
+      data: "0xcontractdata",
+    });
+
+    renderComponentWithState(
+      {
+        tokenDetails: {
+          isQrc20Token: true,
+          tokenContractAddress: contract,
+          tokenDecimals: 18,
+          tokenImage: "token.png",
+          tokenBalance: "100.0",
+          tokenName: "Test Token",
+          tokenSymbol: "TST",
+        },
+      },
+      mockedStore({
+        qrlStore: {
+          // Enough native balance to pay the estimated fee.
+          getAccountBalance: () => "5.0 QRL",
+          getQrc20TokenGas: mockGetQrc20TokenGas,
+          signQrc20Token: mockSignQrc20Token,
+          sendRawTransaction: vi.fn<any>().mockResolvedValue(undefined),
+        },
+        transactionHistoryStore: {
+          addTransaction: vi.fn<any>().mockResolvedValue(undefined),
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Send TST")).toBeInTheDocument();
+    });
+
+    // 19 significant digits: a number keeps about 17 of them. The field is
+    // set in one step, as a browser holds the text; typing it key by key
+    // goes through the test library's own number handling, which rounds.
+    await fillForm("1");
+    const amountField = screen.getByRole("spinbutton", { name: "amount" });
+    fireEvent.change(amountField, {
+      target: { value: "1.123456789012345678" },
+    });
+    const sendButton = screen.getByRole("button", { name: "Send TST" });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
+
+    expect(mockGetQrc20TokenGas).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "1.123456789012345678",
+      contract,
+      18,
+      expect.anything(),
+    );
+    expect(mockSignQrc20Token).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "1.123456789012345678",
+      expect.any(String),
+      contract,
+      18,
+      undefined,
+    );
+  });
+
+  it("should sign the typed amount exactly for a Ledger QRC20 transfer", async () => {
+    const mockTransfer = vi.fn<any>().mockReturnValue({
+      encodeABI: () => "0xa9059cbb",
+    });
+    const MockContract = vi.fn<any>().mockImplementation(() => ({
+      methods: {
+        transfer: mockTransfer,
+      },
+    }));
+
+    renderComponentWithState(
+      {
+        tokenDetails: {
+          isQrc20Token: true,
+          tokenContractAddress:
+            "Q000000000000000000000000000000000000000000000000000000001234567890abcdef1234567890abcdef1234567800000000000000000000000000000000",
+          tokenDecimals: 18,
+          tokenImage: "token.png",
+          tokenBalance: "100.0",
+          tokenName: "Test Token",
+          tokenSymbol: "TST",
+        },
+      },
+      mockedStore({
+        ledgerStore: {
+          isLedgerAccount: () => true,
+          signAndSerializeTransaction: vi
+            .fn<any>()
+            .mockResolvedValue("0x02f8a00180843b9aca00843b9aca0082520894"),
+        } as any,
+        qrlStore: {
+          qrlInstance: {
+            Contract: MockContract,
+            getTransactionCount: async () => 2,
+            getChainId: async () => 1,
+          } as any,
+          getGasFeeData: async () => ({
+            baseFeePerGas: BigInt(0),
+            maxFeePerGas: BigInt(2250000007),
+            maxPriorityFeePerGas: BigInt(2250000000),
+          }),
+          sendRawTransaction: vi.fn<any>().mockResolvedValue(undefined),
+        },
+        transactionHistoryStore: {
+          addTransaction: vi.fn<any>().mockResolvedValue(undefined),
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Send TST")).toBeInTheDocument();
+    });
+
+    // 1.1 * 10 ** 18 is 1100000000000000128 in floating point.
+    await fillAndSubmitForm("Send TST", "1.1");
+
+    expect(mockTransfer).toHaveBeenCalledWith(
+      expect.any(String),
+      1100000000000000000n,
     );
   });
 

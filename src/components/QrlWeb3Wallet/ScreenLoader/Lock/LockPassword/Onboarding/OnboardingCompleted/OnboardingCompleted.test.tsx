@@ -58,4 +58,13 @@ describe("OnboardingCompleted", () => {
     await userEvent.click(doneButton);
     expect(window.close).toHaveBeenCalledTimes(1);
   });
+
+  it("should end the onboarding for its page, which shows the wallet where the browser does not close it", async () => {
+    const setOnboarding = vi.fn();
+    renderComponent(mockedStore({ lockStore: { setOnboarding } }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    expect(setOnboarding).toHaveBeenCalledWith(false);
+  });
 });

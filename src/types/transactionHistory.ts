@@ -30,6 +30,9 @@ export type TransactionHistoryEntry = {
   maxPriorityFeePerGas?: string;
   gasLimit?: number;
   data?: string;
+  // The native value in planck as it was signed. `amount` is a number and
+  // rounds a long amount, and a replacement has to carry the same value.
+  value?: string;
   errorMessage?: string;
   replacementTransactionHash?: string;
   replacedByAction?: "speed-up" | "cancel";

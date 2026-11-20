@@ -8,6 +8,9 @@ import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/components/UI/Tooltip";
 import QrlSendTransactionForContent from "./QrlSendTransactionForContent";
 import { SEND_TRANSACTION_TYPES } from "../QrlSendTransaction";
+import Web3, { qrl } from "@theqrl/web3";
+import { hexToBytes } from "@theqrl/web3-utils";
+import { withCallDataAsData } from "@/scripts/utils/dappTransactionCallData";
 
 vi.mock("@/functions/getHexSeedFromMnemonic", () => ({
   getHexSeedFromMnemonic: vi.fn(() => "0xhexseed"),
@@ -457,37 +460,53 @@ describe("QrlSendTransactionForContent", () => {
       });
     });
 
-    it("should send QRL transfer with legacy gas pricing (non-0x2)", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
-        transactionHash: "0xtxhash",
-      }));
-      const legacyRequest = { ...zndTransferRequest, type: "0x0" };
+    it.each([
+      ["names no type", { type: undefined }],
+      ["names type 0x02", { type: "0x02" }],
+      ["carries a gas price", { type: undefined, gasPrice: "0x3b9aca00" }],
+    ])(
+      "should sign a QRL transfer as type 0x2 when the request %s",
+      async (_label, fields) => {
+        const mockSignTransaction = vi.fn<any>().mockResolvedValue({
+          rawTransaction: "0xsignedtransfer",
+        });
+        const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
+          transactionHash: "0xtxhash",
+        }));
+        const mockAddToResponseData = vi.fn();
 
-      renderComponent(
-        createStoreWithCallback({
-          requestParams: legacyRequest,
-          qrlStore: {
-            qrlInstance: {
-              getGasPrice: async () => BigInt(1000),
-              getTransactionCount: async () => 0,
-              accounts: {
-                signTransaction: async () => ({
-                  rawTransaction: "0xsignedlegacy",
-                }),
-              },
-              sendSignedTransaction: mockSendSignedTransaction,
-            } as any,
-          },
-        }),
-        { transactionType: SEND_TRANSACTION_TYPES.QRL_TRANSFER },
-      );
+        renderComponent(
+          createStoreWithCallback({
+            requestParams: { ...zndTransferRequest, ...fields },
+            qrlStore: {
+              qrlInstance: {
+                getTransactionCount: async () => 0,
+                accounts: { signTransaction: mockSignTransaction },
+                sendSignedTransaction: mockSendSignedTransaction,
+              } as any,
+            },
+            addToResponseData: mockAddToResponseData,
+          }),
+          { transactionType: SEND_TRANSACTION_TYPES.QRL_TRANSFER },
+        );
 
-      await act(async () => {
-        await capturedPermissionCallback!(true);
-      });
+        await act(async () => {
+          await capturedPermissionCallback!(true);
+        });
 
-      expect(mockSendSignedTransaction).toHaveBeenCalledWith("0xsignedlegacy");
-    });
+        const signedTx = mockSignTransaction.mock.calls[0][0] as Record<string, unknown>;
+        expect(signedTx).toMatchObject({
+          type: "0x2",
+          maxFeePerGas: "0xc8",
+          maxPriorityFeePerGas: "100",
+        });
+        expect(signedTx).not.toHaveProperty("gasPrice");
+        expect(mockSendSignedTransaction).toHaveBeenCalledWith("0xsignedtransfer");
+        expect(mockAddToResponseData).toHaveBeenCalledWith({
+          transactionHash: "0xtxhash",
+        });
+      },
+    );
 
     it("should handle error when from is missing", async () => {
       const mockAddToResponseData = vi.fn();
@@ -829,41 +848,91 @@ describe("QrlSendTransactionForContent", () => {
       expect(mockSendSignedTransaction).toHaveBeenCalledWith("0xledgerinteract");
     });
 
-    it("should use legacy gasPrice for non-0x2 contract deployment via Ledger", async () => {
-      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
-        transactionHash: "0xhash",
-      }));
-      const mockSignAndSerialize = vi.fn<any>().mockResolvedValue("0xsigned");
-      const legacyDeployRequest = { ...contractDeploymentRequest, type: "0x0" };
+    it.each([
+      ["names no type", { type: undefined }],
+      ["carries a gas price", { type: undefined, gasPrice: "0x3b9aca00" }],
+    ])(
+      "should give a Ledger account type 0x2 fee fields when a deployment request %s",
+      async (_label, fields) => {
+        const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
+          transactionHash: "0xhash",
+        }));
+        const mockSignAndSerialize = vi.fn<any>().mockResolvedValue("0xsigned");
 
-      renderComponent(
-        createStoreWithCallback({
-          requestParams: legacyDeployRequest,
-          qrlStore: {
-            qrlInstance: {
-              getGasPrice: async () => BigInt(1000),
-              getTransactionCount: async () => 0,
-              getChainId: async () => 1,
-              sendSignedTransaction: mockSendSignedTransaction,
-            } as any,
-          },
-          ledgerStore: {
-            isLedgerAccount: () => true,
-            signAndSerializeTransaction: mockSignAndSerialize,
-          },
-        }),
-        { transactionType: SEND_TRANSACTION_TYPES.CONTRACT_DEPLOYMENT },
-      );
+        renderComponent(
+          createStoreWithCallback({
+            requestParams: { ...contractDeploymentRequest, ...fields },
+            qrlStore: {
+              qrlInstance: {
+                getTransactionCount: async () => 0,
+                getChainId: async () => 1,
+                sendSignedTransaction: mockSendSignedTransaction,
+              } as any,
+            },
+            ledgerStore: {
+              isLedgerAccount: () => true,
+              signAndSerializeTransaction: mockSignAndSerialize,
+            },
+          }),
+          { transactionType: SEND_TRANSACTION_TYPES.CONTRACT_DEPLOYMENT },
+        );
 
-      await act(async () => {
-        await capturedPermissionCallback!(true);
-      });
+        await act(async () => {
+          await capturedPermissionCallback!(true);
+        });
 
-      // Verify txData uses gasPrice instead of maxFeePerGas
-      const txDataArg = mockSignAndSerialize.mock.calls[0][1] as Record<string, any>;
-      expect(txDataArg.gasPrice).toBeDefined();
-      expect(txDataArg.maxFeePerGas).toBeUndefined();
-    });
+        const txDataArg = mockSignAndSerialize.mock.calls[0][1] as Record<string, any>;
+        expect(txDataArg).toMatchObject({
+          maxFeePerGas: "0xc8",
+          maxPriorityFeePerGas: "100",
+        });
+        expect(txDataArg).not.toHaveProperty("gasPrice");
+        expect(mockSendSignedTransaction).toHaveBeenCalledWith("0xsigned");
+      },
+    );
+
+    it.each([
+      ["names no type", { type: undefined }],
+      ["names type 0x02", { type: "0x02" }],
+      ["carries a gas price", { type: undefined, gasPrice: "0x3b9aca00" }],
+    ])(
+      "should sign a contract interaction as type 0x2 when the request %s",
+      async (_label, fields) => {
+        const mockSignTransaction = vi.fn<any>().mockResolvedValue({
+          rawTransaction: "0xsignedinteract",
+        });
+        const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
+          transactionHash: "0xinteracttxhash",
+        }));
+
+        renderComponent(
+          createStoreWithCallback({
+            requestParams: { ...contractInteractionRequest, ...fields },
+            qrlStore: {
+              qrlInstance: {
+                getTransactionCount: async () => 0,
+                accounts: { signTransaction: mockSignTransaction },
+                sendSignedTransaction: mockSendSignedTransaction,
+              } as any,
+            },
+          }),
+          { transactionType: SEND_TRANSACTION_TYPES.CONTRACT_INTERACTION },
+        );
+
+        await act(async () => {
+          await capturedPermissionCallback!(true);
+        });
+
+        const signedTx = mockSignTransaction.mock.calls[0][0] as Record<string, unknown>;
+        expect(signedTx).toMatchObject({
+          type: "0x2",
+          maxFeePerGas: "0xc8",
+          maxPriorityFeePerGas: "100",
+        });
+        expect(signedTx).not.toHaveProperty("gasPrice");
+        expect(mockSendSignedTransaction).toHaveBeenCalledWith("0xsignedinteract");
+      },
+    );
 
     it("should handle error when signing returns no rawTransaction", async () => {
       const mockAddToResponseData = vi.fn();
@@ -897,6 +966,288 @@ describe("QrlSendTransactionForContent", () => {
         }),
       });
     });
+  });
+
+  describe("a request that names another transaction type", () => {
+    it.each([
+      ["a QRL transfer", SEND_TRANSACTION_TYPES.QRL_TRANSFER, zndTransferRequest],
+      [
+        "a contract interaction",
+        SEND_TRANSACTION_TYPES.CONTRACT_INTERACTION,
+        contractInteractionRequest,
+      ],
+    ])(
+      "should answer %s with an error and sign nothing",
+      async (_label, transactionType, request) => {
+        const mockSignTransaction = vi.fn<any>();
+        const mockSendSignedTransaction = vi.fn<any>();
+        const mockAddToResponseData = vi.fn();
+
+        renderComponent(
+          createStoreWithCallback({
+            requestParams: { ...request, type: "0x0", gasPrice: "0x3b9aca00" },
+            qrlStore: {
+              qrlInstance: {
+                getTransactionCount: async () => 0,
+                accounts: { signTransaction: mockSignTransaction },
+                sendSignedTransaction: mockSendSignedTransaction,
+              } as any,
+            },
+            addToResponseData: mockAddToResponseData,
+          }),
+          { transactionType },
+        );
+
+        await act(async () => {
+          await capturedPermissionCallback!(true);
+        });
+
+        expect(mockAddToResponseData).toHaveBeenCalledWith({
+          error: expect.objectContaining({
+            message: 'QRL transactions are of type 0x2. Received type: "0x0"',
+          }),
+        });
+        expect(mockSignTransaction).not.toHaveBeenCalled();
+        expect(mockSendSignedTransaction).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe("a stored request that still names its call data as input", () => {
+    // The service worker stores a request with its call data as `data`.
+    // This is the approval's own check, for a request that came another way.
+    it.each([
+      [
+        "a QRL transfer",
+        SEND_TRANSACTION_TYPES.QRL_TRANSFER,
+        { ...zndTransferRequest, input: "0xa9059cbb" },
+      ],
+      [
+        "a contract interaction",
+        SEND_TRANSACTION_TYPES.CONTRACT_INTERACTION,
+        { ...contractInteractionRequest, input: "0xa9059cbb" },
+      ],
+    ])(
+      "should answer %s with an error and sign nothing",
+      async (_label, transactionType, request) => {
+        const mockSignTransaction = vi.fn<any>();
+        const mockSendSignedTransaction = vi.fn<any>();
+        const mockAddToResponseData = vi.fn();
+
+        renderComponent(
+          createStoreWithCallback({
+            requestParams: request,
+            qrlStore: {
+              qrlInstance: {
+                getTransactionCount: async () => 0,
+                accounts: { signTransaction: mockSignTransaction },
+                sendSignedTransaction: mockSendSignedTransaction,
+              } as any,
+            },
+            addToResponseData: mockAddToResponseData,
+          }),
+          { transactionType },
+        );
+
+        await act(async () => {
+          await capturedPermissionCallback!(true);
+        });
+
+        expect(mockAddToResponseData).toHaveBeenCalledWith({
+          error: expect.objectContaining({
+            message:
+              'The request names call data as "input", which the approval does not read',
+          }),
+        });
+        expect(mockSignTransaction).not.toHaveBeenCalled();
+        expect(mockSendSignedTransaction).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe("with the library's own signer", () => {
+    const chain = {
+      request: async ({ method }: { method: string }) => {
+        if (method === "qrl_chainId") return "0x301825";
+        if (method === "net_version") return "3151909";
+        throw new Error(`unexpected ${method}`);
+      },
+    };
+
+    // The request the library hands to an injected provider for
+    // contract.methods.deposit(...).send(...), caught on its way out.
+    const contractCallFromLibrary = async (from: string, contract: string) => {
+      const sent: any[] = [];
+      const dApp = new Web3({
+        request: async ({ method, params }: { method: string; params?: any[] }) => {
+          if (method === "qrl_sendTransaction") {
+            sent.push(params?.[0]);
+            throw new Error("captured");
+          }
+          if (method === "qrl_chainId") return "0x301825";
+          if (method === "net_version") return "3151909";
+          if (method === "qrl_getTransactionCount") return "0x1";
+          if (method === "qrl_estimateGas") return "0x186a0";
+          if (method === "qrl_maxPriorityFeePerGas") return "0x3b9aca00";
+          if (method === "qrl_call") return "0x";
+          if (method === "qrl_getBlockByNumber")
+            return {
+              baseFeePerGas: "0x3b9aca00",
+              number: "0x10",
+              hash: `0x${"11".repeat(32)}`,
+              transactions: [],
+            };
+          throw new Error(`unexpected ${method}`);
+        },
+      } as any);
+      const payable = [
+        {
+          type: "function",
+          name: "deposit",
+          stateMutability: "payable",
+          inputs: [{ name: "beneficiary", type: "address" }],
+          outputs: [],
+        },
+      ] as const;
+      await new dApp.qrl.Contract(payable as any, contract).methods
+        .deposit(from)
+        .send({ from, value: "1000000000000000000", gas: "100000" })
+        .catch(() => undefined);
+      // As JSON, the way a request crosses from the page to the worker.
+      return JSON.parse(JSON.stringify(sent[0])) as Record<string, string>;
+    };
+
+    it("should sign a contract call made with the library with its call data and its value", async () => {
+      const web3 = new Web3(chain);
+      // A throwaway account, made for this test run.
+      const account = web3.qrl.accounts.create();
+      const contract = `Q${"ef".repeat(64)}`;
+      const fromLibrary = await contractCallFromLibrary(account.address, contract);
+      // The library names the call data `input`, sends no `data` and no type.
+      expect(fromLibrary.input).toMatch(/^0xf340fa01/);
+      expect(fromLibrary.data).toBeUndefined();
+      expect(fromLibrary.type).toBeUndefined();
+      const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
+        transactionHash: "0xtxhash",
+      }));
+      const mockAddToResponseData = vi.fn();
+
+      renderComponent(
+        createStoreWithCallback({
+          // What the service worker stores for the approval.
+          requestParams: withCallDataAsData(fromLibrary),
+          qrlStore: {
+            qrlInstance: {
+              getTransactionCount: async () => 7n,
+              accounts: {
+                signTransaction: (transaction: any, seed: string) =>
+                  web3.qrl.accounts.signTransaction(transaction, seed),
+              },
+              sendSignedTransaction: mockSendSignedTransaction,
+            } as any,
+            getGasFeeData: async () => ({
+              baseFeePerGas: 100n,
+              maxFeePerGas: 200n,
+              maxPriorityFeePerGas: 100n,
+            }),
+          },
+          lockStore: { getAccountSeed: async () => account.seed },
+          addToResponseData: mockAddToResponseData,
+        }),
+        { transactionType: SEND_TRANSACTION_TYPES.CONTRACT_INTERACTION },
+      );
+
+      await act(async () => {
+        await capturedPermissionCallback!(true);
+      });
+
+      expect(mockAddToResponseData).toHaveBeenCalledWith({
+        transactionHash: "0xtxhash",
+      });
+      const rawTransaction = mockSendSignedTransaction.mock.calls[0][0] as string;
+      const sent = qrl.accounts.TransactionFactory.fromSerializedData(
+        hexToBytes(rawTransaction),
+      );
+      expect(sent.type).toBe(2);
+      expect(sent.toJSON()).toMatchObject({
+        data: fromLibrary.input,
+        value: "0xde0b6b3a7640000",
+      });
+      expect(sent.to?.toString().toLowerCase()).toBe(contract.toLowerCase());
+      expect(sent.verifySignature()).toBe(true);
+    }, 60000);
+
+    it.each([
+      ["names type 0x2", { type: "0x2" }],
+      ["names type 0x02", { type: "0x02" }],
+      ["names no type", {}],
+      ["carries a gas price", { gasPrice: "0x3b9aca00" }],
+    ])(
+      "should broadcast a signed type 2 transaction when the request %s",
+      async (_label, fields) => {
+        const web3 = new Web3(chain);
+        // A throwaway account, made for this test run.
+        const account = web3.qrl.accounts.create();
+        const to = `Q${"cd".repeat(64)}`;
+        const mockSendSignedTransaction = vi.fn<any>().mockReturnValue(createMockPromiEvent({
+          transactionHash: "0xtxhash",
+        }));
+        const mockAddToResponseData = vi.fn();
+
+        renderComponent(
+          createStoreWithCallback({
+            requestParams: {
+              from: account.address,
+              to,
+              value: "0x30",
+              gas: "0x5208",
+              ...fields,
+            },
+            qrlStore: {
+              qrlInstance: {
+                getTransactionCount: async () => 7n,
+                accounts: {
+                  signTransaction: (transaction: any, seed: string) =>
+                    web3.qrl.accounts.signTransaction(transaction, seed),
+                },
+                sendSignedTransaction: mockSendSignedTransaction,
+              } as any,
+              getGasFeeData: async () => ({
+                baseFeePerGas: 100n,
+                maxFeePerGas: 200n,
+                maxPriorityFeePerGas: 100n,
+              }),
+            },
+            lockStore: { getAccountSeed: async () => account.seed },
+            addToResponseData: mockAddToResponseData,
+          }),
+          { transactionType: SEND_TRANSACTION_TYPES.QRL_TRANSFER },
+        );
+
+        await act(async () => {
+          await capturedPermissionCallback!(true);
+        });
+
+        expect(mockAddToResponseData).toHaveBeenCalledWith({
+          transactionHash: "0xtxhash",
+        });
+        const rawTransaction = mockSendSignedTransaction.mock.calls[0][0] as string;
+        const sent = qrl.accounts.TransactionFactory.fromSerializedData(
+          hexToBytes(rawTransaction),
+        );
+        expect(sent.type).toBe(2);
+        expect(sent.toJSON()).toMatchObject({
+          nonce: "0x7",
+          gasLimit: "0x5208",
+          maxFeePerGas: "0xc8",
+          maxPriorityFeePerGas: "0x64",
+          value: "0x30",
+        });
+        expect(sent.to?.toString().toLowerCase()).toBe(to.toLowerCase());
+        expect(sent.verifySignature()).toBe(true);
+      },
+      30000,
+    );
   });
 
   describe("onPermissionCallBack", () => {

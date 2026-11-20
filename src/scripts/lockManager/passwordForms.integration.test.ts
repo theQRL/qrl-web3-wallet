@@ -31,6 +31,11 @@ vi.mock("webextension-polyfill", () => ({
       })),
     },
     storage: {
+      // The lock manager writes its LOCKED and UNLOCKED timestamps here.
+      local: {
+        get: vi.fn().mockResolvedValue({}),
+        set: vi.fn().mockResolvedValue(undefined),
+      },
       session: {
         set: vi.fn().mockResolvedValue(undefined),
         remove: vi.fn().mockResolvedValue(undefined),
@@ -104,7 +109,7 @@ const popupUnlock = async (typed: string) => {
   );
   if (!result.success || !result.keys) return false;
   if (result.upgradedKeystores?.length) stored = result.upgradedKeystores;
-  LockManager.setDecryptedKeysFromPopup({
+  await LockManager.setDecryptedKeysFromPopup({
     keys: result.keys,
     walletPassword: typed.normalize("NFC"),
   });
@@ -122,7 +127,7 @@ const popupChangePassword = async (
   );
   if (!result.success || !result.newKeystores || !result.newKeys) return false;
   stored = result.newKeystores;
-  LockManager.setDecryptedKeysFromPopup({
+  await LockManager.setDecryptedKeysFromPopup({
     keys: result.newKeys,
     walletPassword: newPassword.normalize("NFC"),
   });
