@@ -295,9 +295,9 @@ describe("LockStore – readLockState timestamp check", () => {
       expect((store as any).cachedKeys).toBeUndefined();
       expect(store.isLocked).toBe(true);
 
-      // SET_DECRYPTED_KEYS should NOT have been sent
+      // The keys should NOT have been offered to the service worker
       const setKeysCalls = mockSendMessage.mock.calls.filter(
-        (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
+        (call: any) => call[0]?.name === "RESTORE_DECRYPTED_KEYS",
       );
       expect(setKeysCalls).toHaveLength(0);
     });
@@ -312,7 +312,7 @@ describe("LockStore – readLockState timestamp check", () => {
       localStore["LOCK_MANAGER_LOCKED_TIMESTAMP"] = 1000;
 
       // First call: IS_LOCKED returns locked
-      // Second call: SET_DECRYPTED_KEYS succeeds
+      // Second call: RESTORE_DECRYPTED_KEYS, the keys are taken
       // Third call: IS_LOCKED recheck returns unlocked
       mockSendMessage
         .mockResolvedValueOnce({ isLocked: true, hasPasswordSet: true })
@@ -323,7 +323,7 @@ describe("LockStore – readLockState timestamp check", () => {
 
       // Keys should have been re-sent
       const setKeysCalls = mockSendMessage.mock.calls.filter(
-        (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
+        (call: any) => call[0]?.name === "RESTORE_DECRYPTED_KEYS",
       );
       expect(setKeysCalls).toHaveLength(1);
       expect((setKeysCalls[0] as any)[0].data).toEqual(MOCK_KEYS);
@@ -348,7 +348,7 @@ describe("LockStore – readLockState timestamp check", () => {
       await store.readLockState();
 
       const setKeysCalls = mockSendMessage.mock.calls.filter(
-        (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
+        (call: any) => call[0]?.name === "RESTORE_DECRYPTED_KEYS",
       );
       expect(setKeysCalls).toHaveLength(1);
     });
@@ -366,10 +366,40 @@ describe("LockStore – readLockState timestamp check", () => {
       await store.readLockState();
 
       const setKeysCalls = mockSendMessage.mock.calls.filter(
-        (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
+        (call: any) => call[0]?.name === "RESTORE_DECRYPTED_KEYS",
       );
       expect(setKeysCalls).toHaveLength(0);
       expect(store.isLocked).toBe(true);
+    });
+
+    it("should drop cachedKeys when the service worker refuses them (it locked the wallet itself)", async () => {
+      const store = await createLockStore();
+
+      (store as any).cachedKeys = MOCK_KEYS;
+
+      // The timestamps read as a restart here: the LOCKED one is not
+      // written yet, or could not be written.
+      localStore["LOCK_MANAGER_UNLOCKED_TIMESTAMP"] = 2000;
+      localStore["LOCK_MANAGER_LOCKED_TIMESTAMP"] = 1000;
+
+      // IS_LOCKED returns locked, RESTORE_DECRYPTED_KEYS is refused
+      mockSendMessage
+        .mockResolvedValueOnce({ isLocked: true, hasPasswordSet: true })
+        .mockResolvedValueOnce({ success: false });
+
+      await store.readLockState();
+
+      expect(store.isLocked).toBe(true);
+      expect((store as any).cachedKeys).toBeUndefined();
+
+      // Nothing is offered a second time.
+      mockSendMessage.mockClear();
+      mockSendMessage.mockResolvedValueOnce({
+        isLocked: true,
+        hasPasswordSet: true,
+      });
+      await store.readLockState();
+      expect(mockSendMessage).toHaveBeenCalledTimes(1);
     });
 
     it("should accept locked state when re-send fails", async () => {
@@ -381,7 +411,7 @@ describe("LockStore – readLockState timestamp check", () => {
       localStore["LOCK_MANAGER_UNLOCKED_TIMESTAMP"] = 2000;
       localStore["LOCK_MANAGER_LOCKED_TIMESTAMP"] = 1000;
 
-      // IS_LOCKED returns locked, SET_DECRYPTED_KEYS fails
+      // IS_LOCKED returns locked, RESTORE_DECRYPTED_KEYS fails
       mockSendMessage
         .mockResolvedValueOnce({ isLocked: true, hasPasswordSet: true })
         .mockRejectedValueOnce(new Error("SW not reachable"));
@@ -487,39 +517,10 @@ describe("LockStore – readLockState timestamp check", () => {
       );
     });
 
-    it("should re-arm the service worker from a cached password and retry once", async () => {
+    it("should reject when the service worker has lost the password, and offer it nothing", async () => {
       const store = await createLockStore();
-
       (store as any).cachedKeys = MOCK_KEYS;
-      (store as any).cachedPassword = "correct horse battery staple";
-
-      // First GET_WALLET_PASSWORD: the SW lost its memory-only password.
-      // SET_DECRYPTED_KEYS: re-arm succeeds.
-      // Second GET_WALLET_PASSWORD: now succeeds.
-      mockSendMessage
-        .mockRejectedValueOnce(
-          new Error("QRL Web3 Wallet password is unavailable"),
-        )
-        .mockResolvedValueOnce({ success: true })
-        .mockResolvedValueOnce("correct horse battery staple");
-
-      await expect(store.getWalletPassword()).resolves.toBe(
-        "correct horse battery staple",
-      );
-
-      const setKeysCalls = mockSendMessage.mock.calls.filter(
-        (call: any) => call[0]?.name === "SET_DECRYPTED_KEYS",
-      );
-      expect(setKeysCalls).toHaveLength(1);
-      expect((setKeysCalls[0] as any)[0].data).toEqual({
-        keys: MOCK_KEYS,
-        walletPassword: "correct horse battery staple",
-      });
-    });
-
-    it("should rethrow when there is no cached password or keys to re-arm with", async () => {
-      const store = await createLockStore();
-
+      mockSendMessage.mockClear();
       mockSendMessage.mockRejectedValueOnce(
         new Error("QRL Web3 Wallet password is unavailable"),
       );
@@ -527,28 +528,12 @@ describe("LockStore – readLockState timestamp check", () => {
       await expect(store.getWalletPassword()).rejects.toThrow(
         "QRL Web3 Wallet password is unavailable",
       );
+
+      // One request, for the password. No keys and no password go back.
+      expect(
+        mockSendMessage.mock.calls.map((call: any) => call[0]?.name),
+      ).toEqual(["GET_WALLET_PASSWORD"]);
     });
-
-    it("should rethrow the original error when the re-arm attempt itself fails", async () => {
-      const store = await createLockStore();
-
-      (store as any).cachedKeys = MOCK_KEYS;
-      (store as any).cachedPassword = "correct horse battery staple";
-
-      // GET_WALLET_PASSWORD fails, then all of sendWithRetry's SET_DECRYPTED_KEYS
-      // attempts (maxRetries = 3) fail too.
-      mockSendMessage
-        .mockRejectedValueOnce(
-          new Error("QRL Web3 Wallet password is unavailable"),
-        )
-        .mockRejectedValueOnce(new Error("SW not reachable"))
-        .mockRejectedValueOnce(new Error("SW not reachable"))
-        .mockRejectedValueOnce(new Error("SW not reachable"));
-
-      await expect(store.getWalletPassword()).rejects.toThrow(
-        "QRL Web3 Wallet password is unavailable",
-      );
-    }, 10000);
   });
 
   describe("changePassword", () => {
@@ -629,6 +614,88 @@ describe("LockStore – readLockState timestamp check", () => {
         vi.unstubAllGlobals();
       }
     });
+  });
+
+  describe("lock", () => {
+    it("should lock through the service worker and write no timestamp itself", async () => {
+      const store = await createLockStore();
+      (store as any).cachedKeys = MOCK_KEYS;
+      mockSendMessage.mockClear();
+      mockSendMessage
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({ isLocked: true, hasPasswordSet: true });
+
+      await store.lock();
+
+      expect(mockSendMessage.mock.calls.map((call: any) => call[0]?.name)).toEqual(
+        ["LOCK_MANAGER_LOCK", "LOCK_MANAGER_IS_LOCKED"],
+      );
+      // The service worker writes the LOCKED timestamp as a step of its lock.
+      expect(localStore["LOCK_MANAGER_LOCKED_TIMESTAMP"]).toBeUndefined();
+      expect(store.isLocked).toBe(true);
+      expect((store as any).cachedKeys).toBeUndefined();
+    });
+
+    it("should show the wallet locked when the service worker reports a failed cleanup step", async () => {
+      const store = await createLockStore();
+      expect(store.isLocked).toBe(false);
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      const report = new Error(
+        "The wallet is locked, but a cleanup step failed: the LOCKED timestamp",
+      );
+      mockSendMessage.mockClear();
+      // The request is sent three times; each lock clears the keys again
+      // and gives the failed step another chance.
+      mockSendMessage
+        .mockRejectedValueOnce(report)
+        .mockRejectedValueOnce(report)
+        .mockRejectedValueOnce(report)
+        .mockResolvedValueOnce({ isLocked: true, hasPasswordSet: true });
+
+      // The report does not reach the click handler as a rejection.
+      await expect(store.lock()).resolves.toBeUndefined();
+
+      expect(store.isLocked).toBe(true);
+      expect(logged).toHaveBeenCalledWith(
+        "QrlWeb3Wallet: lock",
+        expect.objectContaining({
+          message: expect.stringContaining("a cleanup step failed"),
+        }),
+      );
+      logged.mockRestore();
+    }, 10000);
+
+    it("should lock on a later try when the first request does not arrive", async () => {
+      const store = await createLockStore();
+      mockSendMessage.mockClear();
+      mockSendMessage
+        .mockRejectedValueOnce(new Error("Receiving end does not exist."))
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({ isLocked: true, hasPasswordSet: true });
+
+      await store.lock();
+
+      expect(
+        mockSendMessage.mock.calls.map((call: any) => call[0]?.name),
+      ).toEqual([
+        "LOCK_MANAGER_LOCK",
+        "LOCK_MANAGER_LOCK",
+        "LOCK_MANAGER_IS_LOCKED",
+      ]);
+      expect(store.isLocked).toBe(true);
+    }, 10000);
+
+    it("should say so when the lock request never arrives", async () => {
+      const store = await createLockStore();
+      mockSendMessage.mockClear();
+      const unreachable = new Error("Receiving end does not exist.");
+      mockSendMessage
+        .mockRejectedValueOnce(unreachable)
+        .mockRejectedValueOnce(unreachable)
+        .mockRejectedValueOnce(unreachable);
+
+      await expect(store.lock()).rejects.toThrow("Receiving end does not exist.");
+    }, 10000);
   });
 
   describe("encryptAccount (empty-password guard)", () => {

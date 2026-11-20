@@ -54,6 +54,10 @@ export const LOCK_MANAGER_MESSAGES = {
   GET_DECRYPTED_KEYS: "GET_DECRYPTED_KEYS",
   GET_WALLET_PASSWORD: "GET_WALLET_PASSWORD",
   SET_DECRYPTED_KEYS: "SET_DECRYPTED_KEYS",
+  // An open window offers the keys it still holds to a worker that has
+  // none, to carry an unlocked wallet over a restart of the worker. A
+  // worker that has locked the wallet refuses them.
+  RESTORE_DECRYPTED_KEYS: "RESTORE_DECRYPTED_KEYS",
   UPDATE_AUTO_LOCK: "LOCK_MANAGER_UPDATE_AUTO_LOCK",
   SEND_TX_NOTIFICATION: "SEND_TX_NOTIFICATION",
   RESET_OUTDATED_STORAGE: "RESET_OUTDATED_STORAGE",
@@ -63,6 +67,11 @@ export const LOCK_MANAGER_MESSAGES = {
   // IS_LOCKED polling). Carries no data.
   USER_ACTIVITY: "LOCK_MANAGER_USER_ACTIVITY",
 } as const;
+
+// How the report of a lock whose cleanup failed begins; the popup tells it
+// from a request that never arrived.
+export const LOCK_CLEANUP_FAILED =
+  "The wallet is locked, but a cleanup step failed";
 
 export const OUTDATED_STORAGE_MESSAGE =
   "QRL Web3 Wallet needs a fresh wallet before it can be used. Open the extension to continue.";
@@ -96,17 +105,48 @@ class LockManager {
   // Counts the keystores this worker has stored since the last lock; see
   // isLocked.
   private static keystoreWrites = 0;
+  // The number of locks in this worker's life. A lock ends a session. Every
+  // flow that puts keys into memory or into session storage notes the
+  // session it starts in, and writes nothing once a lock has ended it.
+  private static session = 0;
+  // Set by a lock, cleared when the wallet is unlocked or set up again.
+  // While it is set nothing is restored: neither a session copy that a
+  // failed removal left behind, nor the keys an open window still holds.
+  private static lockedHere = false;
+  // The operations on the session copy of the keys, run one after the
+  // other in the order they were asked for.
+  private static sessionOps: Promise<unknown> = Promise.resolve();
   static readonly AUTO_LOCK_ALARM = "QRL_AUTO_LOCK";
   static readonly KEEP_ALIVE_ALARM = "QRL_KEEP_ALIVE";
   private static readonly SESSION_KEYS_KEY = SESSION_KEYS_STORAGE_KEY;
 
+  /**
+   * Locks the wallet. The session ends first, in the same turn: from here on
+   * no key is readable, and nothing that started earlier writes one back.
+   * Then every cleanup step runs, whatever happens to the others. A step
+   * that failed is reported once all of them are through.
+   */
   static async lock() {
+    this.session += 1;
+    this.lockedHere = true;
     this.clearDecryptedKeys();
     this.walletPassword = undefined;
     this.keystoreWrites = 0;
-    await this.clearSessionKeys();
-    await this.stopKeepAlive();
-    await this.clearAutoLockAlarm();
+    const steps = {
+      "the LOCKED timestamp": StorageUtil.updateLockStateTimeStamp(
+        LockState.LOCKED,
+      ),
+      "the session copy of the keys": this.clearSessionKeys(),
+      "the keep-alive alarm": this.stopKeepAlive(),
+      "the auto-lock alarm": this.clearAutoLockAlarm(),
+    };
+    const outcomes = await Promise.allSettled(Object.values(steps));
+    const failed = Object.keys(steps).filter(
+      (_step, index) => outcomes[index]?.status === "rejected",
+    );
+    if (failed.length > 0) {
+      throw new Error(`${LOCK_CLEANUP_FAILED}: ${failed.join(", ")}`);
+    }
   }
 
   /**
@@ -120,7 +160,13 @@ class LockManager {
     if ((await StorageUtil.getStorageSchemaState()) !== "outdated") {
       return { removed: false };
     }
-    await this.lock();
+    try {
+      await this.lock();
+    } catch (error) {
+      // The keys are out of memory. What a failed step left behind in
+      // storage is removed right below.
+      console.warn("QrlWeb3Wallet: lock before the removal", error);
+    }
     await browser.storage.session.clear();
     await StorageUtil.clearAllData();
     await StorageUtil.markStorageSchemaCurrent();
@@ -168,24 +214,61 @@ class LockManager {
   }
 
   static async handleAutoLockAlarm() {
-    await this.lock();
-    await StorageUtil.updateLockStateTimeStamp(LockState.LOCKED);
+    try {
+      await this.lock();
+    } catch (error) {
+      // The keys are gone from memory either way; see lock().
+      console.error("QrlWeb3Wallet: auto-lock", error);
+    }
+  }
+
+  /** Makes sure the auto-lock alarm exists, without postponing a running one. */
+  private static async ensureAutoLockAlarm() {
+    if (!(await browser.alarms.get(this.AUTO_LOCK_ALARM))) {
+      await this.setupAutoLockAlarm();
+    }
+  }
+
+  /**
+   * Runs an operation on the session copy of the keys after every one asked
+   * for before it. A write that is still under way when a lock removes the
+   * copy can then never land after the removal.
+   */
+  private static queueSessionOp<Result>(
+    operation: () => Promise<Result>,
+  ): Promise<Result> {
+    const result = this.sessionOps.then(operation);
+    this.sessionOps = result.catch(() => undefined);
+    return result;
   }
 
   /**
    * Backup decrypted keys to session storage.
    * Session storage survives SW restarts but clears on browser close.
+   * The backup is best effort: without it the wallet asks for the password
+   * again after a restart of this worker.
    */
-  private static async backupKeysToSession() {
-    if (this.decryptedKeys) {
-      await browser.storage.session.set({
-        [this.SESSION_KEYS_KEY]: this.decryptedKeys,
+  private static async backupKeysToSession(session: number) {
+    try {
+      await this.queueSessionOp(async () => {
+        // A lock since then ended that session. Its keys are not written.
+        if (session !== this.session || !this.decryptedKeys) return;
+        await browser.storage.session.set({
+          [this.SESSION_KEYS_KEY]: this.decryptedKeys,
+        });
       });
+    } catch (error) {
+      console.warn(
+        "QrlWeb3Wallet: the session copy of the keys was not written",
+        error,
+      );
     }
   }
 
-  private static async clearSessionKeys() {
-    await browser.storage.session.remove(this.SESSION_KEYS_KEY);
+  private static clearSessionKeys() {
+    return this.queueSessionOp(() =>
+      browser.storage.session.remove(this.SESSION_KEYS_KEY),
+    );
   }
 
   /**
@@ -193,19 +276,46 @@ class LockManager {
    * Returns true if keys were restored.
    */
   static async restoreKeysFromSession(): Promise<boolean> {
+    // A wallet that this worker locked stays locked. A session copy found
+    // now is one that a failed removal left behind.
+    if (this.lockedHere) return false;
+    const session = this.session;
     try {
-      const data = await browser.storage.session.get(this.SESSION_KEYS_KEY);
-      const keys = data?.[this.SESSION_KEYS_KEY] as
-        | DecryptedKeyType[]
-        | undefined;
-      if (keys?.length) {
-        this.decryptedKeys = keys;
-        return true;
+      const keys = await this.queueSessionOp(async () => {
+        const data = await browser.storage.session.get(this.SESSION_KEYS_KEY);
+        return data?.[this.SESSION_KEYS_KEY] as DecryptedKeyType[] | undefined;
+      });
+      if (!keys?.length) return false;
+      // The same holds across a restart of this worker: the copy of a
+      // wallet that was locked after its last unlock should not exist.
+      const locked = await this.lockedSinceLastUnlock();
+      // A lock during these reads ended the session the keys belong to.
+      if (session !== this.session) return false;
+      // An unlock or a new account during these reads set newer keys.
+      // They stay, and so does the session copy written for them.
+      if (this.decryptedKeys !== undefined) return true;
+      if (locked) {
+        await this.clearSessionKeys();
+        return false;
       }
+      this.decryptedKeys = keys;
+      return true;
     } catch {
       // Session storage read failed — accept locked state
     }
     return false;
+  }
+
+  /**
+   * Whether the wallet was locked after its last unlock, by the two
+   * timestamps this worker writes. A tie counts as locked.
+   */
+  private static async lockedSinceLastUnlock(): Promise<boolean> {
+    const lockedAt = await StorageUtil.getLockStateTimeStamp(LockState.LOCKED);
+    const unlockedAt = await StorageUtil.getLockStateTimeStamp(
+      LockState.UNLOCKED,
+    );
+    return lockedAt > 0 && lockedAt >= unlockedAt;
   }
 
   /**
@@ -219,6 +329,7 @@ class LockManager {
       // Normalise to NFC so the same visual password yields the same bytes
       // regardless of the platform / IME the user typed it on.
       const normalisedPassword = password.normalize("NFC");
+      const session = this.session;
       const keyStores = await StorageUtil.getKeystores();
       if (!keyStores.length) return false;
       const decryptedKeys: DecryptedKeyType[] = [];
@@ -233,8 +344,10 @@ class LockManager {
           mnemonicPhrases: getMnemonicFromHexSeed(seed),
         });
       }
+      // A lock during the decryption ended the session it started in.
+      if (session !== this.session) return false;
       this.walletPassword = normalisedPassword;
-      this.setDecryptedKeys(
+      await this.setDecryptedKeys(
         Array.from(
           new Map(
             decryptedKeys.map((item) => [item.address.toLowerCase(), item]),
@@ -290,24 +403,71 @@ class LockManager {
   /**
    * Accept pre-decrypted keys from the popup.
    * The popup performs the CPU-heavy decrypt, then sends the results here.
-   * Accepts either the new {keys, walletPassword} payload or a bare keys
-   * array (the latter for SW-restart re-sends, where the popup may have
-   * lost the password but still has cached keys).
+   * This is the unlock itself, and a password change while unlocked. The
+   * keys a window offers after a restart of this worker go to
+   * restoreKeysFromPopup.
    */
-  static setDecryptedKeysFromPopup(
+  static async setDecryptedKeysFromPopup(
     payload: SetDecryptedKeysPayload | DecryptedKeyType[],
   ) {
     const keys = Array.isArray(payload) ? payload : payload.keys;
     if (!Array.isArray(payload) && payload.walletPassword) {
       this.walletPassword = payload.walletPassword;
     }
-    this.setDecryptedKeys(
+    await this.setDecryptedKeys(
       Array.from(
         new Map(
           keys.map((item) => [item.address.toLowerCase(), item]),
         ).values(),
       ),
     );
+  }
+
+  /**
+   * Takes the keys an open window still holds from its own unlock, for a
+   * worker that restarted and finds no session copy. This continues a
+   * session and starts no new one. A wallet that was locked after its last
+   * unlock stays locked, whatever the window believes: the worker that
+   * locked it knows, and a later one reads the timestamps.
+   *
+   * The worker's own session copy comes first. It is the newer record:
+   * another window may have added an account since this window took its
+   * copy. A password is not taken from a window at all. This worker cannot
+   * check one, and an account stored under a password that was changed in
+   * another window since would make the next unlock fail for every account.
+   * After a restart the password comes from the next unlock.
+   * Returns true when the session goes on.
+   */
+  static async restoreKeysFromPopup(
+    payload: SetDecryptedKeysPayload | DecryptedKeyType[],
+  ): Promise<boolean> {
+    if (this.lockedHere) return false;
+    const session = this.session;
+    if (this.decryptedKeys === undefined) {
+      await this.restoreKeysFromSession();
+    }
+    // A lock during that read ended the session.
+    if (session !== this.session) return false;
+    if (this.decryptedKeys !== undefined) return true;
+    const locked = await this.lockedSinceLastUnlock();
+    if (locked || session !== this.session) return false;
+    const keys = Array.from(
+      new Map(
+        (Array.isArray(payload) ? payload : payload.keys).map((item) => [
+          item.address.toLowerCase(),
+          item,
+        ]),
+      ).values(),
+    );
+    // No keys, no session.
+    if (keys.length === 0) return false;
+    // Keys that arrived during the read above are the newer ones.
+    if (this.decryptedKeys === undefined) {
+      this.decryptedKeys = keys;
+      await this.backupKeysToSession(session);
+    }
+    // A lock while the copy was being written ended the session.
+    return session === this.session;
   }
 
   static async encryptAccount(accountData: EncryptAccountType) {
@@ -320,6 +480,7 @@ class LockManager {
     if (!password) {
       throw new Error("Refusing to encrypt an account without a password");
     }
+    const session = this.session;
     const encryptedKeyStore = await encrypt(seed, password);
     // Read the stored list after the derivation, right before writing it
     // back, so an account stored meanwhile from another window is kept.
@@ -332,6 +493,9 @@ class LockManager {
         ).values(),
       ),
     );
+    // A lock while the account was being stored ended the session it
+    // started in. The account is stored, and the wallet stays locked.
+    if (session !== this.session) return;
     this.keystoreWrites += 1;
     // Add the new account key directly to in-memory keys
     // instead of re-decrypting everything (which would block the SW).
@@ -342,7 +506,7 @@ class LockManager {
     };
     this.walletPassword = password;
     const existingKeys = this.decryptedKeys ?? [];
-    this.setDecryptedKeys(
+    await this.setDecryptedKeys(
       Array.from(
         new Map(
           [...existingKeys, newKey].map((item) => [
@@ -354,9 +518,29 @@ class LockManager {
     );
   }
 
-  private static setDecryptedKeys(decryptedKeys: DecryptedKeyType[]) {
+  /**
+   * Takes the keys of an unlock or of a new account. The keys are readable
+   * at once; the UNLOCKED timestamp of a session that starts here and the
+   * session copy follow, and both are best effort.
+   */
+  private static async setDecryptedKeys(decryptedKeys: DecryptedKeyType[]) {
+    const session = this.session;
+    const startsSession = this.decryptedKeys === undefined;
+    this.lockedHere = false;
     this.decryptedKeys = decryptedKeys;
-    this.backupKeysToSession();
+    if (startsSession) {
+      try {
+        await StorageUtil.updateLockStateTimeStamp(LockState.UNLOCKED);
+      } catch (error) {
+        // With an UNLOCKED timestamp older than the LOCKED one, the wallet
+        // asks for the password again after a restart of this worker.
+        console.warn(
+          "QrlWeb3Wallet: the UNLOCKED timestamp was not written",
+          error,
+        );
+      }
+    }
+    await this.backupKeysToSession(session);
   }
 
   static getWalletPassword() {
@@ -366,8 +550,8 @@ class LockManager {
     // session storage, but the password does not: it is held in memory
     // only (see the field comment above). Returning "" here would let a
     // caller silently encrypt a new account's keystore under an empty
-    // password. Fail closed instead: the caller can re-arm the session
-    // (e.g. from a still-cached password) or ask the user to unlock again.
+    // password. Fail closed: the caller asks the user to unlock again. No
+    // password is taken from a window; see restoreKeysFromPopup().
     if (!this.walletPassword) {
       throw new Error("QRL Web3 Wallet password is unavailable");
     }
@@ -421,10 +605,23 @@ class LockManager {
       result = await LockManager.isLocked();
     } else if (message.name === LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS) {
       // The popup decrypted the keystores locally and is sending us the results.
-      LockManager.setDecryptedKeysFromPopup(message?.data ?? []);
-      await LockManager.startKeepAlive();
-      await LockManager.setupAutoLockAlarm();
+      const session = LockManager.session;
+      await LockManager.setDecryptedKeysFromPopup(message?.data ?? []);
+      // No alarm for a session that a lock has ended meanwhile. The
+      // auto-lock alarm is set below, with the other user activity.
+      if (session === LockManager.session) {
+        await LockManager.startKeepAlive();
+      }
       result = { success: true };
+    } else if (message.name === LOCK_MANAGER_MESSAGES.RESTORE_DECRYPTED_KEYS) {
+      const restored = await LockManager.restoreKeysFromPopup(
+        message?.data ?? [],
+      );
+      if (restored) {
+        await LockManager.startKeepAlive();
+        await LockManager.ensureAutoLockAlarm();
+      }
+      result = { success: restored };
     } else if (message.name === LOCK_MANAGER_MESSAGES.LOCK) {
       result = await LockManager.lock();
     } else if (message.name === LOCK_MANAGER_MESSAGES.UPDATE_AUTO_LOCK) {
@@ -450,6 +647,11 @@ class LockManager {
       (typeof message.name === "string" &&
         AUTO_LOCK_ACTIVITY_MESSAGE_NAMES.has(message.name)) ||
       message.action === EXTENSION_MESSAGES.DAPP_RESPONSE;
+    if (isUserActivity && LockManager.decryptedKeys === undefined) {
+      // After a restart of this worker the keys come back with the first
+      // lock-state read. Activity that arrives before it counts as well.
+      await LockManager.restoreKeysFromSession();
+    }
     if (isUserActivity && LockManager.decryptedKeys !== undefined) {
       await LockManager.setupAutoLockAlarm();
     }

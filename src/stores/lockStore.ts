@@ -2,6 +2,7 @@ import {
   DecryptedKeyType,
   EncryptAccountType,
   KEEP_ALIVE_SESSION_KEY,
+  LOCK_CLEANUP_FAILED,
   LOCK_MANAGER_MESSAGES,
 } from "@/scripts/lockManager/lockManager";
 import type {
@@ -20,7 +21,7 @@ const PORT_RECONNECT_DELAY = 1000;
 
 // Storage keys written by automated background traffic: a storage change
 // limited to these keys must not trigger readLockState() (which pings the
-// SW and can run the SET_DECRYPTED_KEYS resend path), or the periodic price
+// SW and can run the RESTORE_DECRYPTED_KEYS path), or the periodic price
 // refresh and the ~30s keep-alive tick would keep this store asking the
 // service worker for the lock state for no user activity at all. The
 // session-storage decrypted-keys backup itself is deliberately NOT in this
@@ -28,6 +29,19 @@ const PORT_RECONNECT_DELAY = 1000;
 // unlocked (or locked) the wallet, and must still drive readLockState().
 const AUTOMATED_LOCAL_STORAGE_KEYS = new Set([PRICE_CACHE_IDENTIFIER]);
 const AUTOMATED_SESSION_STORAGE_KEYS = new Set([KEEP_ALIVE_SESSION_KEY]);
+
+// The service worker's answer to RESTORE_DECRYPTED_KEYS: whether it took
+// the keys this window offered.
+const wasTaken = (answer: unknown) =>
+  typeof answer === "object" &&
+  answer !== null &&
+  "success" in answer &&
+  answer.success === true;
+
+// The service worker's report that it locked the wallet and one of its
+// cleanup steps failed; see LockManager.lock().
+const isCleanupReport = (error: unknown) =>
+  error instanceof Error && error.message.includes(LOCK_CLEANUP_FAILED);
 
 // At most one USER_ACTIVITY ping per this many ms, so a user actively
 // moving the mouse or typing in an open surface does not flood the SW with
@@ -52,17 +66,11 @@ class LockStore {
   isOnboarding = false;
   private keepAlivePort?: browser.Runtime.Port;
   /**
-   * Cached copy of decrypted keys so the popup can re-send them to the SW
+   * Cached copy of decrypted keys so the popup can offer them to the SW
    * if Chrome restarts it (losing its in-memory state).  Cleared on lock().
+   * The password is not kept here: see getWalletPassword().
    */
   private cachedKeys?: DecryptedKeyType[];
-  /**
-   * Wallet password held in popup memory only — paired with cachedKeys so
-   * the popup can re-arm the SW after a Chrome-driven restart without
-   * re-prompting the user. Stored separately from `cachedKeys` so leaks of
-   * either store do not necessarily leak both.
-   */
-  private cachedPassword?: string;
   /** Timestamp of the last USER_ACTIVITY ping sent, for throttling. */
   private lastActivityPingAt = 0;
 
@@ -240,36 +248,20 @@ class LockStore {
   }
 
   /**
-   * The service worker rejects this message when its memory-only password
-   * was lost to a restart, even though the decrypted keys themselves
-   * self-healed from session storage (so the wallet still reads as
-   * unlocked). If this popup still holds both the password and the keys
-   * from its own last unlock, re-arm the service worker with them and
-   * retry once, so adding an account stays no-friction across a restart.
-   * Otherwise rethrow, so the caller can ask the user to unlock again
-   * instead of ever treating a missing password as "".
+   * The service worker holds the password in memory only and loses it when
+   * Chrome restarts it, even though the decrypted keys come back from
+   * session storage (so the wallet still reads as unlocked). It rejects
+   * this message then, and the caller asks the user to unlock again.
+   *
+   * This window does not hand a copy of its own back. The service worker
+   * cannot check a password, and one that was changed in another window
+   * since this window unlocked would go under the next account: a wallet
+   * with keystores under two passwords does not unlock any more.
    */
   async getWalletPassword(): Promise<string> {
-    try {
-      return await browser.runtime.sendMessage({
-        name: LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD,
-      });
-    } catch (error) {
-      if (!this.cachedPassword || !this.cachedKeys) {
-        throw error;
-      }
-      try {
-        await this.sendWithRetry({
-          name: LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS,
-          data: { keys: this.cachedKeys, walletPassword: this.cachedPassword },
-        });
-      } catch {
-        throw error;
-      }
-      return await browser.runtime.sendMessage({
-        name: LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD,
-      });
-    }
+    return await browser.runtime.sendMessage({
+      name: LOCK_MANAGER_MESSAGES.GET_WALLET_PASSWORD,
+    });
   }
 
   async getMnemonicPhrases(accountAddress: string) {
@@ -388,7 +380,6 @@ class LockStore {
     }
 
     this.cachedKeys = result.newKeys as DecryptedKeyType[];
-    this.cachedPassword = normalisedNewPassword;
     return true;
   }
 
@@ -423,24 +414,24 @@ class LockStore {
         if (lockedTs > unlockedTs) {
           // Intentional lock (manual or auto-lock) — don't re-send
           this.cachedKeys = undefined;
-          this.cachedPassword = undefined;
         } else {
-          // SW restart — re-send cached keys (and password if known) to recover
+          // SW restart: offer the cached keys to recover. The service
+          // worker decides: one that locked the wallet itself refuses them,
+          // whatever the timestamps say here.
           try {
-            await browser.runtime.sendMessage({
-              name: LOCK_MANAGER_MESSAGES.SET_DECRYPTED_KEYS,
-              data: this.cachedPassword
-                ? {
-                    keys: this.cachedKeys,
-                    walletPassword: this.cachedPassword,
-                  }
-                : this.cachedKeys,
+            const offer: unknown = await browser.runtime.sendMessage({
+              name: LOCK_MANAGER_MESSAGES.RESTORE_DECRYPTED_KEYS,
+              data: this.cachedKeys,
             });
-            const recheck = await browser.runtime.sendMessage({
-              name: LOCK_MANAGER_MESSAGES.IS_LOCKED,
-            });
-            isLocked = recheck.isLocked;
-            hasPasswordSet = recheck.hasPasswordSet;
+            if (wasTaken(offer)) {
+              const recheck = await browser.runtime.sendMessage({
+                name: LOCK_MANAGER_MESSAGES.IS_LOCKED,
+              });
+              isLocked = recheck.isLocked;
+              hasPasswordSet = recheck.hasPasswordSet;
+            } else {
+              this.cachedKeys = undefined;
+            }
           } catch {
             // Re-send failed — accept the locked state
           }
@@ -455,17 +446,29 @@ class LockStore {
     }
   }
 
+  /**
+   * Locks the wallet. The service worker writes the LOCKED timestamp as a
+   * step of its own lock, so no window can see the wallet locked and
+   * the timestamp still missing because this one was slow to write it.
+   * The service worker clears the keys first and reports a failed cleanup
+   * step afterwards. The wallet is locked all the same, so that report is
+   * logged. A request that did not reach the service worker is another
+   * matter: it is sent again, and thrown when it still does not arrive.
+   */
   async lock() {
     this.cachedKeys = undefined;
-    this.cachedPassword = undefined;
-    await browser.runtime.sendMessage({
-      name: LOCK_MANAGER_MESSAGES.LOCK,
-    });
+    try {
+      await this.sendWithRetry({ name: LOCK_MANAGER_MESSAGES.LOCK });
+    } catch (error) {
+      if (!isCleanupReport(error)) throw error;
+      console.error("QrlWeb3Wallet: lock", error);
+    }
     const { isLocked } = await browser.runtime.sendMessage({
       name: LOCK_MANAGER_MESSAGES.IS_LOCKED,
     });
-    this.isLocked = isLocked;
-    StorageUtil.updateLockStateTimeStamp(LockState.LOCKED);
+    runInAction(() => {
+      this.isLocked = isLocked;
+    });
   }
 
   /**
@@ -574,9 +577,9 @@ class LockStore {
         this.isLocked = isLocked;
       });
       if (!isLocked) {
+        // The service worker wrote the UNLOCKED timestamp when it took the
+        // keys.
         this.cachedKeys = decryptedKeys;
-        this.cachedPassword = normalisedPassword;
-        StorageUtil.updateLockStateTimeStamp(LockState.UNLOCKED);
         return true;
       }
     } catch {
