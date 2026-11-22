@@ -35,7 +35,7 @@ const FreshWallet = withSuspense(
 const ScreenLoader = observer(() => {
   const { dAppRequestStore, lockStore, qrlStore } = useStore();
   const { hasDAppRequest, readDAppRequestData } = dAppRequestStore;
-  const { isLocked, readLockState, storageState } = lockStore;
+  const { isLocked, isOnboarding, readLockState, storageState } = lockStore;
 
   const [screen, setScreen] = useState(SCREENS.LOCK);
   const wasLockedRef = useRef(true);
@@ -61,14 +61,16 @@ const ScreenLoader = observer(() => {
   }, [isLocked]);
 
   useEffect(() => {
-    if (isLocked) {
+    if (isLocked || isOnboarding) {
+      // The onboarding lives on the lock screen and stays there until the
+      // user has gone through its last step.
       setScreen(SCREENS.LOCK);
     } else if (hasDAppRequest) {
       setScreen(SCREENS.DAPP_REQUEST);
     } else {
       setScreen(SCREENS.WALLET);
     }
-  }, [isLocked, hasDAppRequest]);
+  }, [isLocked, isOnboarding, hasDAppRequest]);
 
   if (storageState === "checking") return null;
 

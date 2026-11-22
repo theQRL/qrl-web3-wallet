@@ -37,7 +37,18 @@ const Onboarding = observer(() => {
 
   const addAnAccountToWallet = async (account: Web3BaseWalletAccount) => {
     setActiveAccount(account.address);
-    await encryptAccount(account, password);
+    // From here this page is creating the wallet. The wallet reads as
+    // unlocked once its first keystore is written, which is before the user
+    // has downloaded the recovery phrases, so the page holds the onboarding
+    // on screen until its completed step. A page that has not come this far
+    // gives way to a wallet that another page creates.
+    lockStore.setOnboarding(true);
+    try {
+      await encryptAccount(account, password);
+    } catch (error) {
+      lockStore.setOnboarding(false);
+      throw error;
+    }
   };
 
   if (step === ONBOARDING_STEPS.WELCOME)

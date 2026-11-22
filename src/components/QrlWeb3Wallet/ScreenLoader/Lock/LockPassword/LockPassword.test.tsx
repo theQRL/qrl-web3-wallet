@@ -59,6 +59,35 @@ describe("LockPassword", () => {
     });
   });
 
+  it("does not hold the screen for an onboarding that has created nothing yet", async () => {
+    // A second page that still shows the first steps must give way when the
+    // wallet is created in another page. The onboarding marks itself when
+    // it stores the first account; see Onboarding.
+    const setOnboarding = vi.fn();
+    renderComponent(
+      mockedStore({
+        lockStore: { hasPasswordSet: false, isLocked: true, setOnboarding },
+        settingsStore: { isPopupWindow: false },
+      }),
+    );
+
+    await screen.findByText("Mocked Onboarding");
+    expect(setOnboarding).not.toHaveBeenCalled();
+  });
+
+  it("does not mark an onboarding when the password was set", async () => {
+    const setOnboarding = vi.fn();
+    renderComponent(
+      mockedStore({
+        lockStore: { hasPasswordSet: true, isLocked: true, setOnboarding },
+        settingsStore: { isPopupWindow: false },
+      }),
+    );
+
+    await screen.findByText("Mocked Lock Password Check");
+    expect(setOnboarding).not.toHaveBeenCalled();
+  });
+
   it("should render the lock password check screen if the password was set", async () => {
     renderComponent(
       mockedStore({

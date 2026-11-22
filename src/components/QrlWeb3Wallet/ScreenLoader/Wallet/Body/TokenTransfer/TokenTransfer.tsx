@@ -22,6 +22,7 @@ import {
 } from "@/constants/qrc20Token";
 import { formatFiatCompact } from "@/functions/formatFiat";
 import { parseBalanceValue } from "@/functions/parseBalanceValue";
+import { quantaToPlanck, toTokenBaseUnits } from "@/functions/toTokenBaseUnits";
 import { ROUTES } from "@/router/router";
 import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { useStore } from "@/stores/store";
@@ -125,6 +126,7 @@ const TokenTransfer = observer(() => {
     maxPriorityFeePerGas?: string;
     gasLimit?: number;
     data?: string;
+    value?: string;
   };
 
   const signNativeTokenLocal = async (
@@ -138,7 +140,7 @@ const TokenTransfer = observer(() => {
       return await signNativeToken(
         accountAddress,
         formData.receiverAddress,
-        formData.amount,
+        typedAmount(),
         seed,
         gasFeeOverrides,
       );
@@ -161,13 +163,14 @@ const TokenTransfer = observer(() => {
       const chainId = await qrlInstance?.getChainId();
 
       const common = Common.custom({ chainId: Number(chainId) });
+      const planck = quantaToPlanck(typedAmount());
       const txData = {
         nonce: `0x${(nonce ?? 0).toString(16)}`,
         maxPriorityFeePerGas: `0x${Number(maxPriorityFeePerGas).toString(16)}`,
         maxFeePerGas: `0x${Number(maxFeePerGas).toString(16)}`,
         gasLimit: `0x${BigInt(gasLimit).toString(16)}`,
         to: formData.receiverAddress,
-        value: `0x${BigInt(utils.toPlanck(formData.amount, "quanta")).toString(16)}`,
+        value: `0x${planck.toString(16)}`,
         data: "0x",
       };
 
@@ -186,6 +189,7 @@ const TokenTransfer = observer(() => {
         maxFeePerGas: maxFeePerGas.toString(),
         maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
         gasLimit,
+        value: planck.toString(),
       };
     } catch (error) {
       console.error("[TokenTransfer] Ledger signing failed:", error);
@@ -206,7 +210,7 @@ const TokenTransfer = observer(() => {
       return await signQrc20Token(
         accountAddress,
         formData.receiverAddress,
-        formData.amount,
+        typedAmount(),
         seed,
         tokenContractAddress,
         tokenDecimals,
@@ -231,7 +235,7 @@ const TokenTransfer = observer(() => {
       );
       const contractTransfer = contract.methods.transfer(
         formData.receiverAddress,
-        BigInt(formData.amount * 10 ** tokenDecimals),
+        toTokenBaseUnits(typedAmount(), tokenDecimals),
       );
       const encodedData = contractTransfer.encodeABI();
       const { maxFeePerGas, maxPriorityFeePerGas } =
@@ -310,6 +314,7 @@ const TokenTransfer = observer(() => {
         maxPriorityFeePerGas,
         gasLimit,
         data,
+        value,
       } = signResult;
 
       if (error) {
@@ -351,6 +356,7 @@ const TokenTransfer = observer(() => {
         maxPriorityFeePerGas,
         gasLimit,
         data,
+        value,
       };
       await transactionHistoryStore.addTransaction(
         accountAddress,
@@ -429,6 +435,11 @@ const TokenTransfer = observer(() => {
     watch,
     formState: { isSubmitting, isValid },
   } = form;
+
+  // The field holds the amount as the text that was typed. The number the
+  // schema makes of it rounds an amount of more than 15 significant digits,
+  // so an amount is converted from the text.
+  const typedAmount = () => String(watch("amount"));
 
   useEffect(() => {
     (async () => {

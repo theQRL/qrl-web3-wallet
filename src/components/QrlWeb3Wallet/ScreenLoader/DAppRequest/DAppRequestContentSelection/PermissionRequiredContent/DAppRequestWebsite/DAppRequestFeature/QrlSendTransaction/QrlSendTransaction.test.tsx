@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import QrlSendTransaction from "./QrlSendTransaction";
+import { withCallDataAsData } from "@/scripts/utils/dappTransactionCallData";
 
 vi.mock(
   "@/components/QrlWeb3Wallet/ScreenLoader/DAppRequest/DAppRequestContentSelection/PermissionRequiredContent/DAppRequestWebsite/DAppRequestFeature/QrlSendTransaction/QrlSendTransactionForContent/QrlSendTransactionForContent",
@@ -72,6 +73,31 @@ describe("QrlSendTransaction", () => {
     expect(
       screen.getByText("This site wants to interact with a contract"),
     ).toBeInTheDocument();
+  });
+
+  it("should render a contract call with a value, stored with its call data, as a contract interaction", () => {
+    // A call made with the library names its call data `input`; the service
+    // worker stores it as `data`. With a value and no `data` it would read
+    // as a transfer.
+    const storedLibraryCall = withCallDataAsData({
+      from: "Q0000000000000000000000000000000000000000000000000000000020D20b8026B8F02540246f58120ddAAf35AECD9B00000000000000000000000000000000",
+      to: "Q0000000000000000000000000000000000000000000000000000000020EE9760786AD48aB90E326c5cd78c6269Ba10AB00000000000000000000000000000000",
+      input: "0xf340fa01",
+      value: "0xde0b6b3a7640000",
+      gas: "0x186a0",
+    });
+    renderComponent(
+      mockedStore({
+        dAppRequestStore: {
+          dAppRequestData: {
+            params: [storedLibraryCall],
+          },
+        },
+      }),
+    );
+
+    expect(screen.getByText("Interact with a contract")).toBeInTheDocument();
+    expect(screen.queryByText("Transfer QRL")).not.toBeInTheDocument();
   });
 
   it("should render the qrl send transaction component for qrl transfer", () => {

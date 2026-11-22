@@ -60,6 +60,7 @@ vi.mock("@/functions/getMnemonicFromHexSeed", () => ({
   getMnemonicFromHexSeed: vi.fn(() => "mocked mnemonic"),
 }));
 
+import browser from "webextension-polyfill";
 import { STORAGE_SCHEMA_VERSION } from "@/utilities/storageUtil";
 import LockManager, {
   LOCK_MANAGER_MESSAGES,
@@ -91,7 +92,7 @@ describe("removing a wallet stored by an earlier build", () => {
 
   it("clears the keys, both storage areas and stamps this build's version", async () => {
     fill(localStore, OLD_WALLET);
-    LockManager.setDecryptedKeysFromPopup({ keys: KEYS, walletPassword: "pw" });
+    await LockManager.setDecryptedKeysFromPopup({ keys: KEYS, walletPassword: "pw" });
     fill(sessionStore, { ...sessionStore, OTHER_SESSION_VALUE: 1 });
 
     expect(await LockManager.resetOutdatedStorage()).toEqual({ removed: true });
@@ -101,17 +102,40 @@ describe("removing a wallet stored by an earlier build", () => {
     expect(heldKeys()).toBeUndefined();
   });
 
+  it("removes the wallet even when a cleanup step of its lock fails", async () => {
+    fill(localStore, OLD_WALLET);
+    await LockManager.setDecryptedKeysFromPopup({ keys: KEYS, walletPassword: "pw" });
+    // The next write is the LOCKED timestamp of the lock that the removal
+    // starts with. The removal clears that timestamp a moment later anyway.
+    vi.mocked(browser.storage.local.set).mockRejectedValueOnce(
+      new Error("storage failed"),
+    );
+    const warned = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    expect(await LockManager.resetOutdatedStorage()).toEqual({ removed: true });
+
+    expect(localStore).toEqual({ [VERSION_KEY]: STORAGE_SCHEMA_VERSION });
+    expect(sessionStore).toEqual({});
+    expect(heldKeys()).toBeUndefined();
+    expect(warned).toHaveBeenCalled();
+    warned.mockRestore();
+  });
+
   it.each([
     ["this build's", STORAGE_SCHEMA_VERSION],
     ["a newer build's", STORAGE_SCHEMA_VERSION + 1],
   ])("removes nothing from %s store", async (_label, version) => {
     const wallet = { ...OLD_WALLET, [VERSION_KEY]: version };
     fill(localStore, wallet);
-    LockManager.setDecryptedKeysFromPopup({ keys: KEYS, walletPassword: "pw" });
+    await LockManager.setDecryptedKeysFromPopup({ keys: KEYS, walletPassword: "pw" });
 
     expect(await LockManager.resetOutdatedStorage()).toEqual({ removed: false });
 
-    expect(localStore).toEqual(wallet);
+    // The wallet as it was, with the timestamp the unlock above wrote.
+    expect(localStore).toEqual({
+      ...wallet,
+      LOCK_MANAGER_UNLOCKED_TIMESTAMP: expect.any(Number),
+    });
     expect(heldKeys()).toEqual(KEYS);
   });
 

@@ -5,6 +5,7 @@ import {
   callForDapp,
   estimateGasForDapp,
   getSyncingResult,
+  getTransactionFromBlockForDapp,
 } from "./unrestrictedMethodUtils";
 
 type Call = { method: string; params: unknown };
@@ -122,5 +123,61 @@ describe("dApp qrl_syncing", () => {
     const node = mockNode({ qrl_syncing: false });
     const { qrl } = new Web3(node.provider);
     expect(await getSyncingResult(qrl)).toBe(false);
+  });
+});
+
+describe("a transaction by its position in a block", () => {
+  const blockHash = `0x${"11".repeat(32)}`;
+  const transaction = {
+    blockHash,
+    blockNumber: "0x10",
+    chainId: "0x301825",
+    from,
+    gas: "0x5208",
+    hash: `0x${"22".repeat(32)}`,
+    input: "0x",
+    maxFeePerGas: "0x3b9aca00",
+    maxPriorityFeePerGas: "0x1",
+    nonce: "0x7",
+    to,
+    transactionIndex: "0x0",
+    type: "0x2",
+    value: "0x3e8",
+  };
+
+  it.each([
+    [
+      "a block hash",
+      blockHash,
+      "qrl_getTransactionByBlockHashAndIndex",
+      blockHash,
+    ],
+    ["a block number", 16, "qrl_getTransactionByBlockNumberAndIndex", "0x10"],
+    [
+      "a block tag",
+      "latest",
+      "qrl_getTransactionByBlockNumberAndIndex",
+      "latest",
+    ],
+  ])("reaches the dApp for %s", async (_label, block, method, wireBlock) => {
+    const node = mockNode({ [method]: transaction });
+    const { qrl } = new Web3(node.provider);
+
+    const result = await getTransactionFromBlockForDapp(qrl, block, 0);
+
+    expect(result).toMatchObject({
+      hash: transaction.hash,
+      blockHash,
+      nonce: "0x7",
+      value: "0x3e8",
+    });
+    expect(node.calls).toEqual([{ method, params: [wireBlock, "0x0"] }]);
+  });
+
+  it("is null when the block has no transaction at that position", async () => {
+    const node = mockNode({ qrl_getTransactionByBlockNumberAndIndex: null });
+    const { qrl } = new Web3(node.provider);
+
+    expect(await getTransactionFromBlockForDapp(qrl, 16, 5)).toBeNull();
   });
 });

@@ -7,11 +7,21 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/UI/Card";
+import { useStore } from "@/stores/store";
 import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 const OnboardingCompleted = () => {
   const { t } = useTranslation();
+  const { lockStore } = useStore();
+
+  // Ends the onboarding for this page before closing it. Where the browser
+  // does not close the page, it then shows the wallet.
+  const finish = () => {
+    lockStore.setOnboarding(false);
+    window.close();
+  };
+
   return (
     <Card className="animate-appear-in shadow-xl">
       <CardHeader>
@@ -29,7 +39,7 @@ const OnboardingCompleted = () => {
         </div>
       </CardContent>
       <CardFooter>
-        <Button className="w-full" onClick={() => window.close()}>
+        <Button className="w-full" onClick={finish}>
           <Check className="mr-2 h-4 w-4" />
           {t("onboarding.completed.button")}
         </Button>
