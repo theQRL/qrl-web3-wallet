@@ -2,6 +2,7 @@ import { Card } from "@/components/UI/Card";
 import { ROUTES } from "@/router/router";
 import { useStore } from "@/stores/store";
 import { resolveIpfsUrl, fetchMetadata } from "@/utilities/ipfsUtil";
+import { parseNftMetadata } from "@/utilities/nftMetadataUtil";
 import type { NFTMetadata } from "@/types/nft";
 import { Image } from "lucide-react";
 import { observer } from "mobx-react-lite";
@@ -38,12 +39,7 @@ const NFTGalleryItem = observer(
             if (cancelled) return;
 
             if (meta) {
-              const nftMeta: NFTMetadata = {
-                name: meta.name as string,
-                description: meta.description as string,
-                image: meta.image as string,
-                attributes: meta.attributes as NFTMetadata["attributes"],
-              };
+              const nftMeta = parseNftMetadata(meta);
               setMetadata(nftMeta);
               if (nftMeta.image) {
                 setImageUrl(resolveIpfsUrl(nftMeta.image));

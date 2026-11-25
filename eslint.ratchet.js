@@ -17,7 +17,6 @@ export default {
     "src/components/QrlWeb3Wallet/ScreenLoader/DAppRequest/DAppRequestContentSelection/PermissionRequiredContent/DAppRequestWebsite/DAppRequestFeature/QrlSendTransaction/QrlSendTransactionForContent/QrlSendTransactionForContent.tsx",
     "src/components/QrlWeb3Wallet/ScreenLoader/DAppRequest/DAppRequestContentSelection/PermissionRequiredContent/DAppRequestWebsite/DAppRequestFeature/QrlSignTypedDataV4/QrlSignTypedDataV4Content/QrlSignTypedDataV4Content.tsx",
     "src/components/QrlWeb3Wallet/ScreenLoader/DAppRequest/DAppRequestContentSelection/PermissionRequiredContent/DAppRequestWebsite/DAppRequestWebsite.tsx",
-    "src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/NFTGallery/NFTGalleryItem.tsx",
     "src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/Settings/SettingsAppearance.tsx",
     "src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/Settings/SettingsPreferences.tsx",
     "src/components/QrlWeb3Wallet/ScreenLoader/Wallet/Body/TokenTransfer/GasFeeNotice/GasFeeSelector.tsx",
