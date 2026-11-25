@@ -7,7 +7,10 @@ import { useTranslation } from "react-i18next";
 import AddQrlChainInfo from "./AddQrlChainInfo/AddQrlChainInfo";
 import { BlockchainBaseDataType } from "@/configuration/qrlBlockchainConfig";
 import StorageUtil from "@/utilities/storageUtil";
-import { includeChainForUrlOrigin } from "@/scripts/utils/restrictedMethodsMiddlewareUtils";
+import {
+  includeChainForUrlOrigin,
+  isAcceptableUrl,
+} from "@/scripts/utils/restrictedMethodsMiddlewareUtils";
 
 const AddQrlChainContent = observer(() => {
   const { t } = useTranslation();
@@ -34,7 +37,9 @@ const AddQrlChainContent = observer(() => {
           rpcUrls: blockchain?.rpcUrls,
           blockExplorerUrls: blockchain?.blockExplorerUrls,
           iconUrls: blockchain?.iconUrls,
-          defaultRpcUrl: blockchain?.rpcUrls?.[0] ?? "",
+          // The request is accepted when at least one URL is acceptable, so
+          // the live endpoint is the first URL that passes that check.
+          defaultRpcUrl: blockchain?.rpcUrls?.find(isAcceptableUrl) ?? "",
           defaultBlockExplorerUrl: blockchain?.blockExplorerUrls?.[0] ?? "",
           defaultIconUrl: blockchain?.iconUrls?.[0] ?? "",
           isTestnet: false,

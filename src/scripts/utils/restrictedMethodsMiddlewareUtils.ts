@@ -229,7 +229,7 @@ export const revalidateAuthorizedDAppRequest = async (
   );
 };
 
-const isAcceptableUrl = (urlString: string) => {
+export const isAcceptableUrl = (urlString: string) => {
   try {
     const url = new URL(urlString);
 
