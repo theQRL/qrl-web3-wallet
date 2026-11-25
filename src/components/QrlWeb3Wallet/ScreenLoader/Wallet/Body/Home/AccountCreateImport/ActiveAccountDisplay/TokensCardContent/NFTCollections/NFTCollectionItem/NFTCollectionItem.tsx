@@ -112,7 +112,15 @@ const NFTCollectionItem = observer(
                 <EllipsisVertical size="16" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            {/* The menu renders in a DOM portal, but React events still bubble
+                through the component tree to the Card's onClick, which opens
+                the gallery. */}
+            <DropdownMenuContent
+              align="start"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   className="cursor-pointer data-[highlighted]:text-secondary"
