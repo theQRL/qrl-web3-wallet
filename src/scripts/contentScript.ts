@@ -240,7 +240,6 @@ const prepareListeners = () => {
         return {
           chainId: chainId === undefined ? "0x" : chainIdToHex(chainId),
           networkVersion,
-          isUnlocked: false,
           accounts: [],
         } as Parameters<BaseProvider["_initializeState"]>[0];
       } else if (method === UNRESTRICTED_METHODS.QRL_SYNCING) {
