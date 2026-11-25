@@ -76,6 +76,40 @@ describe("NFTTransfer", () => {
     );
   });
 
+  it("sends to the address without the spaces around a pasted one", async () => {
+    const signNftTransfer = vi.fn(async () => ({
+      transactionHash: "0xtxhash",
+      rawTransaction: "0xraw",
+      error: "",
+    }));
+    const addTransaction = vi.fn(async () => {});
+    renderComponent(
+      defaultState,
+      mockedStore({
+        qrlStore: { signNftTransfer },
+        transactionHistoryStore: { addTransaction },
+      }),
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("textbox", { name: "receiverAddress" }));
+    await user.paste(`  ${QRL_EXAMPLE_ADDRESS} `);
+    const sendButton = screen.getByRole("button", { name: "Send NFT" });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await user.click(sendButton);
+    expect(signNftTransfer).toHaveBeenCalledWith(
+      QRL_EXAMPLE_ADDRESS,
+      QRL_EXAMPLE_ADDRESS,
+      defaultState.tokenId,
+      QRL_EXAMPLE_ADDRESS,
+      defaultState.contractAddress,
+    );
+    expect(addTransaction).toHaveBeenCalledWith(
+      QRL_EXAMPLE_ADDRESS,
+      expect.objectContaining({ to: QRL_EXAMPLE_ADDRESS }),
+    );
+  });
+
   it("should render the send NFT heading", () => {
     renderComponent();
     expect(
