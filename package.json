@@ -35,7 +35,7 @@
     "@testing-library/user-event": "14.6.1",
     "@theqrl/abi": "3.0.0",
     "@theqrl/mldsa87": "2.2.0",
-    "@theqrl/qrl-wallet-provider": "1.0.1",
+    "@theqrl/qrl-wallet-provider": "2.0.0",
     "@theqrl/wallet.js": "6.3.0",
     "@theqrl/web3": "3.0.0",
     "@theqrl/web3-core": "3.0.0",
