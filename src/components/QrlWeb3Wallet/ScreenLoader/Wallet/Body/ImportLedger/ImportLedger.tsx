@@ -20,6 +20,7 @@ import {
   CardTitle,
 } from "@/components/UI/Card";
 import BackButton from "@/components/QrlWeb3Wallet/ScreenLoader/Shared/BackButton/BackButton";
+import FullAddress from "@/components/QrlWeb3Wallet/ScreenLoader/Shared/FullAddress/FullAddress";
 import { LEDGER_ERROR_MESSAGES } from "@/constants/ledger";
 import { ROUTES } from "@/router/router";
 import { LedgerAccount } from "@/services/ledger/ledgerTypes";
@@ -300,11 +301,18 @@ const ImportLedger = observer(() => {
                       }`}
                       onClick={() => toggleAccountSelection(account)}
                     >
-                      <div className="flex flex-col gap-1">
-                        <span className="font-mono text-xs">
-                          {account.address.slice(0, 8)}...
-                          {account.address.slice(-6)}
-                        </span>
+                      <div className="flex min-w-0 flex-col gap-1">
+                        {/*
+                          Rendered in full. This list is where the user decides
+                          which accounts to import, and a head-8/tail-6 rendering
+                          is not an identity — two accounts agreeing on those 14
+                          characters would be indistinguishable here. See
+                          SECURITY.md, "Addresses".
+                        */}
+                        <FullAddress
+                          address={account.address}
+                          className="font-mono text-xs"
+                        />
                         <span className="text-xs text-muted-foreground">
                           {t('ledger.accountIndex', { index: account.index + 1 })}
                           {imported && (

@@ -31,6 +31,7 @@ import { ledgerService } from "@/services/ledger/ledgerService";
 import { ledgerTransport } from "@/services/ledger/ledgerTransport";
 import type { LedgerAccount, LedgerDeviceInfo } from "@/services/ledger/ledgerTypes";
 import StorageUtil from "@/utilities/storageUtil";
+import { assertSignedTransactionSender } from "@/utilities/signedTransactionGuard";
 import { LEDGER_ERROR_MESSAGES } from "@/constants/ledger";
 import { getDerivationPath } from "@/services/ledger/ledgerApdu";
 import { FeeMarketEIP1559Transaction } from "@theqrl/web3-qrl-accounts";
@@ -595,8 +596,12 @@ class LedgerStore {
     }
 
     const rawValues = unsignedTx.raw();
-    const signatureBytes = Buffer.from(signResult.signature!.replace("0x", ""), "hex");
-    const publicKeyBytes = Buffer.from(publicKey.replace("0x", ""), "hex");
+    const signatureBytes = Uint8Array.from(
+      Buffer.from(signResult.signature!.replace("0x", ""), "hex"),
+    );
+    const publicKeyBytes = Uint8Array.from(
+      Buffer.from(publicKey.replace("0x", ""), "hex"),
+    );
 
     const signedTxValues = [
       ...rawValues.slice(0, 9),
@@ -608,7 +613,33 @@ class LedgerStore {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const signedTx = FeeMarketEIP1559Transaction.fromValuesArray(signedTxValues as any, { common });
     const signedRawTx = signedTx.serialize();
-    return "0x" + Buffer.from(signedRawTx).toString("hex");
+    const rawTransaction = "0x" + Buffer.from(signedRawTx).toString("hex");
+    // The software signing path has always verified this; the Ledger path did
+    // not. Without it a stale stored address broadcasts successfully while the
+    // wallet records the transaction against an account that is not the on-chain
+    // sender. See CIPH-QRLW326-26.
+    //
+    // `signTransaction` above has already recorded `completed` / `success: true`,
+    // because as far as the device is concerned the signing did succeed. Throwing
+    // from here without correcting that leaves the store advertising a successful
+    // signature for a transaction the wallet has just refused, so any observer of
+    // `signingState` — a spinner, a retry button, a success toast — disagrees with
+    // what actually happened.
+    try {
+      assertSignedTransactionSender(rawTransaction, fromAddress);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : LEDGER_ERROR_MESSAGES.SIGNING_FAILED;
+      runInAction(() => {
+        this.signingState = "error";
+        this.signingStatus = { state: "error", message: errorMessage };
+        this.signResult = { success: false, error: errorMessage };
+      });
+      throw error;
+    }
+    return rawTransaction;
   }
 
   clearSigningState(): void {

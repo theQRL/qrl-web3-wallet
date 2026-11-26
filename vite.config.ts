@@ -17,6 +17,10 @@ export default defineConfig({
       watchFilePaths: ["src"],
       transformManifest: (manifest) => {
         manifest.version = version;
+        // Mark the action popup after Vite resolves the HTML entry point.
+        if (manifest.action.default_popup) {
+          manifest.action.default_popup += "?actionPopup=1";
+        }
         return manifest;
       },
     }),

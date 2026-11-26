@@ -65,10 +65,12 @@ class SettingsStore {
     const urlParams = new URLSearchParams(window.location.search);
     this.isSidePanel = urlParams.has("sidepanel");
 
-    // Popup vs tab is still derived from viewport because Chromium does
-    // not expose a deterministic "is this the action popup" signal.
+    // Chrome can open the action popup before its viewport has settled.
+    // Prefer the popup marker and retain viewport detection for unmarked URLs.
     const htmlElement = document?.documentElement;
-    if (!this.isSidePanel && htmlElement) {
+    if (!this.isSidePanel && urlParams.has("actionPopup")) {
+      this.isPopupWindow = true;
+    } else if (!this.isSidePanel && htmlElement) {
       const actualWidth = htmlElement.clientWidth;
       const actualHeight = htmlElement.clientHeight;
       const isNarrow = Math.abs(actualWidth - 368) <= 24;

@@ -29,7 +29,6 @@ jobs:
       contents: write # push release commits and tags via semantic-release
       issues: write # semantic-release opens issues for release failures
       pull-requests: write # semantic-release comments on released PRs
-      id-token: write # OIDC token (reserved for future signed extension flow)
     outputs:
       released: ${{ steps.check-release.outputs.released }}
       version: ${{ steps.check-release.outputs.version }}
@@ -71,12 +70,16 @@ jobs:
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: github-actions[bot]@users.noreply.github.com
         run: |
+          # Exact versions, not major ranges. These run with `contents: write`
+          # and the branch-protection bypass key in the ssh-agent, so a malicious
+          # publish inside a `^` range would gain push access to main.
+          # CIPH-QRLW326-12.
           npx --yes \
-            -p semantic-release@24 \
-            -p @semantic-release/changelog@6 \
-            -p @semantic-release/exec@6 \
-            -p @semantic-release/git@10 \
-            -p conventional-changelog-conventionalcommits@8 \
+            -p semantic-release@24.2.9 \
+            -p @semantic-release/changelog@6.0.3 \
+            -p @semantic-release/exec@6.0.3 \
+            -p @semantic-release/git@10.0.1 \
+            -p conventional-changelog-conventionalcommits@8.0.0 \
             semantic-release --repository-url "git@github.com:${GITHUB_REPOSITORY}.git"
 
       - name: Check if release happened
@@ -101,11 +104,13 @@ jobs:
     if: needs.release.outputs.released == 'true'
     permissions:
       contents: write # upload the Chrome extension zip to the GitHub Release
+      id-token: write # OIDC token for build-provenance attestation
+      attestations: write # write the provenance attestation
     steps:
-      - name: Checkout (post-release main, includes the chore(release) commit)
+      - name: Check out the released tag
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
-          ref: main
+          ref: refs/tags/v${{ needs.release.outputs.version }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -126,7 +131,18 @@ jobs:
           fi
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        # See CIPH-QRLW326-11 — the released artifact must be built from the
+        # pinned tree, not a freshly-resolved one.
+        run: npm ci --no-audit --no-fund
+
+      # CIPH-QRLW326-10: the release path used to run no lint or test step and had
+      # no dependency on ci.yml, so a red tree could ship. Gate here rather than
+      # relying on a parallel workflow nobody waits for.
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
 
       - name: Build extension
         run: npm run build
@@ -139,12 +155,30 @@ jobs:
           cp -r Extension/* "qrl-web3-wallet-chrome-v${VERSION}/"
           zip -r "qrl-web3-wallet-chrome-v${VERSION}.zip" "qrl-web3-wallet-chrome-v${VERSION}"
           ls -la "qrl-web3-wallet-chrome-v${VERSION}.zip"
+          # Publish a checksum alongside the artifact so a swapped asset is
+          # detectable. CIPH-QRLW326-13.
+          sha256sum "qrl-web3-wallet-chrome-v${VERSION}.zip" \
+            > "qrl-web3-wallet-chrome-v${VERSION}.zip.sha256"
+          cat "qrl-web3-wallet-chrome-v${VERSION}.zip.sha256"
+
+      # Build provenance for the artifact, using the `id-token: write` permission
+      # the release job already declared but never used. Lets anyone verify the zip
+      # was built by this workflow from this commit:
+      #   gh attestation verify <zip> --repo theQRL/qrl-web3-wallet
+      # CIPH-QRLW326-13.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f  # v3.2.0
+        with:
+          subject-path: qrl-web3-wallet-chrome-v${{ needs.release.outputs.version }}.zip
 
       - name: Upload zip to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
-          gh release upload "v${VERSION}" "qrl-web3-wallet-chrome-v${VERSION}.zip" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --clobber
+          # No --clobber: replacing an already-published asset should be a
+          # deliberate act, not a routine one. CIPH-QRLW326-13.
+          gh release upload "v${VERSION}" \
+            "qrl-web3-wallet-chrome-v${VERSION}.zip" \
+            "qrl-web3-wallet-chrome-v${VERSION}.zip.sha256" \
+            --repo "${GITHUB_REPOSITORY}"

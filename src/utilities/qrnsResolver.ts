@@ -1,3 +1,4 @@
+import AddressUtil from "@/utilities/addressUtil";
 import { qrl } from "@theqrl/web3";
 
 /**
@@ -19,8 +20,9 @@ export async function resolveQrnsName(
   const qrns = new qrl.qrns.QRNS(registryAddress, rpcUrl);
   const addr = await qrns.getAddress(name);
   // Convert 0x-prefixed address to Q-prefixed
-  if (addr.startsWith("0x")) {
-    return "Q" + addr.slice(2);
+  const address = addr.startsWith("0x") ? "Q" + addr.slice(2) : addr;
+  if (!AddressUtil.isQrlAddress(address)) {
+    throw new Error(`QRNS resolution for "${name}" returned an invalid QRL address`);
   }
-  return addr;
+  return address;
 }

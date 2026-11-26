@@ -234,7 +234,7 @@ export const isAcceptableUrl = (urlString: string) => {
     const url = new URL(urlString);
 
     if (
-      url === null ||
+      (url.protocol !== "http:" && url.protocol !== "https:") ||
       url.hostname.length === 0 ||
       url.pathname.length === 0 ||
       url.hostname !== decodeURIComponent(url.hostname)

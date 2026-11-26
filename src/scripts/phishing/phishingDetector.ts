@@ -12,7 +12,7 @@ const PHISHING_CACHE_KEY = "PHISHING_BLOCKLIST_CACHE";
 const PHISHING_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 export const PHISHING_ALARM_NAME = "QRL_PHISHING_REFRESH";
 
-export type PhishingDetectorStatus = "ready" | "initializing" | "unavailable";
+export type PhishingDetectorStatus = "ready" | "stale-fallback" | "initializing" | "unavailable";
 
 export type PhishingCheckResult = {
   isDomainPhishing: boolean;
@@ -117,8 +117,9 @@ export async function initializePhishingDetector(): Promise<void> {
 
   if (cached?.config) {
     detectorInstance = createDetector(cached.config);
-    detectorStatus = "ready";
-    retryAttempt = 0;
+    detectorStatus = isCacheStale ? "stale-fallback" : "ready";
+    if (isCacheStale) scheduleRetry();
+    else retryAttempt = 0;
     return;
   }
 
@@ -126,7 +127,7 @@ export async function initializePhishingDetector(): Promise<void> {
   // bundled snapshot so a baseline blocklist is always available, then
   // schedule a retry to refresh against the live upstream.
   detectorInstance = createDetector(bundledPhishingConfig as PhishingConfig);
-  detectorStatus = "ready";
+  detectorStatus = "stale-fallback";
   scheduleRetry();
 }
 

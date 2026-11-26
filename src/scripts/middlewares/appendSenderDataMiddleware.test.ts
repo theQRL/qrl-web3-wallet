@@ -1,7 +1,9 @@
+import { JsonRpcEngine } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
 import { JsonRpcRequest } from "@theqrl/qrl-wallet-provider/utils";
 import { describe, expect, it, vi } from "vitest";
 import browser from "webextension-polyfill";
 import { appendSenderDataMiddleware } from "./appendSenderDataMiddleware";
+import { unrestrictedMethodsMiddleware } from "./unrestrictedMethodsMiddleware";
 
 const buildReq = (): JsonRpcRequest => ({
   id: 1,
@@ -10,9 +12,10 @@ const buildReq = (): JsonRpcRequest => ({
   params: [],
 });
 
-const buildSender = (
-  overrides: Partial<browser.Runtime.MessageSender> = {},
-): browser.Runtime.MessageSender => ({
+type Sender = Parameters<typeof appendSenderDataMiddleware>[0]["sender"];
+
+const buildSender = (overrides: Partial<Sender> = {}): Sender => ({
+  origin: "https://attacker.example",
   url: "https://attacker.example/iframe.html",
   tab: {
     id: 42,
@@ -52,25 +55,49 @@ describe("appendSenderDataMiddleware", () => {
     expect(req.senderData?.favIconUrl).toBe("https://trusted.example/favicon.ico");
   });
 
-  it("leaves url undefined when the sender has no frame URL (fail closed)", () => {
+  it.each([
+    { url: undefined },
+    { origin: undefined },
+    { origin: "null" },
+    { origin: "https://other.example" },
+  ])("rejects an unverified sender before downstream middleware (%j)", (overrides) => {
     const req = buildReq();
-    const sender = buildSender({ url: undefined });
+    const res = { id: req.id, jsonrpc: req.jsonrpc };
+    const next = vi.fn();
+    const end = vi.fn();
 
-    appendSenderDataMiddleware({ sender })(req as never, {} as never, () => {}, () => {});
+    appendSenderDataMiddleware({ sender: buildSender(overrides) })(req as never, res, next, end);
 
-    // Downstream consumers read senderData.url through `new URL(... ?? "").origin`,
-    // which throws for an empty/undefined URL and fails the request closed.
-    expect(req.senderData?.url).toBeUndefined();
+    expect(res).toMatchObject({ error: { code: 4100 } });
+    expect(req.senderData).toBeUndefined();
+    expect(next).not.toHaveBeenCalled();
+    expect(end).toHaveBeenCalledOnce();
   });
 
   it("uses the top-level frame URL when the request originates from the top frame", () => {
     const req = buildReq();
     const sender = buildSender({
       url: "https://trusted.example/app",
+      origin: "https://trusted.example",
     });
 
     appendSenderDataMiddleware({ sender })(req as never, {} as never, () => {}, () => {});
 
     expect(req.senderData?.url).toBe("https://trusted.example/app");
+  });
+
+  it("routes an unrestricted request only to its originating frame", async () => {
+    vi.mocked(browser.tabs.sendMessage).mockResolvedValueOnce("0x1");
+    const engine = new JsonRpcEngine();
+    engine.push(appendSenderDataMiddleware({ sender: buildSender({ frameId: 7 }) }));
+    engine.push(unrestrictedMethodsMiddleware);
+
+    const request = { ...buildReq(), method: "qrl_chainId" };
+    expect(await engine.handle(request)).toMatchObject({ result: "0x1" });
+    expect(browser.tabs.sendMessage).toHaveBeenCalledWith(
+      42,
+      expect.objectContaining({ data: expect.objectContaining(request) }),
+      { frameId: 7 },
+    );
   });
 });

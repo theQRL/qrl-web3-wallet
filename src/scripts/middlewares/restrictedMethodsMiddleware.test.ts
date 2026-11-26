@@ -104,6 +104,23 @@ describe("restrictedMethodsMiddleware signing", () => {
     vi.unstubAllGlobals();
   });
 
+  it("opens only one approval when two requests arrive together", async () => {
+    const first = handle(RESTRICTED_METHODS.PERSONAL_SIGN);
+    const second = handle(RESTRICTED_METHODS.PERSONAL_SIGN);
+
+    expect(await Promise.race([first, second])).toMatchObject({
+      error: { message: "A request is already pending" },
+    });
+    await respond({ signature: "0xsignature" });
+    const results = await Promise.all([first, second]);
+
+    expect(results).toContainEqual(expect.objectContaining({
+      result: { signature: "0xsignature" },
+    }));
+    expect(browser.action.openPopup).toHaveBeenCalledTimes(1);
+    expect(StorageUtil.setDAppsRequestData).toHaveBeenCalledTimes(1);
+  });
+
   describe.each(SIGNING_METHODS)("%s", (method) => {
     it("returns the authorization error for an unconnected origin", async () => {
       vi.mocked(StorageUtil.getDAppsConnectedAccountsData).mockResolvedValue(

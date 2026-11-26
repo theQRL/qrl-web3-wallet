@@ -49,9 +49,13 @@ describe("MnemonicDisplay", () => {
     expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
       "Keep this safe",
     );
+    // The address is no longer interpolated into this sentence as `head-6 ...
+    // tail-5`. Truncation in prose reads as a definitive identifier while
+    // conveying almost none of one, so the address is rendered in full below.
     expect(screen.getByRole("paragraph")).toHaveTextContent(
-      "Don't lose this mnemonic phrases. Download it right now. You may need this someday to import or recover your new account Q00000 ... 00000",
+      "Don't lose this mnemonic phrases. Download it right now. You may need this someday to import or recover your new account",
     );
+    expect(screen.getByRole("paragraph")).not.toHaveTextContent("...");
     const downloadButton = screen.getByRole("button", { name: "Download" });
     expect(downloadButton).toBeInTheDocument();
     expect(downloadButton).toBeEnabled();

@@ -31,7 +31,7 @@ export type BlockchainAdditionalDataType = {
   defaultBlockExplorerUrl: string;
   defaultIconUrl: string;
   isTestnet: boolean;
-  defaultWsRpcUrl: string;
+  defaultWsRpcUrl?: string;
   isCustomChain: boolean;
   qrnsRegistryAddress?: string;
 };
@@ -46,7 +46,6 @@ export const QRL_BLOCKCHAINS: BlockchainDataType[] = [
     defaultBlockExplorerUrl: QRL_MAINNET_DATA.blockExplorerUrls[0],
     defaultIconUrl: QRL_MAINNET_DATA.iconUrls[0],
     isTestnet: false,
-    defaultWsRpcUrl: "http://localhost:3000",
     isCustomChain: false,
   },
   {
@@ -55,9 +54,17 @@ export const QRL_BLOCKCHAINS: BlockchainDataType[] = [
     defaultBlockExplorerUrl: QRL_TESTNET_DATA.blockExplorerUrls[0],
     defaultIconUrl: QRL_TESTNET_DATA.iconUrls[0],
     isTestnet: true,
-    defaultWsRpcUrl: "http://localhost:3000",
     isCustomChain: false,
   },
 ];
 
 export const DEFAULT_BLOCKCHAIN = QRL_BLOCKCHAINS[1]; // Testnet
+
+// Earlier builds wrote these placeholders into saved chains automatically.
+export const getSubscriptionRpcUrl = (url?: string): string | undefined => {
+  const endpoint = url?.trim().replace(/\/+$/, "");
+  return endpoint === "http://localhost:3000" ||
+    endpoint === "http://127.0.0.1:8545"
+    ? undefined
+    : endpoint || undefined;
+};

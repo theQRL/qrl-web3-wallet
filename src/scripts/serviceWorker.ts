@@ -12,6 +12,7 @@ import {
 import LockManager, { LOCK_MANAGER_MESSAGES } from "./lockManager/lockManager";
 import { appendSenderDataMiddleware } from "./middlewares/appendSenderDataMiddleware";
 import { blockUnSupportedMethodsMiddleware } from "./middlewares/blockUnSupportedMethodsMiddleware";
+import { withMiddlewareErrorBoundary } from "./middlewares/middlewareErrorBoundary";
 import { restrictedMethodsMiddleware } from "./middlewares/restrictedMethodsMiddleware";
 import { storageSchemaMiddleware } from "./middlewares/storageSchemaMiddleware";
 import { unrestrictedMethodsMiddleware } from "./middlewares/unrestrictedMethodsMiddleware";
@@ -149,15 +150,15 @@ const setupProviderEngineEip1193 = ({
   const engine = new JsonRpcEngine();
 
   // Ends dApp requests while a wallet stored by an earlier build waits for its removal.
-  engine.push(storageSchemaMiddleware);
+  engine.push(withMiddlewareErrorBoundary(storageSchemaMiddleware, "storageSchemaMiddleware"));
   // If the requested method is not supported, this ends the request.
   engine.push(blockUnSupportedMethodsMiddleware);
   // Appends the sender details to the request.
   engine.push(appendSenderDataMiddleware({ sender }));
   // Handles the unrestricted method calls without requiring user's approval
-  engine.push(unrestrictedMethodsMiddleware);
+  engine.push(withMiddlewareErrorBoundary(unrestrictedMethodsMiddleware, "unrestrictedMethodsMiddleware"));
   // Handles the dApp's connect wallet functionality
-  engine.push(restrictedMethodsMiddleware);
+  engine.push(withMiddlewareErrorBoundary(restrictedMethodsMiddleware, "restrictedMethodsMiddleware"));
 
   return engine;
 };

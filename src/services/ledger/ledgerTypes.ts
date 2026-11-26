@@ -25,7 +25,7 @@ export interface LedgerAccount {
   address: string;
   /** BIP-44 path, e.g., "m/44'/238'/0'/0/0" */
   derivationPath: string;
-  /** Public key (hex) - optional, because Dilithium has large keys */
+  /** Public key (hex) - optional, because ML-DSA-87 keys are large (2592 bytes) */
   publicKey: string;
   /** Address index on the derivation path (0, 1, 2, ...) */
   index: number;
@@ -65,7 +65,7 @@ export type LedgerSigningStatus =
 export interface LedgerSignResult {
   /** Raw transaction (hex with 0x prefix) */
   rawTransaction: string;
-  /** Signature (hex with 0x prefix) - ~2420 bytes */
+  /** Signature (hex with 0x prefix) - 4627 bytes for ML-DSA-87 */
   signature: string;
   /** Public key used for signing (optional) */
   publicKey?: string;

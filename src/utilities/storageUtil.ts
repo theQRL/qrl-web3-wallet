@@ -527,15 +527,11 @@ class StorageUtil {
       | undefined;
   }
 
-  static async clearDAppsRequestData() {
-    const storedDAppsRequestData =
-      (await browser.storage.session.get(DAPPS_IDENTIFIER))?.[
-        DAPPS_IDENTIFIER
-      ] ?? {};
-    delete storedDAppsRequestData?.[DAPPS_REQUEST_DATA_IDENTIFIER];
-    await browser.storage.session.set({
-      [DAPPS_IDENTIFIER]: storedDAppsRequestData,
-    });
+  static async clearDAppsRequestData(requestId: string) {
+    const storedRequest = await this.getDAppsRequestData();
+    if (storedRequest?.requestId === requestId) {
+      await browser.storage.session.set({ [DAPPS_IDENTIFIER]: {} });
+    }
   }
 
   /**
@@ -544,6 +540,9 @@ class StorageUtil {
    */
   static async setDAppsConnectedAccountsData(data: ConnectedAccountsDataType) {
     const urlOrigin = data.urlOrigin;
+    if (!urlOrigin || urlOrigin === "null") {
+      throw new Error("Cannot store dApp permissions without an origin.");
+    }
 
     const storageData = await browser.storage.local.get(DAPPS_IDENTIFIER);
     if (!storageData[DAPPS_IDENTIFIER]) {
@@ -568,6 +567,7 @@ class StorageUtil {
   }
 
   static async getDAppsConnectedAccountsData(urlOrigin: string = "") {
+    if (!urlOrigin || urlOrigin === "null") return undefined;
     const storageData = await browser.storage.local.get(DAPPS_IDENTIFIER);
     return storageData?.[DAPPS_IDENTIFIER]?.[ALL_DAPPS_IDENTIFIER]?.[
       urlOrigin

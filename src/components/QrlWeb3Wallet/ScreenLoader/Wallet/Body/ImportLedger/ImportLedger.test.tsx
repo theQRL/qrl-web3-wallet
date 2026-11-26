@@ -198,8 +198,14 @@ describe("ImportLedger", () => {
       expect(screen.getByText("Loading accounts...")).toBeInTheDocument();
     });
 
-    it("should display account list with truncated addresses", () => {
-      renderComponent({
+    it("should display account list with addresses rendered in full", () => {
+      // This list is where the user chooses which accounts to import, so each
+      // address must be distinguishable from the others. These three fixtures
+      // share their first 58 and last 33 characters and differ only in the
+      // middle — under the previous head-8/tail-6 rendering all three displayed
+      // identically as `Q0000000...000000`, which is why this test used to assert
+      // a count of 3 for one string.
+      const { container } = renderComponent({
         ledgerStore: {
           isConnected: true,
           accounts: ledgerAccounts,
@@ -207,7 +213,10 @@ describe("ImportLedger", () => {
         } as any,
       });
 
-      expect(screen.getAllByText(/Q0000000\.\.\.000000/)).toHaveLength(3);
+      const text = container.textContent.toLowerCase();
+      for (const account of ledgerAccounts) {
+        expect(text).toContain(account.address.toLowerCase());
+      }
       expect(screen.getByText("Account #1")).toBeInTheDocument();
       expect(screen.getByText("Account #2")).toBeInTheDocument();
       expect(screen.getByText("Account #3")).toBeInTheDocument();

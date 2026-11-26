@@ -5,6 +5,7 @@ import browser from "webextension-polyfill";
 import { UNRESTRICTED_METHODS } from "../constants/requestConstants";
 import { EXTENSION_MESSAGES } from "../constants/streamConstants";
 import { checkUrlOriginHasBeenConnected } from "../utils/restrictedMethodsMiddlewareUtils";
+import type { ExtendedSenderData } from "./appendSenderDataMiddleware";
 
 const QRL_WALLET_DAPP_CONNECTION_REQUIRED_METHODS: string[] = [
   UNRESTRICTED_METHODS.QRL_ACCOUNTS,
@@ -29,11 +30,15 @@ const checkRequestCanProceed = async (req: JsonRpcRequest<JsonRpcRequest>) => {
 const getUnrestrictedMethodResult = async (
   req: JsonRpcRequest<JsonRpcRequest>,
 ) => {
-  const tabId = req?.senderData?.tabId ?? 0;
-  return await browser.tabs.sendMessage(tabId, {
-    name: EXTENSION_MESSAGES.UNRESTRICTED_METHOD_CALLS,
-    data: req,
-  });
+  const sender = req.senderData as ExtendedSenderData | undefined;
+  if (sender?.tabId === undefined) {
+    throw new Error("The wallet could not identify the requesting tab.");
+  }
+  return await browser.tabs.sendMessage(
+    sender.tabId,
+    { name: EXTENSION_MESSAGES.UNRESTRICTED_METHOD_CALLS, data: req },
+    { frameId: sender.frameId ?? 0 },
+  );
 };
 
 type UnrestrictedMethodValue =

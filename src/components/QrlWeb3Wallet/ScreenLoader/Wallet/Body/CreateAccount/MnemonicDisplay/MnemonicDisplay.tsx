@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/UI/Dialog";
+import FullAddress from "@/components/QrlWeb3Wallet/ScreenLoader/Shared/FullAddress/FullAddress";
 import { getMnemonicFromHexSeed } from "@/functions/getMnemonicFromHexSeed";
 import withSuspense from "@/functions/withSuspense";
 import { Web3BaseWalletAccount } from "@theqrl/web3";
@@ -53,15 +54,26 @@ const MnemonicDisplay = ({
     if (account) StringUtil.downloadRecoveryPhrases(account);
   };
 
-  const abbreviatedAddress = `${accountAddress?.substring(0, 6)} ... ${accountAddress?.substring((accountAddress?.length ?? 0) - 5)}`;
-  const cardDescription = t('mnemonic.description', { address: abbreviatedAddress });
+  const cardDescription = t('mnemonic.description');
   const continueWarning = t('mnemonic.continueWarning');
 
   return (
-    <Card className="text-ellipsis">
+    <Card>
       <CardHeader>
         <CardTitle>{t('mnemonic.keepSafe')}</CardTitle>
         <CardDescription>{cardDescription}</CardDescription>
+        {/*
+          The address used to be interpolated into the sentence above as
+          `head-6 ... tail-5` — 11 of 129 characters. Truncation in prose reads as
+          a definitive identifier while conveying almost none of one, so the
+          address is now rendered in full below the sentence instead.
+        */}
+        {accountAddress && (
+          <FullAddress
+            address={accountAddress}
+            className="pt-1 font-mono text-xs text-muted-foreground"
+          />
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <HexSeedListing hexSeed={accountHexSeed} />

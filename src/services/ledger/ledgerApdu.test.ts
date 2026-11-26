@@ -18,7 +18,7 @@ import {
   parseAppName,
   hexToBuffer,
   bufferToHex,
-  DILITHIUM_PUBLIC_KEY_SIZE,
+  ML_DSA_87_PUBLIC_KEY_SIZE,
 } from "./ledgerApdu";
 
 describe("ledgerApdu", () => {
@@ -384,9 +384,12 @@ describe("ledgerApdu", () => {
     });
 
     it("should parse address with public key", () => {
-      // 'Q' prefix + 64 bytes address + public key + success status
+      // 'Q' prefix + 64 bytes address + full ML-DSA-87 public key + success.
+      // The key must be exactly ML_DSA_87_PUBLIC_KEY_SIZE: the parser used to
+      // accept whatever trailed the address as "the public key", so a truncated
+      // frame yielded a silently wrong key. See CIPH-QRLW326-37.
       const addressBytes = Buffer.alloc(QRL_ADDRESS_BYTES, 0xab);
-      const publicKeyBytes = Buffer.alloc(100, 0xcc); // Simplified public key
+      const publicKeyBytes = Buffer.alloc(ML_DSA_87_PUBLIC_KEY_SIZE, 0xcc);
       const response = Buffer.concat([
         Buffer.from([0x51]), // 'Q'
         addressBytes,
@@ -399,13 +402,36 @@ describe("ledgerApdu", () => {
       expect(result.address.startsWith("Q")).toBe(true);
       expect(result.address.length).toBe(QRL_ADDRESS_LENGTH);
       expect(result.publicKey).toMatch(/^0x/);
-      expect(result.publicKey.length).toBe(2 + 100 * 2); // 0x + 100 bytes as hex
+      expect(result.publicKey.length).toBe(2 + ML_DSA_87_PUBLIC_KEY_SIZE * 2);
     });
 
-    it("should parse full Dilithium public key", () => {
-      // 'Q' prefix + 64 bytes address + 2528 bytes Dilithium key + success status
+    it("rejects a public key that is not exactly the ML-DSA-87 size", () => {
+      const response = Buffer.concat([
+        Buffer.from([0x51]),
+        Buffer.alloc(QRL_ADDRESS_BYTES, 0xab),
+        Buffer.alloc(100, 0xcc), // truncated key
+        Buffer.from([0x90, 0x00]),
+      ]);
+
+      expect(() => parsePublicKeyResponse(response)).toThrow(
+        /Invalid public key length/,
+      );
+    });
+
+    it("rejects an address-only response that is not exactly 65 data bytes", () => {
+      const tooLong = Buffer.concat([
+        Buffer.from([0x51]),
+        Buffer.alloc(QRL_ADDRESS_BYTES + 10, 0xab),
+        Buffer.from([0x90, 0x00]),
+      ]);
+
+      expect(() => parseQrlAddress(tooLong)).toThrow(/expected exactly/);
+    });
+
+    it("should parse a full ML-DSA-87 public key", () => {
+      // 'Q' prefix + 64 bytes address + 2592 bytes ML-DSA-87 key + success status
       const addressBytes = Buffer.alloc(QRL_ADDRESS_BYTES, 0xab);
-      const publicKeyBytes = Buffer.alloc(DILITHIUM_PUBLIC_KEY_SIZE, 0xdd);
+      const publicKeyBytes = Buffer.alloc(ML_DSA_87_PUBLIC_KEY_SIZE, 0xdd);
       const response = Buffer.concat([
         Buffer.from([0x51]), // 'Q'
         addressBytes,
@@ -417,8 +443,8 @@ describe("ledgerApdu", () => {
 
       expect(result.address.startsWith("Q")).toBe(true);
       expect(result.publicKey).toMatch(/^0x/);
-      // 0x prefix + 2528 bytes as hex (2 chars per byte)
-      expect(result.publicKey.length).toBe(2 + DILITHIUM_PUBLIC_KEY_SIZE * 2);
+      // 0x prefix + 2592 bytes as hex (2 chars per byte)
+      expect(result.publicKey.length).toBe(2 + ML_DSA_87_PUBLIC_KEY_SIZE * 2);
     });
 
     it("should throw for invalid prefix", () => {

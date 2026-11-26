@@ -43,12 +43,10 @@ const AddQrlChainContent = observer(() => {
           defaultBlockExplorerUrl: blockchain?.blockExplorerUrls?.[0] ?? "",
           defaultIconUrl: blockchain?.iconUrls?.[0] ?? "",
           isTestnet: false,
-          defaultWsRpcUrl: "http://127.0.0.1:8545",
           isCustomChain: true,
         });
         if (!chainFound) {
           await StorageUtil.setAllBlockChains(updatedChainList);
-          await StorageUtil.clearDAppsRequestData();
           await includeChainForUrlOrigin({
             urlOrigin: dAppRequestData?.requestData?.senderData?.url ?? "",
             chainId: blockchain?.chainId,
