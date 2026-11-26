@@ -1,5 +1,5 @@
+import FullAddress from "@/components/QrlWeb3Wallet/ScreenLoader/Shared/FullAddress/FullAddress";
 import type { Contact } from "@/types/contact";
-import StringUtil from "@/utilities/stringUtil";
 import { Pencil, Trash2 } from "lucide-react";
 
 type ContactItemProps = {
@@ -9,16 +9,21 @@ type ContactItemProps = {
 };
 
 const ContactItem = ({ contact, onEdit, onDelete }: ContactItemProps) => {
-  const { prefix, addressSplit } = StringUtil.getSplitAddress(contact.address);
-
   return (
     <div className="flex items-center justify-between rounded-md border p-3">
-      <div className="flex flex-col gap-1 overflow-hidden">
+      <div className="flex min-w-0 flex-col gap-1">
         <span className="text-sm font-medium">{contact.name}</span>
-        <span className="truncate text-xs text-muted-foreground">
-          {prefix}
-          {addressSplit.join("")}
-        </span>
+        {/*
+          Two mistakes were combined here: `addressSplit.join("")` collapsed the
+          chunks back into one unbreakable string, defeating the helper that
+          produced them, and `truncate` then clipped it to whatever fitted — head
+          only, tail invisible. A contact is selectable as a transfer recipient,
+          so that is the exact surface where a poisoned address hides.
+        */}
+        <FullAddress
+          address={contact.address}
+          className="text-xs text-muted-foreground"
+        />
       </div>
       <div className="flex shrink-0 gap-2">
         <button

@@ -330,7 +330,7 @@
   "createAccount.button": "Konto erstellen",
 
   "mnemonic.keepSafe": "Sicher aufbewahren",
-  "mnemonic.description": "Verliere diese mnemonischen Phrasen nicht. Lade sie jetzt herunter. Du könntest sie eines Tages brauchen, um dein neues Konto {{address}} zu importieren oder wiederherzustellen",
+  "mnemonic.description": "Verliere diese mnemonischen Phrasen nicht. Lade sie jetzt herunter. Du könntest sie eines Tages brauchen, um dein neues Konto zu importieren oder wiederherzustellen",
   "mnemonic.continueWarning": "Es wird dringend empfohlen, erst nach dem Herunterladen der mnemonischen Wiederherstellungsphrasen fortzufahren. Falls bereits geschehen, bitte fortfahren.",
   "mnemonic.download": "Herunterladen",
   "mnemonic.continue": "Fortfahren",

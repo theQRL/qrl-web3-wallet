@@ -330,7 +330,7 @@
   "createAccount.button": "Crear cuenta",
 
   "mnemonic.keepSafe": "Guárdalo de forma segura",
-  "mnemonic.description": "No pierdas estas frases mnemónicas. Descárgalas ahora mismo. Podrías necesitarlas algún día para importar o recuperar tu nueva cuenta {{address}}",
+  "mnemonic.description": "No pierdas estas frases mnemónicas. Descárgalas ahora mismo. Podrías necesitarlas algún día para importar o recuperar tu nueva cuenta",
   "mnemonic.continueWarning": "Se recomienda encarecidamente continuar después de descargar las frases mnemónicas de recuperación. Si ya lo has hecho, por favor continúa.",
   "mnemonic.download": "Descargar",
   "mnemonic.continue": "Continuar",

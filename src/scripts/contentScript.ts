@@ -1,3 +1,4 @@
+import { getSubscriptionRpcUrl } from "@/configuration/qrlBlockchainConfig";
 import StorageUtil from "@/utilities/storageUtil";
 import Web3, { FMT_BYTES, FMT_NUMBER } from "@theqrl/web3";
 import { Web3RequestManager } from "@theqrl/web3-core";
@@ -252,9 +253,13 @@ const prepareListeners = () => {
         );
         return isSuccess;
       } else if (method === UNRESTRICTED_METHODS.QRL_UNSUBSCRIBE) {
+        const subscriptionRpcUrl = getSubscriptionRpcUrl(defaultWsRpcUrl);
+        if (!subscriptionRpcUrl) {
+          throw new Error("Subscriptions are not configured for the active chain");
+        }
         const params = message?.data?.params;
         const response = await axios.post(
-          `${defaultWsRpcUrl}/qrl_unsubscribe`,
+          `${subscriptionRpcUrl}/qrl_unsubscribe`,
           { params },
         );
         const unsubscribed = response?.data?.unsubscribed as boolean;
@@ -339,8 +344,12 @@ const prepareListeners = () => {
         )?.transactionHash;
         return transactionHash;
       } else if (method === UNRESTRICTED_METHODS.QRL_SUBSCRIBE) {
+        const subscriptionRpcUrl = getSubscriptionRpcUrl(defaultWsRpcUrl);
+        if (!subscriptionRpcUrl) {
+          throw new Error("Subscriptions are not configured for the active chain");
+        }
         const params = message.data.params;
-        const response = await axios.post(`${defaultWsRpcUrl}/qrl_subscribe`, {
+        const response = await axios.post(`${subscriptionRpcUrl}/qrl_subscribe`, {
           params,
         });
         const subscriptionId = response?.data?.subscriptionId as string;

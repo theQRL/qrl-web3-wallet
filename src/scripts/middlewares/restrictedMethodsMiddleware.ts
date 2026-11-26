@@ -1,3 +1,4 @@
+import { getRequestOrigin } from "@/utilities/originUtil";
 import StorageUtil from "@/utilities/storageUtil";
 import { JsonRpcMiddleware } from "@theqrl/qrl-wallet-provider/json-rpc-engine";
 import { v4 as uuid } from "uuid";
@@ -226,7 +227,7 @@ const getRestrictedMethodResult = async (
   // via the lifecycle-port disconnect handler below.
   const POPUP_RESPONSE_TIMEOUT_MS = 90 * 1000;
 
-  return new Promise((resolve) => {
+  return new Promise<DAppResponseType>((resolve) => {
     let popupPort: browser.Runtime.Port | undefined;
     const cleanup = () => {
       clearTimeout(timeoutHandle);
@@ -249,29 +250,19 @@ const getRestrictedMethodResult = async (
         port.onDisconnect.addListener(handlePortDisconnect);
       }
     }
-    async function handlePortDisconnect() {
+    function handlePortDisconnect() {
       cleanup();
-      try {
-        await StorageUtil.clearDAppsRequestData();
-      } catch {
-        // best-effort cleanup
-      }
       resolve({
         method: req.method,
         action: EXTENSION_MESSAGES.DAPP_RESPONSE,
         hasApproved: false,
       });
     }
-    const timeoutHandle = setTimeout(async () => {
+    const timeoutHandle = setTimeout(() => {
       cleanup();
       console.warn(
         "QrlWeb3Wallet: dApp request timed out without user response",
       );
-      try {
-        await StorageUtil.clearDAppsRequestData();
-      } catch {
-        // best-effort cleanup
-      }
       resolve({
         method: req.method,
         action: EXTENSION_MESSAGES.DAPP_RESPONSE,
@@ -282,6 +273,13 @@ const getRestrictedMethodResult = async (
     // lifecycle port so we can resolve immediately when it disconnects.
     browser.runtime.onMessage.addListener(handleMessage);
     browser.runtime.onConnect.addListener(handlePortConnect);
+  }).finally(async () => {
+    // The service worker owns this slot until cleanup finishes.
+    try {
+      await StorageUtil.clearDAppsRequestData(requestId);
+    } catch {
+      // The response can still settle if session storage is unavailable.
+    }
   });
 };
 
@@ -300,6 +298,13 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       requestedMethod as RestrictedMethodValue,
     )
   ) {
+    const origin = getRequestOrigin(req.senderData?.url);
+    if (!origin) {
+      res.error = providerErrors.unauthorized({
+        message: "The wallet could not identify the requesting origin.",
+      });
+      return end();
+    }
     const precheckResult = await checkRequestCanProceed(req);
     const { canProceed, proceedError } = precheckResult;
     const authorizedChainId =
@@ -319,115 +324,107 @@ export const restrictedMethodsMiddleware: JsonRpcMiddleware<
       });
       return end();
     }
-    if (isRequestPending) {
-      try {
-        const settings = await StorageUtil.getSettings();
-        if (!settings.sidePanelPreferred) {
-          await browser.action.openPopup();
-        }
-      } finally {
-        res.error = providerErrors.unsupportedMethod({
-          message: "A request is already pending",
-        });
-      }
+    // check if the request can complete silently without user interaction
+    const { hasCompleted, completionResult, completionError } =
+      await checkRequestCanCompleteSilently(req);
+    if (hasCompleted) {
+      res.result = completionResult;
       return end();
-    } else {
-      // check if the request can complete silently without user interaction
-      const { hasCompleted, completionResult, completionError } =
-        await checkRequestCanCompleteSilently(req);
-      if (hasCompleted) {
-        res.result = completionResult;
-        return end();
-      } else if (completionError) {
-        // @ts-expect-error - completionError type from rpcErrors is not assignable to res.error's narrow type
-        res.error = completionError;
-        return end();
-      }
-
-      // open the popup and wait for the user to approve/reject the request
-      let restrictedMethodResult: DAppResponseType = {
-        method: "",
-        action: "",
-        hasApproved: false,
-      };
-      try {
-        isRequestPending = true;
-        restrictedMethodResult = await getRestrictedMethodResult(
-          req,
-          authorizedChainId,
-        );
-      } finally {
-        isRequestPending = false;
-        const hasApproved = restrictedMethodResult?.hasApproved;
-        if (hasApproved) {
-          switch (restrictedMethodResult?.method) {
-            case RESTRICTED_METHODS.WALLET_ADD_QRL_CHAIN:
-            case RESTRICTED_METHODS.WALLET_SWITCH_QRL_CHAIN: {
-              const switchApproved = !!restrictedMethodResult?.response?.result;
-              res.result = switchApproved ? null : false;
-              break;
-            }
-            case RESTRICTED_METHODS.WALLET_WATCH_ASSET: {
-              const hasAddedAsset = !!restrictedMethodResult?.response?.result;
-              res.result = hasAddedAsset;
-              break;
-            }
-            case RESTRICTED_METHODS.QRL_REQUEST_ACCOUNTS: {
-              const accounts = await updateAccountsAndBlockchainsForUrlOrigin({
-                urlOrigin: new URL(req?.senderData?.url ?? "").origin,
-                accounts: restrictedMethodResult?.response?.accounts,
-                blockchains: restrictedMethodResult?.response?.blockchains,
-              });
-              res.result = accounts;
-              break;
-            }
-            case RESTRICTED_METHODS.WALLET_REQUEST_PERMISSIONS: {
-              const urlOrigin = new URL(req?.senderData?.url ?? "").origin;
-              await updateAccountsAndBlockchainsForUrlOrigin({
-                urlOrigin,
-                accounts: restrictedMethodResult?.response?.accounts,
-                blockchains: restrictedMethodResult?.response?.blockchains,
-              });
-              const dAppConnectedAccountsData =
-                await StorageUtil.getDAppsConnectedAccountsData(urlOrigin);
-              res.result = dAppConnectedAccountsData?.permissions ?? [];
-              break;
-            }
-            case RESTRICTED_METHODS.QRL_SEND_TRANSACTION: {
-              const transactionHash =
-                restrictedMethodResult?.response?.transactionHash;
-              if (transactionHash) {
-                res.result = transactionHash;
-              } else {
-                res.error = providerErrors.unsupportedMethod({
-                  message: restrictedMethodResult?.response?.error?.message,
-                  data: restrictedMethodResult?.response?.error,
-                });
-              }
-              break;
-            }
-            case RESTRICTED_METHODS.PERSONAL_SIGN: {
-              const signedData = restrictedMethodResult?.response;
-              if (signedData && !signedData.error) {
-                res.result = signedData;
-              } else {
-                res.error = providerErrors.unsupportedMethod({
-                  message: restrictedMethodResult?.response?.error?.message,
-                  data: restrictedMethodResult?.response?.error,
-                });
-              }
-              break;
-            }
-            default:
-              res.error = providerErrors.unsupportedMethod();
-              break;
-          }
-        } else {
-          res.error = providerErrors.userRejectedRequest();
-        }
-      }
+    } else if (completionError) {
+      // @ts-expect-error - completionError type from rpcErrors is not assignable to res.error's narrow type
+      res.error = completionError;
       return end();
     }
+
+    // Only one request may own the pending approval slot.
+    if (isRequestPending) {
+      res.error = providerErrors.unsupportedMethod({
+        message: "A request is already pending",
+      });
+      return end();
+    }
+    isRequestPending = true;
+    try {
+      const restrictedMethodResult = await getRestrictedMethodResult(
+        req,
+        authorizedChainId,
+      );
+      if (
+        restrictedMethodResult.hasApproved &&
+        restrictedMethodResult.method !== requestedMethod
+      ) {
+        res.error = providerErrors.unauthorized({
+          message: "The approval response did not match the request.",
+        });
+      } else if (restrictedMethodResult.hasApproved) {
+        switch (requestedMethod) {
+          case RESTRICTED_METHODS.WALLET_ADD_QRL_CHAIN:
+          case RESTRICTED_METHODS.WALLET_SWITCH_QRL_CHAIN: {
+            const switchApproved = !!restrictedMethodResult?.response?.result;
+            res.result = switchApproved ? null : false;
+            break;
+          }
+          case RESTRICTED_METHODS.WALLET_WATCH_ASSET: {
+            const hasAddedAsset = !!restrictedMethodResult?.response?.result;
+            res.result = hasAddedAsset;
+            break;
+          }
+          case RESTRICTED_METHODS.QRL_REQUEST_ACCOUNTS: {
+            const accounts = await updateAccountsAndBlockchainsForUrlOrigin({
+              urlOrigin: origin,
+              accounts: restrictedMethodResult?.response?.accounts,
+              blockchains: restrictedMethodResult?.response?.blockchains,
+            });
+            res.result = accounts;
+            break;
+          }
+          case RESTRICTED_METHODS.WALLET_REQUEST_PERMISSIONS: {
+            await updateAccountsAndBlockchainsForUrlOrigin({
+              urlOrigin: origin,
+              accounts: restrictedMethodResult?.response?.accounts,
+              blockchains: restrictedMethodResult?.response?.blockchains,
+            });
+            const dAppConnectedAccountsData =
+              await StorageUtil.getDAppsConnectedAccountsData(origin);
+            res.result = dAppConnectedAccountsData?.permissions ?? [];
+            break;
+          }
+          case RESTRICTED_METHODS.QRL_SEND_TRANSACTION: {
+            const transactionHash =
+              restrictedMethodResult?.response?.transactionHash;
+            if (transactionHash) {
+              res.result = transactionHash;
+            } else {
+              res.error = providerErrors.unsupportedMethod({
+                message: restrictedMethodResult?.response?.error?.message,
+                data: restrictedMethodResult?.response?.error,
+              });
+            }
+            break;
+          }
+          case RESTRICTED_METHODS.PERSONAL_SIGN: {
+            const signedData = restrictedMethodResult?.response;
+            if (signedData && !signedData.error) {
+              res.result = signedData;
+            } else {
+              res.error = providerErrors.unsupportedMethod({
+                message: restrictedMethodResult?.response?.error?.message,
+                data: restrictedMethodResult?.response?.error,
+              });
+            }
+            break;
+          }
+          default:
+            res.error = providerErrors.unsupportedMethod();
+            break;
+        }
+      } else {
+        res.error = providerErrors.userRejectedRequest();
+      }
+    } finally {
+      isRequestPending = false;
+    }
+    return end();
   } else {
     next();
   }

@@ -2,7 +2,7 @@ import { formatFiatCompact } from "@/functions/formatFiat";
 import { parseBalanceValue } from "@/functions/parseBalanceValue";
 import { BALANCE_UNAVAILABLE } from "@/stores/qrlStore";
 import { useStore } from "@/stores/store";
-import StringUtil from "@/utilities/stringUtil";
+import FullAddress from "@/components/QrlWeb3Wallet/ScreenLoader/Shared/FullAddress/FullAddress";
 import { Usb } from "lucide-react";
 import { observer } from "mobx-react-lite";
 import { useEffect, useState } from "react";
@@ -18,7 +18,6 @@ const AccountId = observer(({ account, hideLabel }: AccountIdType) => {
   const { qrlStore, ledgerStore, accountLabelsStore, priceStore, settingsStore } = useStore();
   const { getAccountBalance, qrlAccounts } = qrlStore;
   const { accounts } = qrlAccounts;
-  const { prefix, addressSplit } = StringUtil.getSplitAddress(account);
 
   const [accountBalance, setAccountBalance] = useState("");
   const isLedgerAccount = ledgerStore.isLedgerAccount(account);
@@ -51,17 +50,7 @@ const AccountId = observer(({ account, hideLabel }: AccountIdType) => {
       )}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1">
-          <div className="flex flex-wrap gap-1">
-            <div className="text-xs">
-              {prefix}
-              {addressSplit[0]}
-            </div>
-            {addressSplit.slice(1).map((part, index) => (
-              <div className="text-xs" key={`${index}-${part}`}>
-                {part}
-              </div>
-            ))}
-          </div>
+          <FullAddress address={account} className="gap-1 text-xs" />
           {(hideLabel || !label) && isLedgerAccount && (
             <span title={t('account.ledger')}>
               <Usb className="h-3 w-3 text-muted-foreground" />

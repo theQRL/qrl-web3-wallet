@@ -151,6 +151,9 @@ const mockedStoreValues: StoreType = {
       hasCompleted: false,
     },
     readDAppRequestData: async () => {},
+    requestingOrigin: "",
+    getRequestingOriginGrants: async () => ({ accounts: [], blockchains: [] }),
+    clearOnPermissionCallBack: () => {},
     addToResponseData: (_data: any) => {},
     setCanProceed: (_decision: boolean) => {},
     setOnPermissionCallBack: (

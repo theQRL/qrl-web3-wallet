@@ -310,10 +310,13 @@ export function parseQrlAddress(response: Buffer): string {
   const data = extractResponseData(response);
 
   // QRL address: 1 byte prefix ('Q') + 64 bytes address = 65 bytes
-  if (data.length < QRL_ADDRESS_RESPONSE_LENGTH) {
+  // Exact, not minimum. The fixed `subarray(1, 65)` below assumes precisely this
+  // length, so a longer frame was silently truncated and a shorter one would have
+  // absorbed adjacent payload into the address. See CIPH-QRLW326-37.
+  if (data.length !== QRL_ADDRESS_RESPONSE_LENGTH) {
     throw createLedgerError(
       0,
-      `Invalid response length: expected min. ${QRL_ADDRESS_RESPONSE_LENGTH} bytes, got ${data.length}`
+      `Invalid response length: expected exactly ${QRL_ADDRESS_RESPONSE_LENGTH} bytes, got ${data.length}`
     );
   }
 
@@ -339,14 +342,18 @@ export function parseQrlAddress(response: Buffer): string {
 export interface PublicKeyResponse {
   /** Address in QRL format (Q + 128 hex characters) */
   address: string;
-  /** Dilithium public key (hex with 0x prefix), empty if not included in response */
+  /** ML-DSA-87 public key (hex with 0x prefix), empty if not included in response */
   publicKey: string;
 }
 
 /**
  * Public key size in bytes.
  */
-export const DILITHIUM_PUBLIC_KEY_SIZE = 2528;
+/** ML-DSA-87 public key size in bytes (FIPS 204). Was wrongly 2528. */
+export const ML_DSA_87_PUBLIC_KEY_SIZE = 2592;
+
+/** @deprecated Misnamed and wrong-valued; use ML_DSA_87_PUBLIC_KEY_SIZE. */
+export const DILITHIUM_PUBLIC_KEY_SIZE = ML_DSA_87_PUBLIC_KEY_SIZE;
 
 /**
  * Parses full GET_PUBLIC_KEY response including public key.
@@ -354,7 +361,7 @@ export const DILITHIUM_PUBLIC_KEY_SIZE = 2528;
  * RESPONSE FORMAT (with public key):
  * ┌────────┬───────────────────┬────────────────────┬────────┐
  * │ PREFIX │     ADDRESS       │    PUBLIC_KEY      │   SW   │
- * │  'Q'   │     64 bytes      │    2528 bytes      │   2B   │
+ * │  'Q'   │     64 bytes      │    2592 bytes      │   2B   │
  * │  1B    │      (hex)        │                    │        │
  * └────────┴───────────────────┴────────────────────┴────────┘
  *
@@ -368,7 +375,9 @@ export function parsePublicKeyResponse(response: Buffer): PublicKeyResponse {
   // Extract data
   const data = extractResponseData(response);
 
-  // QRL address: 1 byte prefix ('Q') + 64 bytes address = 65 bytes
+  // QRL address: 1 byte prefix ('Q') + 64 bytes address = 65 bytes. A minimum
+  // rather than an exact length is correct here — unlike `parseQrlAddress`, this
+  // response legitimately carries the public key concatenated after the address.
   if (data.length < QRL_ADDRESS_RESPONSE_LENGTH) {
     throw createLedgerError(
       0,
@@ -389,10 +398,19 @@ export function parsePublicKeyResponse(response: Buffer): PublicKeyResponse {
   const addressBytes = data.subarray(1, QRL_ADDRESS_RESPONSE_LENGTH);
   const address = prefix + addressBytes.toString("hex");
 
-  // Remaining bytes are the public key (if present)
+  // Remaining bytes are the public key (if present). Validate its length rather
+  // than accepting whatever trails the address: any extra bytes used to become
+  // "the public key" unchecked, so a malformed or truncated frame yielded a
+  // silently wrong key. See CIPH-QRLW326-37.
   let publicKey = "";
   if (data.length > QRL_ADDRESS_RESPONSE_LENGTH) {
     const publicKeyBytes = data.subarray(QRL_ADDRESS_RESPONSE_LENGTH);
+    if (publicKeyBytes.length !== ML_DSA_87_PUBLIC_KEY_SIZE) {
+      throw createLedgerError(
+        0,
+        `Invalid public key length: expected ${ML_DSA_87_PUBLIC_KEY_SIZE} bytes, got ${publicKeyBytes.length}`
+      );
+    }
     publicKey = "0x" + publicKeyBytes.toString("hex");
   }
 

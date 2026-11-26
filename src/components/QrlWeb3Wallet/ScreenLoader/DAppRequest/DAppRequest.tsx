@@ -17,12 +17,14 @@ const DAppRequest = observer(() => {
   const { hasCompleted } = approvalProcessingStatus;
   const { phishingDetectionEnabled } = settingsStore;
 
-  const [phishingAcknowledged, setPhishingAcknowledged] = useState(false);
+  const [acknowledgedRequestId, setAcknowledgedRequestId] = useState<string>();
 
   const phishingResult = dAppRequestData?.phishingResult;
   const isDomainPhishing =
     phishingDetectionEnabled && (phishingResult?.isDomainPhishing ?? false);
-  const showPhishingWarning = isDomainPhishing && !phishingAcknowledged;
+  const requestId = dAppRequestData?.requestId;
+  const showPhishingWarning =
+    isDomainPhishing && (!requestId || acknowledgedRequestId !== requestId);
   const phishingDetectorUnavailable =
     phishingDetectionEnabled &&
     phishingResult !== undefined &&
@@ -76,23 +78,23 @@ const DAppRequest = observer(() => {
       <div className="relative z-10 flex flex-col items-center space-y-4 p-4">
         {phishingDetectorUnavailable && (
           <div className="w-full max-w-md rounded-md border border-yellow-500 bg-yellow-50 p-2 text-xs text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-200">
-            <strong>Phishing protection unavailable.</strong> The wallet
-            could not load its phishing blocklist
-            {phishingResult?.detectorStatus
-              ? ` (${phishingResult.detectorStatus})`
-              : ""}
-            . The dApp below has not been checked against any blocklist —
-            verify the origin manually before approving.
+            {phishingResult?.detectorStatus === "stale-fallback" ? (
+              <><strong>Phishing list is out of date.</strong> The wallet checked
+                this dApp against an older list. Verify the origin before approving.</>
+            ) : (
+              <><strong>Phishing protection unavailable.</strong> The wallet
+                could not load its phishing blocklist. Verify the origin before approving.</>
+            )}
           </div>
         )}
-        <DAppRequestContentSelection />
+        <DAppRequestContentSelection key={requestId} />
       </div>
       <PhishingWarning
         isOpen={showPhishingWarning}
         domain={domain}
         matchedDomain={phishingResult?.matchedDomain}
         onReject={() => onPermission(false)}
-        onProceedAnyway={() => setPhishingAcknowledged(true)}
+        onProceedAnyway={() => setAcknowledgedRequestId(requestId)}
       />
     </>
   );

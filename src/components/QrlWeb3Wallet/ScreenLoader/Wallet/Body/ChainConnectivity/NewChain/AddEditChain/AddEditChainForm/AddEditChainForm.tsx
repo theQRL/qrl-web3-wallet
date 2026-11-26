@@ -1,3 +1,4 @@
+import { getSubscriptionRpcUrl } from "@/configuration/qrlBlockchainConfig";
 import { Button } from "@/components/UI/Button";
 import {
   Card,
@@ -141,7 +142,7 @@ const AddEditChainForm = observer(({ chainToEdit }: AddEditChainFormType) => {
       defaultBlockExplorerUrl,
       defaultIconUrl,
       isTestnet: false,
-      defaultWsRpcUrl: "http://127.0.0.1:8545",
+      defaultWsRpcUrl: getSubscriptionRpcUrl(chainToEdit?.defaultWsRpcUrl),
       isCustomChain: true,
       qrnsRegistryAddress: normalizedQrnsRegistryAddress || undefined,
     };

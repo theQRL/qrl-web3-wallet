@@ -63,6 +63,16 @@ describe("SettingsStore", () => {
     expect(store.language).toBe("en");
   });
 
+  it("recognizes a marked action popup before its viewport is measured", () => {
+    const originalUrl = window.location.href;
+    try {
+      window.history.replaceState(null, "", "?actionPopup=1");
+      expect(new SettingsStore().isPopupWindow).toBe(true);
+    } finally {
+      window.history.replaceState(null, "", originalUrl);
+    }
+  });
+
   it("should have a theme based on system preference", () => {
     expect(["dark", "light"]).toContain(store.theme);
     expect(typeof store.isDarkMode).toBe("boolean");

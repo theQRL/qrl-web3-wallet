@@ -1,14 +1,7 @@
 import { BlockchainDataType } from "@/configuration/qrlBlockchainConfig";
 import { AdditionalJsonRpcRequestKeys } from "@theqrl/qrl-wallet-provider/utils";
 
-export type PhishingDetectorStatus = "ready" | "initializing" | "unavailable";
-
-export type PhishingCheckResult = {
-  isDomainPhishing: boolean;
-  matchType?: string;
-  matchedDomain?: string;
-  detectorStatus?: PhishingDetectorStatus;
-};
+import type { PhishingCheckResult } from "../phishing/phishingDetector";
 
 export type DAppRequestType = {
   method: string;

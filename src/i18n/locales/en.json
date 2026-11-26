@@ -330,7 +330,7 @@
   "createAccount.button": "Create account",
 
   "mnemonic.keepSafe": "Keep this safe",
-  "mnemonic.description": "Don't lose this mnemonic phrases. Download it right now. You may need this someday to import or recover your new account {{address}}",
+  "mnemonic.description": "Don't lose this mnemonic phrases. Download it right now. You may need this someday to import or recover your new account",
   "mnemonic.continueWarning": "It is highly recommended that you continue after downloading the recovery mnemonic phrases. If you already have, please continue.",
   "mnemonic.download": "Download",
   "mnemonic.continue": "Continue",

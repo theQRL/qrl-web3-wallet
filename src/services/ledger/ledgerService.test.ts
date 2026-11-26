@@ -391,13 +391,15 @@ describe("LedgerService", () => {
     const mockTxHex = "0xaabbccdd";
     const mockDerivationPath = "m/44'/238'/0'/0/0";
 
-    it("should sign transaction and return result", async () => {
+    beforeEach(async () => {
       const { ledgerTransport: transport } = await import("./ledgerTransport");
-      const signatureChunk = Buffer.concat([
-        Buffer.alloc(100, 0xaa),
-        Buffer.from([0x90, 0x00]),
-      ]);
-      (transport.send as any).mockResolvedValue(signatureChunk);
+      vi.mocked(transport.send).mockImplementation(async (_cla, _ins, p1, p2) => {
+        const size = p1 === 0x02 ? (p2 === 17 ? 241 : 258) : 0;
+        return Buffer.concat([Buffer.alloc(size, 0xaa), Buffer.from([0x90, 0x00])]);
+      });
+    });
+
+    it("should sign transaction and return result", async () => {
 
       const result = await ledgerService.signTransaction(
         mockDerivationPath,
@@ -408,15 +410,11 @@ describe("LedgerService", () => {
       expect(result).toHaveProperty("signature");
       expect(result.rawTransaction).toMatch(/^0x/);
       expect(result.signature).toMatch(/^0x/);
+      expect(Buffer.from(result.signature.slice(2), "hex")).toHaveLength(4627);
     });
 
     it("should send path in first phase", async () => {
       const { ledgerTransport: transport } = await import("./ledgerTransport");
-      const signatureChunk = Buffer.concat([
-        Buffer.alloc(100, 0xaa),
-        Buffer.from([0x90, 0x00]),
-      ]);
-      (transport.send as any).mockResolvedValue(signatureChunk);
 
       await ledgerService.signTransaction(mockDerivationPath, mockTxHex);
 
@@ -433,11 +431,6 @@ describe("LedgerService", () => {
 
     it("should send last transaction chunk with P1=0x02", async () => {
       const { ledgerTransport: transport } = await import("./ledgerTransport");
-      const signatureChunk = Buffer.concat([
-        Buffer.alloc(100, 0xaa),
-        Buffer.from([0x90, 0x00]),
-      ]);
-      (transport.send as any).mockResolvedValue(signatureChunk);
 
       await ledgerService.signTransaction(mockDerivationPath, mockTxHex);
 
@@ -454,11 +447,6 @@ describe("LedgerService", () => {
 
     it("should fetch all signature chunks", async () => {
       const { ledgerTransport: transport } = await import("./ledgerTransport");
-      const signatureChunk = Buffer.concat([
-        Buffer.alloc(100, 0xaa),
-        Buffer.from([0x90, 0x00]),
-      ]);
-      (transport.send as any).mockResolvedValue(signatureChunk);
 
       await ledgerService.signTransaction(mockDerivationPath, mockTxHex);
 
@@ -494,11 +482,6 @@ describe("LedgerService", () => {
 
     it("should accept Buffer as transaction input", async () => {
       const { ledgerTransport: transport } = await import("./ledgerTransport");
-      const signatureChunk = Buffer.concat([
-        Buffer.alloc(100, 0xaa),
-        Buffer.from([0x90, 0x00]),
-      ]);
-      (transport.send as any).mockResolvedValue(signatureChunk);
 
       const txBuffer = Buffer.from([0xaa, 0xbb, 0xcc, 0xdd]);
 
@@ -508,15 +491,9 @@ describe("LedgerService", () => {
     });
 
     it("should call signing status callbacks on success", async () => {
-      const { ledgerTransport: transport } = await import("./ledgerTransport");
       const onSigningStatusChange = vi.fn<any>();
       ledgerService.setCallbacks({ onSigningStatusChange });
 
-      const signatureChunk = Buffer.concat([
-        Buffer.alloc(100, 0xaa),
-        Buffer.from([0x90, 0x00]),
-      ]);
-      (transport.send as any).mockResolvedValue(signatureChunk);
 
       await ledgerService.signTransaction(mockDerivationPath, mockTxHex);
 
@@ -538,11 +515,6 @@ describe("LedgerService", () => {
         Buffer.alloc(50, 0x03),
       ]);
 
-      const signatureChunk = Buffer.concat([
-        Buffer.alloc(100, 0xaa),
-        Buffer.from([0x90, 0x00]),
-      ]);
-      (transport.send as any).mockResolvedValue(signatureChunk);
 
       await ledgerService.signTransaction(mockDerivationPath, mockTxHex);
 

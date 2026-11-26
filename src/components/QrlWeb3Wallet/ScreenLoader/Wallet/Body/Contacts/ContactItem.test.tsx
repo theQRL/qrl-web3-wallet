@@ -24,8 +24,12 @@ describe("ContactItem", () => {
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
-  it("should render the contact address", () => {
-    render(
+  it("should render the contact address in full", () => {
+    // A contact is selectable as a transfer recipient, so the whole address has
+    // to be visible: a matching head and tail is not an identity. The address is
+    // rendered as wrapping chunks, hence the textContent check rather than
+    // getByText — the characters are spread across elements by design.
+    const { container } = render(
       <ContactItem
         contact={contact}
         onEdit={vi.fn()}
@@ -33,9 +37,9 @@ describe("ContactItem", () => {
       />,
     );
 
-    expect(
-      screen.getByText(/Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000/),
-    ).toBeInTheDocument();
+    expect(container).toHaveTextContent(
+      "Q0000000000000000000000000000000000000000000000000000000020B714091cF2a62DADda2847803e3f1B9D2D377900000000000000000000000000000000",
+    );
   });
 
   it("should call onEdit when edit button is clicked", async () => {

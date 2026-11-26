@@ -437,7 +437,7 @@ describe("StorageUtil", () => {
   // ── DApps request data (session storage) ───────────────────
 
   describe("DApps request data", () => {
-    const requestData = { method: "qrl_requestAccounts" } as any;
+    const requestData = { method: "qrl_requestAccounts", requestId: "request-1" };
 
     it("should store and retrieve DApp request data", async () => {
       await StorageUtil.setDAppsRequestData(requestData);
@@ -450,9 +450,15 @@ describe("StorageUtil", () => {
       expect(result).toBeUndefined();
     });
 
+    it("preserves a request owned by a different approval", async () => {
+      await StorageUtil.setDAppsRequestData(requestData);
+      await StorageUtil.clearDAppsRequestData("previous-request");
+      expect(await StorageUtil.getDAppsRequestData()).toEqual(requestData);
+    });
+
     it("should clear DApp request data", async () => {
       await StorageUtil.setDAppsRequestData(requestData);
-      await StorageUtil.clearDAppsRequestData();
+      await StorageUtil.clearDAppsRequestData(requestData.requestId);
       const result = await StorageUtil.getDAppsRequestData();
       expect(result).toBeUndefined();
     });
@@ -475,6 +481,13 @@ describe("StorageUtil", () => {
       );
       expect(result?.urlOrigin).toBe("https://example.com");
       expect(result?.accounts).toEqual([ACCOUNT]);
+    });
+
+    it("rejects a grant without an identifiable origin", async () => {
+      await expect(
+        StorageUtil.setDAppsConnectedAccountsData({ ...connectedData, urlOrigin: "null" }),
+      ).rejects.toThrow("Cannot store dApp permissions without an origin.");
+      await expect(StorageUtil.getDAppsConnectedAccountsData("null")).resolves.toBeUndefined();
     });
 
     it("should return undefined for unknown origin", async () => {

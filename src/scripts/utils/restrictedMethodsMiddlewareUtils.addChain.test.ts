@@ -29,6 +29,22 @@ describe("wallet_addQRLChain optional fields", () => {
     expect((await check({})).canProceed).toBe(true);
   });
 
+  it.each(["ftp://localhost/rpc", "ws://127.0.0.1/rpc", "http://rpc.example/rpc"])(
+    "rejects an RPC URL outside the allowed HTTP(S) policy: %s",
+    async (url) => {
+      const result = await check({ rpcUrls: [url] });
+      expect(result.canProceed).toBe(false);
+      expect(result.proceedError?.code).toBe(-32602);
+    },
+  );
+
+  it.each(["http://localhost:8545/rpc", "https://127.0.0.1/rpc"])(
+    "accepts a loopback HTTP(S) endpoint: %s",
+    async (url) => {
+      expect((await check({ rpcUrls: [url] })).canProceed).toBe(true);
+    },
+  );
+
   it("accepts a request without the optional lists", async () => {
     const { canProceed } = await checkWalletAddQrlChainParams({
       chainName: "Example",

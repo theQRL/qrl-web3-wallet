@@ -206,7 +206,6 @@ describe("AddEditChainForm", () => {
         defaultBlockExplorerUrl: "https://testDefaultExplorerUrl",
         defaultIconUrl: "https://testDefaultIconUrl",
         isTestnet: false,
-        defaultWsRpcUrl: "http://127.0.0.1:8545",
         isCustomChain: true,
       },
     ];
@@ -288,7 +287,6 @@ describe("AddEditChainForm", () => {
         defaultBlockExplorerUrl: "https://testDefaultExplorerUrl",
         defaultIconUrl: "https://testDefaultIconUrl",
         isTestnet: false,
-        defaultWsRpcUrl: "http://127.0.0.1:8545",
         isCustomChain: true,
       },
       {
@@ -306,7 +304,6 @@ describe("AddEditChainForm", () => {
         defaultBlockExplorerUrl: "",
         defaultIconUrl: "",
         isTestnet: false,
-        defaultWsRpcUrl: "http://127.0.0.1:8545",
         isCustomChain: true,
       },
     ];
@@ -408,8 +405,8 @@ describe("AddEditChainForm", () => {
         defaultRpcUrl: "https://testDefaultRpcUrl",
         defaultBlockExplorerUrl: "https://testDefaultExplorerUrl",
         defaultIconUrl: "https://testDefaultIconUrl",
+        defaultWsRpcUrl: "http://testDefaultRpcUrl",
         isTestnet: false,
-        defaultWsRpcUrl: "http://127.0.0.1:8545",
         isCustomChain: true,
       },
     ];

@@ -10,7 +10,6 @@ vi.mock("@/utilities/storageUtil", () => ({
   __esModule: true,
   default: {
     setAllBlockChains: vi.fn(async () => {}),
-    clearDAppsRequestData: vi.fn(async () => {}),
   },
 }));
 
@@ -132,17 +131,17 @@ describe("AddQrlChainContent", () => {
       return addChain;
     };
 
-    it("uses the first acceptable URL when an earlier one is plain http", async () => {
-      const addChain = await approveWithRpcUrls([
-        "http://rpc.attacker.example/rpc",
-        "https://rpc.example/rpc",
-      ]);
+    it.each(["http://rpc.example/rpc", "ftp://localhost/rpc"])(
+      "skips a disallowed RPC endpoint before choosing the default: %s",
+      async (url) => {
+        const addChain = await approveWithRpcUrls([url, "https://rpc.example/rpc"]);
 
-      expect(addChain).toHaveBeenCalledTimes(1);
-      expect(addChain).toHaveBeenCalledWith(
-        expect.objectContaining({ defaultRpcUrl: "https://rpc.example/rpc" }),
-      );
-    });
+        expect(addChain).toHaveBeenCalledTimes(1);
+        expect(addChain).toHaveBeenCalledWith(
+          expect.objectContaining({ defaultRpcUrl: "https://rpc.example/rpc" }),
+        );
+      },
+    );
 
     it("keeps the first URL when it is acceptable", async () => {
       const addChain = await approveWithRpcUrls([

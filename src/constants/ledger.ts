@@ -143,14 +143,13 @@ export const LEDGER_CONFIG = {
    *
    * - Public key: ML-DSA-87 keys are exactly 2592 bytes; the device returns
    *   them as 10×258 + 1×12 chunks (`PK_CHUNKS = 11`).
-   * - Signature: ML-DSA-87 signatures are variable up to ~2420 bytes;
-   *   bound by an inclusive range to reject malformed reassemblies.
+   * - Signature: ML-DSA-87 signatures are exactly 4627 bytes, returned
+   *   as 17 chunks of 258 bytes and one final chunk of 241 bytes.
    */
   EXPECTED_PUBLIC_KEY_BYTES: 2592,
   PUBLIC_KEY_CHUNK_BYTES: 258,
   PUBLIC_KEY_LAST_CHUNK_BYTES: 12,
-  SIGNATURE_MIN_BYTES: 1024,
-  SIGNATURE_MAX_BYTES: 4096,
+  EXPECTED_SIGNATURE_BYTES: 4627,
 } as const;
 
 /**
