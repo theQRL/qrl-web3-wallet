@@ -252,6 +252,10 @@ export const isAcceptableUrl = (urlString: string) => {
   }
 };
 
+const isStringList = (value: unknown): boolean =>
+  Array.isArray(value) &&
+  value.every((item: unknown) => typeof item === "string");
+
 export const checkWalletAddQrlChainParams = async (
   chainData: BlockchainDataType,
   hasInternalKeys: boolean = false,
@@ -389,6 +393,31 @@ export const checkWalletAddQrlChainParams = async (
       };
     }
   }
+  if (
+    nativeCurrency?.name !== undefined &&
+    typeof nativeCurrency.name !== "string"
+  ) {
+    return {
+      canProceed: false,
+      proceedError: rpcErrors.invalidParams({
+        message: `Expected a string 'nativeCurrency.name'. Received: ${String(nativeCurrency.name)}`,
+      }),
+    };
+  }
+  // The approval screen lists these as text. A value that is not an array of
+  // strings cannot be shown and cannot be stored as a list.
+  for (const key of ["blockExplorerUrls", "iconUrls"] as const) {
+    const urls: unknown = chainData[key];
+    if (urls !== undefined && !isStringList(urls)) {
+      return {
+        canProceed: false,
+        proceedError: rpcErrors.invalidParams({
+          message: `Expected an array of strings for '${key}'.`,
+        }),
+      };
+    }
+  }
+
   const ticker = nativeCurrency?.symbol;
   if (
     ticker &&
