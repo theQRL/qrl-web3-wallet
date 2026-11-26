@@ -176,7 +176,7 @@ const NFTTransfer = observer(() => {
 
   async function onSubmit(formData: z.infer<typeof FormSchema>) {
     try {
-      let receiver = formData.receiverAddress;
+      let receiver = formData.receiverAddress.trim();
       if (isQrnsName(receiver)) {
         if (!resolvedAddress || resolvedName !== receiver.trim()) {
           return;
