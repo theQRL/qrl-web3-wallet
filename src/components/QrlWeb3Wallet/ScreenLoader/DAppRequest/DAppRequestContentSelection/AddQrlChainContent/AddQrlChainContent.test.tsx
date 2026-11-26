@@ -6,6 +6,21 @@ import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import AddQrlChainContent from "./AddQrlChainContent";
 
+vi.mock("@/utilities/storageUtil", () => ({
+  __esModule: true,
+  default: {
+    setAllBlockChains: vi.fn(async () => {}),
+    clearDAppsRequestData: vi.fn(async () => {}),
+  },
+}));
+
+vi.mock("@/scripts/utils/restrictedMethodsMiddlewareUtils", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/scripts/utils/restrictedMethodsMiddlewareUtils")
+  >()),
+  includeChainForUrlOrigin: vi.fn(async () => {}),
+}));
+
 vi.mock(
   "@/components/QrlWeb3Wallet/ScreenLoader/DAppRequest/DAppRequestContentSelection/AddQrlChainContent/AddQrlChainInfo/AddQrlChainInfo",
   () => ({ default: () => <div>Mocked Add Qrl Chain Info</div> }),
@@ -75,5 +90,69 @@ describe("AddQrlChainContent", () => {
     await userEvent.click(yesButton);
     expect(mockedOnPermission).toHaveBeenCalledTimes(1);
     expect(mockedOnPermission).toHaveBeenCalledWith(true);
+  });
+
+  describe("default RPC URL", () => {
+    // Runs the approval the way the store does: the callback the component
+    // registers is called with the user's answer.
+    const approveWithRpcUrls = async (rpcUrls: string[]) => {
+      let onPermissionCallBack: ((hasApproved: boolean) => Promise<void>) | undefined;
+      const addChain = vi.fn(async () => ({
+        chainFound: false,
+        updatedChainList: [],
+      }));
+      renderComponent(
+        mockedStore({
+          dAppRequestStore: {
+            dAppRequestData: {
+              method: "wallet_addQRLChain",
+              params: [
+                {
+                  chainName: "Example",
+                  chainId: "0x1234",
+                  nativeCurrency: { name: "Quanta", symbol: "QRL", decimals: 18 },
+                  rpcUrls,
+                },
+              ],
+              requestData: {
+                senderData: { url: "https://dapp.example/" },
+              },
+            },
+            setOnPermissionCallBack: (callBack: typeof onPermissionCallBack) => {
+              onPermissionCallBack = callBack;
+            },
+            onPermission: async (hasApproved: boolean) => {
+              await onPermissionCallBack?.(hasApproved);
+            },
+          },
+          qrlStore: { addChain },
+        }),
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Yes" }));
+      return addChain;
+    };
+
+    it("uses the first acceptable URL when an earlier one is plain http", async () => {
+      const addChain = await approveWithRpcUrls([
+        "http://rpc.attacker.example/rpc",
+        "https://rpc.example/rpc",
+      ]);
+
+      expect(addChain).toHaveBeenCalledTimes(1);
+      expect(addChain).toHaveBeenCalledWith(
+        expect.objectContaining({ defaultRpcUrl: "https://rpc.example/rpc" }),
+      );
+    });
+
+    it("keeps the first URL when it is acceptable", async () => {
+      const addChain = await approveWithRpcUrls([
+        "https://rpc.example/rpc",
+        "http://127.0.0.1:8545/",
+      ]);
+
+      expect(addChain).toHaveBeenCalledWith(
+        expect.objectContaining({ defaultRpcUrl: "https://rpc.example/rpc" }),
+      );
+    });
   });
 });
